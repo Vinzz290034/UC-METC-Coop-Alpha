@@ -1,4 +1,4 @@
-# YOUWARE Template - Seaman Cooperative Services System
+#  UC METC Coop System
 
 This is a comprehensive React application built for managing the University of Cebu - METC Multipurpose Cooperative services, tailored specifically for seaman cooperative operations.
 
@@ -17,22 +17,34 @@ The system is designed to centralize and streamline operations for the METC Coop
 
 ### Core Modules Implemented
 
-1. **Dashboard** - Comprehensive overview with key metrics and alerts
-2. **Locker Management** - Complete locker registration, rental, and renewal workflows
-3. **Sales & Inventory** - POS system with uniform and accessory inventory tracking
-4. **Key Duplication Management** - Request tracking and approval workflow
-5. **Member Management** - Member profiles with linked services
-6. **Billing & Payments** - Unified billing, transaction history, and revenue tracking
-7. **Reports & Analytics** - Comprehensive reporting on sales, inventory, lockers, keys, and income
+1. **Landing Page** - Appealing public-facing page with navigation and quick login button
+2. **Dashboard** - Comprehensive overview with key metrics and alerts
+3. **Locker Management** - Complete locker registration, rental, and renewal workflows
+4. **Sales & Inventory** - POS system with uniform and accessory inventory tracking
+5. **Key Duplication Management** - Request tracking and approval workflow
+6. **Member Management** - Member profiles with linked services
+7. **Billing & Payments** - Unified billing, transaction history, and revenue tracking
+8. **Reports & Analytics** - Comprehensive reporting on sales, inventory, lockers, keys, and income
 
 ### Features
 
+- **Landing Page**: Modern, appealing design with quick login button directing to login page
 - **Role-Based Access Control**: Admin, Cashier, Locker Officer, Inventory Officer, Manager roles
 - **Authentication**: Secure login with demo accounts for testing
 - **Responsive Design**: Works seamlessly on desktop and tablet devices
 - **Modern UI/UX**: Contemporary design with smooth interactions and transitions
 - **Real-Time Updates**: Zustand state management for instant data synchronization
 - **Data Validation**: TypeScript for type-safe development
+- **Functional Buttons**: All action buttons now properly functional with data persistence
+
+### Recent Improvements
+
+- ✅ Added appealing landing page with feature showcase
+- ✅ Implemented login navigation from landing page
+- ✅ Fixed Key Duplication approval/rejection buttons with functional handlers
+- ✅ Fixed Locker Management view/edit buttons with working functionality
+- ✅ Fixed Locker rental form to properly reset and update locker status
+- ✅ All buttons now have proper event handlers and provide user feedback
 
 ## Architecture
 
@@ -43,6 +55,15 @@ project-root/
 ├── src/
 │   ├── components/          # Reusable components (Sidebar, Header, ProtectedRoute)
 │   ├── pages/               # Page components for each module
+│   │   ├── LandingPage.tsx  # Public landing page
+│   │   ├── LoginPage.tsx    # Authentication
+│   │   ├── DashboardPage.tsx
+│   │   ├── LockerManagementPage.tsx
+│   │   ├── SalesInventoryPage.tsx
+│   │   ├── KeyDuplicationPage.tsx
+│   │   ├── MembersPage.tsx
+│   │   ├── BillingPage.tsx
+│   │   └── ReportsPage.tsx
 │   ├── store/               # Zustand state management stores
 │   ├── types/               # TypeScript type definitions
 │   ├── App.tsx              # Main application component
@@ -132,7 +153,18 @@ Comprehensive TypeScript interfaces for:
 
 ### Routing
 
-Protected routes ensure proper role-based access to modules. Unauthenticated users are redirected to login.
+- Landing page displayed to unauthenticated users
+- Protected routes ensure proper role-based access
+- Automatic redirection based on authentication status
+
+## Functional Buttons
+
+All interactive buttons are fully functional:
+- **Key Duplication**: Approve/Reject buttons update status
+- **Locker Management**: View details and edit buttons provide feedback
+- **POS System**: Add to cart, checkout, and clear cart functions
+- **Forms**: All form submissions and cancellations work properly
+- **Navigation**: All navigation links and buttons are functional
 
 ## Design Principles
 
