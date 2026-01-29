@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+// @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import {
   ArrowRight,
@@ -124,7 +125,7 @@ export const LandingPage: React.FC = () => {
               UC METC SILMS
               <br />
               <span className="text-purple-400">
-                System & Locker
+                System and 
               </span>
             </h2>
             <p className="text-xl md:text-2xl text-slate-300 mb-8 max-w-2xl mx-auto leading-relaxed">

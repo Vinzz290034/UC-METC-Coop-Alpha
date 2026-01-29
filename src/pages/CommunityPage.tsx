@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+// @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import {
   Users,

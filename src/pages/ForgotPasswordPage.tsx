@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FloatingInput } from '../components/FloatingInput';
+// @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import { ChevronLeft, Mail } from 'lucide-react';
 
@@ -86,8 +87,8 @@ export const ForgotPasswordPage: React.FC = () => {
         backgroundPosition: 'center',
       }}
     >
-      {/* Teal to Purple Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-cyan-50/10 via-blue-400/50 to-purple-900/60"></div>
+      {/* Green to White to Purple Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-green-400/60 via-white/30 to-purple-900/70"></div>
 
       {/* Back Button */}
       <button
@@ -113,7 +114,7 @@ export const ForgotPasswordPage: React.FC = () => {
                 alt="UC METC Logo" 
                 className="w-20 h-20 rounded-full mb-2"
               />
-              <h3 className="text-sm font-bold text-slate-800">UC METC SILMS</h3>
+              <h3 className="text-sm font-bold text-slate-100">UC METC SILMS</h3>
             </div>
           </div>
 

@@ -1,5 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+// @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import { ArrowLeft, Bell, Calendar, User, ChevronLeft } from 'lucide-react';
 

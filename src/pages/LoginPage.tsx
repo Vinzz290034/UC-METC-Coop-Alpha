@@ -2,40 +2,18 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
 import { FloatingInput } from '../components/FloatingInput';
+// @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import type { User, UserRole } from '../types';
 import { LogIn, Mail, Lock, User as UserIcon, ChevronLeft, Eye, EyeOff, UserPlus } from 'lucide-react';
 
-const DEMO_USERS: Record<string, User> = {
-  admin: {
-    id: '1',
-    email: 'admin@uc-metc.edu.ph',
-    name: 'Administrator',
-    role: 'admin',
-    createdAt: new Date().toISOString(),
-  },
-  cashier: {
-    id: '2',
-    email: 'cashier@uc-metc.edu.ph',
-    name: 'Chinnette Lamoste',
-    role: 'cashier',
-    createdAt: new Date().toISOString(),
-  },
-  officer: {
-    id: '3',
-    email: 'officer@uc-metc.edu.ph',
-    name: 'Kisses Peñera',
-    role: 'locker_officer',
-    createdAt: new Date().toISOString(),
-  },
-};
 
 const COURSES = ['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM', 'SHS', 'JHS', 'Elementary'];
 const YEARS = ['1st', '2nd', '3rd', '4th', '12th', '11th', '10th', '9th', '8th', '7th'];
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login } = useAuthStore();
+  const { login, register } = useAuthStore();
   const [formType, setFormType] = useState<'login' | 'signup' | 'membership'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -43,6 +21,8 @@ export const LoginPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Sign Up States
   const [idNumber, setIdNumber] = useState('');
@@ -65,38 +45,31 @@ export const LoginPage: React.FC = () => {
   const [showMembershipPassword, setShowMembershipPassword] = useState(false);
   const [showMembershipConfirmPassword, setShowMembershipConfirmPassword] = useState(false);
 
+  // Handle form type changes
+  const handleFormTypeChange = (newFormType: 'login' | 'signup' | 'membership') => {
+    setFormType(newFormType);
+    setError('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      let user: User | null = null;
-
-      if (email === 'admin@uc-metc.edu.ph') {
-        user = DEMO_USERS.admin;
-      } else if (email === 'cashier@uc-metc.edu.ph') {
-        user = DEMO_USERS.cashier;
-      } else if (email === 'officer@uc-metc.edu.ph') {
-        user = DEMO_USERS.officer;
-      } else {
-        setError('Invalid credentials. Try admin@uc-metc.edu.ph');
+      if (!email || !password) {
+        setError('Email and password are required');
         setLoading(false);
         return;
       }
 
-      if (password !== 'demo123' && password !== '') {
-        setError('Invalid password. Use "demo123"');
-        setLoading(false);
-        return;
-      }
-
-      login(user);
+      // Call backend API
+      await login(email, password);
       setEmail('');
       setPassword('');
       navigate('/dashboard');
-    } catch (err) {
-      setError('Login failed. Please try again.');
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -105,56 +78,92 @@ export const LoginPage: React.FC = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
+      setLoading(false);
       return;
     }
 
-    // Here you would normally send this data to your backend
-    alert('Registration successful! Please sign in with your credentials.');
-    setFormType('login');
-    setIdNumber('');
-    setFirstName('');
-    setMiddleName('');
-    setLastName('');
-    setEmail('');
-    setCourse('');
-    setYear('');
-    setPassword('');
-    setConfirmPassword('');
+    try {
+      // Call backend API
+      await register({
+        email: email,
+        password: password,
+        first_name: firstName,
+        last_name: lastName || middleName,
+        role: 'member',
+      });
+      
+      // Clear form
+      setIdNumber('');
+      setFirstName('');
+      setMiddleName('');
+      setLastName('');
+      setEmail('');
+      setCourse('');
+      setYear('');
+      setPassword('');
+      setConfirmPassword('');
+      
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleMembershipRegistration = async (e: React.FormEvent) => {
+    const handleMembershipRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setLoading(true);
 
     if (membershipPassword !== membershipConfirmPassword) {
       setError('Passwords do not match');
+      setLoading(false);
       return;
     }
 
     if (membershipPassword.length < 6) {
       setError('Password must be at least 6 characters');
+      setLoading(false);
       return;
     }
 
-    // Here you would normally send this data to your backend
-    alert('Membership registration successful! Please sign in with your credentials.');
-    setFormType('login');
-    setMembershipFullName('');
-    setMembershipEmail('');
-    setMembershipPhone('');
-    setMembershipAddress('');
-    setMembershipCompany('');
-    setMembershipPosition('');
-    setMembershipPassword('');
-    setMembershipConfirmPassword('');
+    try {
+      // Call backend API
+      await register({
+        email: membershipEmail,
+        password: membershipPassword,
+        first_name: membershipFullName.split(' ')[0],
+        last_name: membershipFullName.split(' ').slice(1).join(' '),
+        role: 'member',
+      });
+      
+      // Clear form
+      setMembershipFullName('');
+      setMembershipEmail('');
+      setMembershipPhone('');
+      setMembershipAddress('');
+      setMembershipCompany('');
+      setMembershipPosition('');
+      setMembershipPassword('');
+      setMembershipConfirmPassword('');
+      
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Floating Label Select Component
@@ -211,23 +220,29 @@ export const LoginPage: React.FC = () => {
         backgroundPosition: 'center',
       }}
     >
-      {/* Teal to Purple Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-cyan-50/10 via-blue-400/50 to-purple-900/60"></div>
+      {/* Green to White to Purple Overlay */}
+      <div className="absolute inset-0 bg-gradient-to-b from-green-400/60 via-white/30 to-purple-900/70"></div>
       {/* Back Button */}
       <button
-        onClick={() => navigate('/')}
+        onClick={() => {
+          if (formType === 'login') {
+            navigate('/');
+          } else {
+            handleFormTypeChange('login');
+          }
+        }}
         className="absolute top-6 left-6 flex items-center space-x-2 bg-purple-600 text-white hover:bg-purple-700 transition-all group z-20 p-2 rounded-lg shadow-lg"
-        title="Back to Landing Page"
+        title={formType === 'login' ? 'Back to Landing Page' : 'Back to Login'}
       >
         <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
       </button>
 
       <div className={`w-full ${formType !== 'login' ? 'max-w-4xl' : 'max-w-md'} relative z-10 page-pop-in`}>
         {/* Card */}
-        <div className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex' : ''} ${formType === 'login' ? 'form-fade-in-scale' : ''}`}>
+        <div key={formType} className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex' : ''} form-transition-in`}>
           {/* Sidebar for Sign Up and Membership */}
           {formType !== 'login' && (
-            <div className="hidden sm:flex w-1/3 bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600 flex-col items-center justify-center p-8 relative overflow-hidden sidebar-slide-in">
+            <div className={`hidden sm:flex w-1/3 ${formType === 'membership' ? 'bg-gradient-to-b from-green-300 via-green-400 to-green-600' : 'bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600'} flex-col items-center justify-center p-8 relative overflow-hidden sidebar-slide-in`}>
               <div className="absolute inset-0 opacity-20">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -327,7 +342,7 @@ export const LoginPage: React.FC = () => {
                 <div className="mt-6 text-center text-sm text-slate-600">
                   Don't have an account?{' '}
                   <button
-                    onClick={() => setFormType('signup')}
+                    onClick={() => handleFormTypeChange('signup')}
                     className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
                   >
                     Sign Up
@@ -338,7 +353,7 @@ export const LoginPage: React.FC = () => {
                 <div className="text-center text-sm text-slate-600 mt-2">
                   Want to register as a member?{' '}
                   <button
-                    onClick={() => setFormType('membership')}
+                    onClick={() => handleFormTypeChange('membership')}
                     className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
                   >
                     Register Here
@@ -481,10 +496,7 @@ export const LoginPage: React.FC = () => {
                 <div className="mt-6 text-center text-sm text-slate-600">
                   Already have an account?{' '}
                   <button
-                    onClick={() => {
-                      setFormType('login');
-                      setError('');
-                    }}
+                    onClick={() => handleFormTypeChange('login')}
                     className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
                   >
                     Sign In
@@ -495,7 +507,7 @@ export const LoginPage: React.FC = () => {
                 <div className="text-center text-sm text-slate-600 mt-2">
                   Want to register as a member?{' '}
                   <button
-                    onClick={() => setFormType('membership')}
+                    onClick={() => handleFormTypeChange('membership')}
                     className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
                   >
                     Register Here
@@ -508,7 +520,7 @@ export const LoginPage: React.FC = () => {
                   Coop Member Registration
                 </h2>
 
-                <form onSubmit={handleMembershipRegistration} className="space-y-4">
+                <form onSubmit={handleMembershipRegistration} className="space-y-4 membership-form">
                   {/* Full Name */}
                   <FloatingInput
                     label="Full Name"
@@ -611,7 +623,7 @@ export const LoginPage: React.FC = () => {
                   {/* Register Button */}
                   <button
                     type="submit"
-                    className="w-full bg-purple-600 text-white font-semibold py-3 rounded-lg hover:bg-purple-700 active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse"
+                    className="w-full bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse"
                   >
                     <UserPlus size={20} />
                     <span>Register as Member</span>
@@ -622,21 +634,148 @@ export const LoginPage: React.FC = () => {
                 <div className="mt-6 text-center text-sm text-slate-600">
                   Already a member?{' '}
                   <button
-                    onClick={() => {
-                      setFormType('login');
-                      setError('');
-                    }}
-                    className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
+                    onClick={() => handleFormTypeChange('login')}
+                    className="text-green-600 hover:text-green-700 font-semibold hover:underline transition-all"
                   >
                     Sign In
                   </button>
                 </div>
               </>
             )}
+            
+            {/* Terms and Privacy Disclaimer - Only on Login Form */}
+            {formType === 'login' && (
+              <div className="mt-8 pt-6 border-t border-slate-200 text-center text-xs text-slate-500">
+                By signing up or logging in, you consent to UC METC SILMS'{' '}
+                <button
+                  onClick={() => setShowTermsModal(true)}
+                  className="text-purple-600 hover:text-purple-700 underline"
+                >
+                  Terms of Use
+                </button>
+                {' '}and{' '}
+                <button
+                  onClick={() => setShowPrivacyModal(true)}
+                  className="text-purple-600 hover:text-purple-700 underline"
+                >
+                  Privacy Policy
+                </button>
+                .
+              </div>
+            )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Terms of Use Modal */}
+      {showTermsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 modal-fade-in">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl max-h-[90vh] overflow-y-auto modal-content-in">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-purple-600">Terms of Use</h2>
+              <button
+                onClick={() => setShowTermsModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-2xl font-bold transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 prose prose-sm max-w-none">
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">1. Acceptance of Terms</h3>
+              <p className="text-slate-700 mb-4">By accessing and using the UC METC System, you accept and agree to be bound by the terms and provision of this agreement.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">2. Use License</h3>
+              <p className="text-slate-700 mb-4">Permission is granted to temporarily download one copy of the materials (information or software) on the UC METC System for personal, non-commercial transitory viewing only. This is the grant of a license, not a transfer of title, and under this license you may not:</p>
+              <ul className="list-disc list-inside text-slate-700 mb-4 ml-4">
+                <li>Modify or copy the materials</li>
+                <li>Use the materials for any commercial purpose or for any public display</li>
+                <li>Attempt to decompile or reverse engineer any software contained on the system</li>
+                <li>Remove any copyright or other proprietary notations from the materials</li>
+                <li>Transfer the materials to another person or "mirror" the materials on any other server</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">3. Disclaimer</h3>
+              <p className="text-slate-700 mb-4">The materials on UC METC System are provided on an 'as is' basis. UC METC makes no warranties, expressed or implied, and hereby disclaims and negates all other warranties including, without limitation, implied warranties or conditions of merchantability, fitness for a particular purpose, or non-infringement of intellectual property or other violation of rights.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">4. Limitations</h3>
+              <p className="text-slate-700 mb-4">In no event shall UC METC or its suppliers be liable for any damages (including, without limitation, damages for loss of data or profit, or due to business interruption) arising out of the use or inability to use the materials on UC METC System, even if UC METC or an authorized representative has been notified orally or in writing of the possibility of such damage.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">5. Accuracy of Materials</h3>
+              <p className="text-slate-700 mb-4">The materials appearing on UC METC System could include technical, typographical, or photographic errors. UC METC does not warrant that any of the materials on UC METC System are accurate, complete, or current.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">6. Links</h3>
+              <p className="text-slate-700 mb-4">UC METC has not reviewed all of the sites linked to its website and is not responsible for the contents of any such linked site. The inclusion of any link does not imply endorsement by UC METC of the site. Use of any such linked website is at the user's own risk.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">7. Modifications</h3>
+              <p className="text-slate-700 mb-4">UC METC may revise these terms of service for its website at any time without notice. By using this website, you are agreeing to be bound by the then current version of these terms of service.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">8. Governing Law</h3>
+              <p className="text-slate-700 mb-4">These terms and conditions are governed by and construed in accordance with the laws of the jurisdiction in which UC METC is located, and you irrevocably submit to the exclusive jurisdiction of the courts in that location.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">9. Contact Information</h3>
+              <p className="text-slate-700 mb-4">If you have any questions about these Terms of Use, please contact UC METC through the website.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy Modal */}
+      {showPrivacyModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 modal-fade-in">
+          <div className="bg-white rounded-lg shadow-2xl max-w-2xl max-h-[90vh] overflow-y-auto modal-content-in">
+            <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-purple-600">Privacy Policy</h2>
+              <button
+                onClick={() => setShowPrivacyModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-2xl font-bold transition-colors"
+              >
+                ×
+              </button>
+            </div>
+            <div className="p-6 prose prose-sm max-w-none">
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">1. Introduction</h3>
+              <p className="text-slate-700 mb-4">UC METC ("we" or "us" or "our") operates the UC METC System. This page informs you of our policies regarding the collection, use, and disclosure of personal data when you use our website and the choices you have associated with that data.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">2. Information Collection and Use</h3>
+              <p className="text-slate-700 mb-4">We collect several different types of information for various purposes to provide and improve our service to you.</p>
+              <ul className="list-disc list-inside text-slate-700 mb-4 ml-4">
+                <li>Personal Identity Information: Name, email address, phone number, and address</li>
+                <li>Account Information: Login credentials, user role, and organizational affiliation</li>
+                <li>Usage Data: Information about how you interact with our system</li>
+                <li>Cookies and Tracking Data: We may use cookies to track your activity</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">3. Use of Data</h3>
+              <p className="text-slate-700 mb-4">UC METC uses the collected data for various purposes:</p>
+              <ul className="list-disc list-inside text-slate-700 mb-4 ml-4">
+                <li>To provide and maintain our system</li>
+                <li>To notify you about changes to our system</li>
+                <li>To allow you to participate in interactive features</li>
+                <li>To provide support and respond to inquiries</li>
+                <li>To gather analysis or valuable information for system improvement</li>
+                <li>To monitor the usage of our system</li>
+              </ul>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">4. Security of Data</h3>
+              <p className="text-slate-700 mb-4">The security of your data is important to us but remember that no method of transmission over the Internet or method of electronic storage is 100% secure. While we strive to use commercially acceptable means to protect your personal data, we cannot guarantee its absolute security.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">5. Changes to This Privacy Policy</h3>
+              <p className="text-slate-700 mb-4">We may update our privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the "effective date" at the top of this policy.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">6. Contact Us</h3>
+              <p className="text-slate-700 mb-4">If you have any questions about this privacy policy, please contact us through the UC METC System website or email address provided.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">7. Your Rights</h3>
+              <p className="text-slate-700 mb-4">You have the right to request access to, correct, or delete any personal data we hold about you, subject to applicable laws and regulations.</p>
+
+              <h3 className="text-lg font-semibold text-slate-800 mt-4 mb-2">8. Data Retention</h3>
+              <p className="text-slate-700 mb-4">We will retain your personal data only for as long as necessary to provide our services and as required by applicable law.</p>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
