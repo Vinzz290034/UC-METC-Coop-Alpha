@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcryptjs from 'bcryptjs';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { config } from '../config/config.js';
 import { query } from '../config/database.js';
 import { User, AuthPayload } from '../types/index.js';
@@ -24,6 +24,7 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const isValidPassword = await bcryptjs.compare(password, user.password);
     if (!isValidPassword) {
+      console.error('Password mismatch for user:', email);
       return res.status(401).json({ message: 'Invalid email or password' });
     }
 
@@ -48,9 +49,9 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role,
       },
     });
-  } catch (err) {
-    console.error('Login error:', err);
-    res.status(500).json({ message: 'Login failed' });
+  } catch (err: any) {
+    console.error('Login error:', err?.message || err);
+    res.status(500).json({ message: 'Login failed', error: err?.message });
   }
 });
 
@@ -90,7 +91,13 @@ router.post('/register', async (req: Request, res: Response) => {
     res.status(201).json({
       message: 'User registered successfully',
       token,
-      user: newUser,
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        role: newUser.role,
+      },
     });
   } catch (err) {
     console.error('Registration error:', err);

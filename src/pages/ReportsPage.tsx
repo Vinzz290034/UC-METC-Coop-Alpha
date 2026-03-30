@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Download, Filter, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 export const ReportsPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const {
     sales,
     lockerRentals,
@@ -167,7 +172,7 @@ export const ReportsPage: React.FC = () => {
   const report = getReport();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -198,7 +203,7 @@ export const ReportsPage: React.FC = () => {
               }
               className={`px-4 py-3 rounded-lg font-semibold transition-all ${
                 reportType === option.id
-                  ? 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white shadow-lg'
+                  ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
                   : 'bg-white border border-slate-200 text-slate-900 hover:bg-slate-50'
               }`}
             >
@@ -251,7 +256,7 @@ export const ReportsPage: React.FC = () => {
               {report.data.map((item, idx) => (
                 <div
                   key={idx}
-                  className="bg-gradient-to-br from-slate-50 to-slate-100 border border-slate-200 rounded-lg p-6"
+                  className="bg-white border border-slate-200 rounded-lg p-6"
                 >
                   <p className="text-slate-600 text-sm font-semibold mb-2">
                     {item.label}

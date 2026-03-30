@@ -1,12 +1,42 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FloatingInput } from '../components/FloatingInput';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import { ChevronLeft, Mail } from 'lucide-react';
 
 export const ForgotPasswordPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromAdminStaff = (location.state as any)?.fromAdminStaff || false;
+  const fromMember = (location.state as any)?.fromMember || false;
+  
+  // Color scheme based on where the request came from
+  const backButtonClass = fromAdminStaff
+    ? 'bg-slate-700 hover:bg-slate-800'
+    : fromMember
+    ? 'bg-green-600 hover:bg-green-700'
+    : 'bg-purple-600 hover:bg-purple-700';
+  const headerGradient = fromAdminStaff
+    ? 'from-slate-600 via-slate-700 to-slate-800'
+    : fromMember
+    ? 'from-green-300 via-green-400 to-green-600'
+    : 'from-purple-300 via-purple-400 to-purple-600';
+  const buttonClass = fromAdminStaff
+    ? 'bg-slate-700 hover:bg-slate-800'
+    : fromMember
+    ? 'bg-green-600 hover:bg-green-700'
+    : 'bg-purple-600 hover:bg-purple-700';
+  const linkClass = fromAdminStaff
+    ? 'text-slate-600 hover:text-slate-700'
+    : fromMember
+    ? 'text-green-600 hover:text-green-700'
+    : 'text-purple-600 hover:text-purple-700';
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -93,7 +123,7 @@ export const ForgotPasswordPage: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => navigate('/login')}
-        className="absolute top-6 left-6 flex items-center space-x-2 bg-purple-600 text-white hover:bg-purple-700 transition-all group z-20 p-2 rounded-lg shadow-lg"
+        className={`absolute top-6 left-6 flex items-center space-x-2 text-white transition-all group z-20 p-2 rounded-lg shadow-lg ${backButtonClass}`}
         title="Back to Login"
       >
         <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
@@ -103,7 +133,7 @@ export const ForgotPasswordPage: React.FC = () => {
         {/* Card */}
         <div className="bg-white rounded-lg shadow-lg overflow-hidden">
           {/* Header Banner */}
-          <div className="h-32 bg-gradient-to-r from-purple-300 via-purple-400 to-purple-600 flex items-center justify-center relative overflow-hidden">
+          <div className={`h-32 bg-gradient-to-r ${headerGradient} flex items-center justify-center relative overflow-hidden`}>
             <div className="absolute inset-0 opacity-20">
               <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
               <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -135,6 +165,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       type="email"
+                      focusColor={fromMember ? 'green' : 'purple'}
                       required
                     />
                   </div>
@@ -157,7 +188,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-purple-600 text-white font-semibold py-3 rounded-lg hover:bg-purple-700 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 button-pulse"
+                    className={`w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 button-pulse ${buttonClass}`}
                   >
                     <Mail size={20} />
                     <span>{loading ? 'Sending...' : 'Send Reset Code'}</span>
@@ -169,7 +200,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   Remember your password?{' '}
                   <button
                     onClick={() => navigate('/login')}
-                    className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
+                    className={`font-semibold hover:underline transition-all ${linkClass}`}
                   >
                     Sign In
                   </button>
@@ -189,6 +220,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       label="Reset Code"
                       value={resetCode}
                       onChange={(e) => setResetCode(e.target.value)}
+                      focusColor={fromMember ? 'green' : 'purple'}
                       required
                     />
                   </div>
@@ -200,6 +232,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       type="password"
+                      focusColor={fromMember ? 'green' : 'purple'}
                       required
                       showToggle
                       showVisibility={showPassword}
@@ -214,6 +247,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       type="password"
+                      focusColor={fromMember ? 'green' : 'purple'}
                       required
                       showToggle
                       showVisibility={showConfirmPassword}
@@ -239,7 +273,7 @@ export const ForgotPasswordPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full bg-purple-600 text-white font-semibold py-3 rounded-lg hover:bg-purple-700 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse"
+                    className={`w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse ${buttonClass}`}
                   >
                     {loading ? 'Resetting...' : 'Reset Password'}
                   </button>
@@ -256,7 +290,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       setNewPassword('');
                       setConfirmPassword('');
                     }}
-                    className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
+                    className={`font-semibold hover:underline transition-all ${linkClass}`}
                   >
                     Back
                   </button>

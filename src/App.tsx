@@ -1,13 +1,15 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useAuthStore } from './store/authStore';
+import { AuthProvider, useAuth } from './store/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
+import { ToastContainer } from './components/Toast';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { LearnMorePage } from './pages/LearnMorePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LockerManagementPage } from './pages/LockerManagementPage';
 import { SalesInventoryPage } from './pages/SalesInventoryPage';
@@ -15,43 +17,22 @@ import { KeyDuplicationPage } from './pages/KeyDuplicationPage';
 import { MembersPage } from './pages/MembersPage';
 import { BillingPage } from './pages/BillingPage';
 import { ReportsPage } from './pages/ReportsPage';
+import { DTRPage } from './pages/DTRPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { CommunityPage } from './pages/CommunityPage';
+import { AccountSettingsPage } from './pages/AccountSettingsPage';
 
 function AppContent() {
-  const { user, setUser } = useAuthStore();
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  useEffect(() => {
-    // Restore user from localStorage on mount
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-      } catch (err) {
-        console.error('Failed to restore user session:', err);
-        localStorage.removeItem('user');
-      }
-    }
-    setIsInitialized(true);
-  }, [setUser]);
-
-  if (!isInitialized) {
-    return (
-      <div className="flex items-center justify-center h-screen bg-slate-50">
-        <p className="text-slate-600">Loading...</p>
-      </div>
-    );
-  }
+  const { user, isAuthenticated } = useAuth();
 
   return (
     <>
-      {!user ? (
+      {!isAuthenticated ? (
         <Routes>
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+          <Route path="/learn-more" element={<LearnMorePage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/community" element={<CommunityPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
@@ -66,6 +47,8 @@ function AppContent() {
             <Route path="/members" element={<MembersPage />} />
             <Route path="/billing" element={<BillingPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/dtr" element={<DTRPage />} />
+            <Route path="/account-settings" element={<AccountSettingsPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
@@ -79,7 +62,10 @@ function App() {
   return (
     <ErrorBoundary>
       <Router>
-        <AppContent />
+        <AuthProvider>
+          <ToastContainer />
+          <AppContent />
+        </AuthProvider>
       </Router>
     </ErrorBoundary>
   );

@@ -7,6 +7,7 @@ import type {
   KeyDuplication,
   LockerReplacement,
   Sale,
+  DTRRecord,
 } from '../types';
 
 interface AppState {
@@ -18,6 +19,7 @@ interface AppState {
   keyDuplications: KeyDuplication[];
   lockerReplacements: LockerReplacement[];
   sales: Sale[];
+  dtrRecords: DTRRecord[];
 
   // Product actions
   setProducts: (products: Product[]) => void;
@@ -54,6 +56,11 @@ interface AppState {
   setSales: (sales: Sale[]) => void;
   addSale: (sale: Sale) => void;
 
+  // DTR actions
+  setDTRRecords: (records: DTRRecord[]) => void;
+  addDTRRecord: (record: DTRRecord) => void;
+  updateDTRRecord: (id: string, record: Partial<DTRRecord>) => void;
+
   // Utility
   clearAll: () => void;
 }
@@ -66,6 +73,7 @@ export const useAppStore = create<AppState>((set) => ({
   keyDuplications: [],
   lockerReplacements: [],
   sales: [],
+  dtrRecords: [],
 
   setProducts: (products) => set({ products }),
   addProduct: (product) =>
@@ -139,6 +147,16 @@ export const useAppStore = create<AppState>((set) => ({
   addSale: (sale) =>
     set((state) => ({ sales: [...state.sales, sale] })),
 
+  setDTRRecords: (records) => set({ dtrRecords: records }),
+  addDTRRecord: (record) =>
+    set((state) => ({ dtrRecords: [...state.dtrRecords, record] })),
+  updateDTRRecord: (id, updates) =>
+    set((state) => ({
+      dtrRecords: state.dtrRecords.map((r) =>
+        r.id === id ? { ...r, ...updates } : r
+      ),
+    })),
+
   clearAll: () =>
     set({
       products: [],
@@ -148,5 +166,6 @@ export const useAppStore = create<AppState>((set) => ({
       keyDuplications: [],
       lockerReplacements: [],
       sales: [],
+      dtrRecords: [],
     }),
 }));

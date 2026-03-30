@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, CheckCircle2, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import type { KeyDuplication } from '../types';
 
 export const KeyDuplicationPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const {
     keyDuplications,
     lockerRentals,
@@ -89,7 +94,7 @@ export const KeyDuplicationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -103,7 +108,7 @@ export const KeyDuplicationPage: React.FC = () => {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all"
+            className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all"
           >
             <Plus size={20} />
             <span>New Request</span>
@@ -173,7 +178,7 @@ export const KeyDuplicationPage: React.FC = () => {
             <div className="flex space-x-3 mt-4">
               <button
                 onClick={handleAddDuplication}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Submit Request
               </button>
@@ -196,7 +201,7 @@ export const KeyDuplicationPage: React.FC = () => {
                 onClick={() => setFilterStatus(status)}
                 className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
                   filterStatus === status
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-purple-600 text-white'
                     : 'bg-white text-slate-900 border border-slate-200 hover:bg-slate-50'
                 }`}
               >
@@ -291,7 +296,7 @@ export const KeyDuplicationPage: React.FC = () => {
                         dup.releaseStatus === 'pending' && (
                           <button
                             onClick={() => handleRelease(dup.id)}
-                            className="px-3 py-1 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-xs font-semibold"
+                            className="px-3 py-1 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-xs font-semibold"
                           >
                             Release Key
                           </button>

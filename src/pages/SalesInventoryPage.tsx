@@ -1,10 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, ShoppingCart } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { ITEM_INVENTORY } from '../types';
 import type { Product, Sale, SaleItem, ItemType } from '../types';
 
 export const SalesInventoryPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const { products, addProduct, updateProduct, deleteProduct, addSale } =
     useAppStore();
 
@@ -100,7 +105,7 @@ export const SalesInventoryPage: React.FC = () => {
   const lowStockProducts = products.filter((p) => p.stock <= 5);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -113,7 +118,7 @@ export const SalesInventoryPage: React.FC = () => {
           {activeTab === 'inventory' && (
             <button
               onClick={() => setShowForm(true)}
-              className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all"
+              className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all"
             >
               <Plus size={20} />
               <span>Add Product</span>
@@ -218,7 +223,7 @@ export const SalesInventoryPage: React.FC = () => {
                 <div className="flex space-x-3 mt-4">
                   <button
                     onClick={handleAddProduct}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                    className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
                   >
                     Add Product
                   </button>
@@ -342,7 +347,7 @@ export const SalesInventoryPage: React.FC = () => {
                     <button
                       onClick={() => addToCart(product)}
                       disabled={product.stock <= 0}
-                      className="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
                     >
                       Add to Cart
                     </button>

@@ -11,7 +11,8 @@ interface UIState {
   modalContent: string;
   setModalContent: (content: string) => void;
   notificationMessage: string | null;
-  showNotification: (message: string, duration?: number) => void;
+  notificationType: 'success' | 'logout' | 'error';
+  showNotification: (message: string, type?: 'success' | 'logout' | 'error', duration?: number) => void;
   clearNotification: () => void;
 }
 
@@ -30,8 +31,9 @@ export const useUIStore = create<UIState>((set) => ({
   setModalContent: (content) => set({ modalContent: content }),
 
   notificationMessage: null,
-  showNotification: (message, duration = 3000) => {
-    set({ notificationMessage: message });
+  notificationType: 'success',
+  showNotification: (message, type = 'success', duration = 3000) => {
+    set({ notificationMessage: message, notificationType: type });
     setTimeout(() => {
       set({ notificationMessage: null });
     }, duration);

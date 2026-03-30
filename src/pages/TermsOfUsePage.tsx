@@ -1,8 +1,13 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
 
 export const TermsOfUsePage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const navigate = useNavigate();
 
   return (
@@ -27,13 +32,12 @@ export const TermsOfUsePage: React.FC = () => {
       </button>
 
       {/* Content Container */}
-      <div className="max-w-4xl mx-auto w-full mt-12 relative z-10">
-        <div className="bg-white rounded-lg shadow-lg p-8">
-          <h1 className="text-4xl font-bold text-slate-800 mb-6">Terms of Use</h1>
-          
-          <div className="space-y-6 text-slate-700">
+      <div className="max-w-4xl mx-auto w-full mt-8 relative z-10">
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <div className="space-y-4 text-slate-700">
+            <h1 className="text-4xl font-bold text-slate-800">Terms of Use</h1>
             <section>
-              <h2 className="text-2xl font-semibold text-slate-800 mb-3">1. Acceptance of Terms</h2>
+              <h2 className="text-2xl font-semibold text-slate-800 mb-3 -mt-6">1. Acceptance of Terms</h2>
               <p>
                 By accessing and using the UC METC SILMS (System for Integrated Locker Management and Member Services) platform, you agree to be bound by these Terms of Use. If you do not agree to these terms, please do not use our service.
               </p>

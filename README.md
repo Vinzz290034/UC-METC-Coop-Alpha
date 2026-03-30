@@ -98,19 +98,7 @@ npm run build
 
 ## Authentication
 
-The system includes a demo authentication system for testing:
-
-**Admin Account**
-- Email: `admin@metc.edu.ph`
-- Password: `demo123`
-
-**Cashier Account**
-- Email: `cashier@metc.edu.ph`
-- Password: `demo123`
-
-**Locker Officer Account**
-- Email: `officer@metc.edu.ph`
-- Password: `demo123`
+The system uses JWT-based authentication with secure password hashing. Users can register through the application or be added directly via the database.
 
 ## Role-Based Access
 

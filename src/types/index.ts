@@ -1,11 +1,27 @@
-// Authentication & User Types
-export type UserRole = 'admin' | 'cashier' | 'locker_officer' | 'inventory_officer' | 'manager' | 'member';
+// Authentication & User Types - 4-Tier Role System
+export type UserRole = 'admin' | 'staff' | 'member' | 'user';
 
 export interface User {
   id: string;
   email: string;
-  name: string;
+  first_name: string;
+  last_name: string;
   role: UserRole;
+  staffType?: 'cashier' | 'locker_officer' | 'inventory_officer'; // Only for staff role
+  course?: string; // For user/student role
+  year?: string; // For user/student role (e.g., "1st Year", "2nd Year")
+}
+
+// Daily Time Record (DTR) Types
+export interface DTRRecord {
+  id: string;
+  staffId: string;
+  staffName: string;
+  date: string; // YYYY-MM-DD format
+  timeIn: string; // HH:MM:SS format
+  timeOut?: string; // HH:MM:SS format
+  duration?: number; // in minutes
+  status: 'present' | 'absent' | 'late' | 'on_time';
   createdAt: string;
 }
 

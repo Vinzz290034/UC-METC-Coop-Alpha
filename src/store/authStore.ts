@@ -25,7 +25,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   login: async (email: string, password: string) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiClient.login(email, password);
+      const response = await apiClient.login(email, password) as any;
       const { token, user } = response;
 
       // Store token
@@ -51,7 +51,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   register: async (data: any) => {
     set({ isLoading: true, error: null });
     try {
-      const response = await apiClient.register(data);
+      const response = await apiClient.register(data) as any;
       const { token, user } = response;
 
       // Store token

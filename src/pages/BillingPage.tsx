@@ -1,8 +1,13 @@
-import React from 'react';
+import { useEffect } from 'react';
 import { CreditCard, Download, TrendingUp } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 export const BillingPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const { sales, lockerRentals, keyDuplications } = useAppStore();
 
   const calculateTotalRevenue = () => {
@@ -37,7 +42,7 @@ export const BillingPage: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -46,14 +51,14 @@ export const BillingPage: React.FC = () => {
         </div>
 
         {/* Total Revenue Card */}
-        <div className="bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl p-8 text-white mb-8 shadow-lg">
+        <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-8 text-white mb-8 shadow-lg">
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-blue-100 mb-2">Total Revenue</p>
+              <p className="text-purple-100 mb-2">Total Revenue</p>
               <h2 className="text-4xl font-bold mb-4">
                 ₱{calculateTotalRevenue().toLocaleString()}
               </h2>
-              <p className="text-blue-100 text-sm">
+              <p className="text-purple-100 text-sm">
                 From {sales.length} sales, {lockerRentals.length} rentals, {keyDuplications.length} key requests
               </p>
             </div>

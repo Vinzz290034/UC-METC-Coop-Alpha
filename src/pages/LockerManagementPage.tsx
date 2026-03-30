@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Eye } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import type { Locker, LockerRental } from '../types';
 
 export const LockerManagementPage: React.FC = () => {
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+  
   const {
     lockers,
     lockerRentals,
@@ -100,7 +105,7 @@ export const LockerManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 p-6">
+    <div className="min-h-screen bg-white p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -114,7 +119,7 @@ export const LockerManagementPage: React.FC = () => {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center space-x-2 bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all"
+            className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all"
           >
             <Plus size={20} />
             <span>Add Locker</span>
@@ -204,7 +209,7 @@ export const LockerManagementPage: React.FC = () => {
             <div className="flex space-x-3 mt-4">
               <button
                 onClick={handleAddLocker}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition-colors"
               >
                 Add Locker
               </button>
