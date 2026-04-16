@@ -9,13 +9,10 @@ import {
   Users,
   DollarSign,
   BarChart3,
-  Shield,
-  Zap,
   CheckCircle2,
   Bell,
   MessageCircle,
   LogIn,
-  ChevronLeft,
   Package,
   Mail,
   Facebook,
@@ -181,7 +178,7 @@ const styles = `
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
-  const [hoveredFeature, setHoveredFeature] = useState<number | null>(null);
+  const setHoveredFeature = useState<number | null>(null)[1];
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
@@ -363,7 +360,7 @@ export const LandingPage: React.FC = () => {
               </h1>
 
               <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-                Modern, intuitive platform for managing UC METC services. Lockers, inventory, billing, and analytics. All in one place.
+                Modern, intuitive platform for managing UC METC Coop services. Lockers, inventory, billing, and analytics. All in one place.
               </p>
 
               <div className="flex justify-center gap-6 flex-wrap">
@@ -392,7 +389,7 @@ export const LandingPage: React.FC = () => {
             <div className="grid grid-cols-3 gap-4 mt-20">
               {[
                 { label: 'Services', value: '6+' },
-                { label: 'Members', value: '500+' },
+                { label: 'Members', value: '200+' },
                 { label: 'Uptime', value: '99.9%' },
               ].map((stat, idx) => (
                 <div

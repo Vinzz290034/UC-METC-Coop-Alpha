@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 // @ts-ignore
@@ -6,7 +7,8 @@ import coopLogo from '../assets/Coop.jpeg';
 import { Bell, Search, Settings, LogOut, User } from 'lucide-react';
 
 export const Header: React.FC = () => {
-  const { toggleSidebar, showNotification } = useUIStore();
+  const navigate = useNavigate();
+  const { showNotification } = useUIStore();
   const { user, logout } = useAuth();
   const [showNotificationDropdown, setShowNotificationDropdown] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -47,6 +49,7 @@ export const Header: React.FC = () => {
   const handleLogout = () => {
     logout();
     showNotification('Logged out successfully', 'success');
+    navigate('/login', { replace: true });
   };
 
   const getInitials = () => {

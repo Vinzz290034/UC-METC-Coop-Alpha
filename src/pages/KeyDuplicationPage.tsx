@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, CheckCircle2, XCircle } from 'lucide-react';
+import { Plus, CheckCircle2, XCircle } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import type { KeyDuplication } from '../types';
 
@@ -94,7 +94,7 @@ export const KeyDuplicationPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">

@@ -1,48 +1,77 @@
-import { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CreditCard, Download, TrendingUp } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { apiClient } from '../services/api';
+import { useAuth } from '../store/authContext';
 
 export const BillingPage: React.FC = () => {
-  // Scroll to top when component mounts
+  const { user } = useAuth();
+  const { lockerRentals } = useAppStore();
+
+  // Fetch data directly from database
+  const [sales, setSales] = useState<any[]>([]);
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  
-  const { sales, lockerRentals, keyDuplications } = useAppStore();
+
+  // Fetch orders directly from API on mount and set up polling
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        // Use getAllTransactions which checks user role on backend
+        const orders = await apiClient.getAllTransactions(user?.id || '');
+        
+        if (Array.isArray(orders)) {
+          setSales(orders);
+        }
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+      }
+    };
+
+    fetchOrders();
+
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchOrders, 5000);
+    return () => clearInterval(interval);
+  }, [user?.id, user?.role]);
 
   const calculateTotalRevenue = () => {
-    const salesTotal = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const rentalTotal = lockerRentals.reduce((sum, r) => sum + r.rentalFee, 0);
-    const keyTotal = keyDuplications.reduce((sum, k) => sum + k.fee, 0);
-    return salesTotal + rentalTotal + keyTotal;
+    const salesTotal = sales
+      .filter(s => s.status === 'completed')
+      .reduce((sum, s) => {
+        const amount = parseFloat(String(s.total_amount || s.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+    const rentalTotal = lockerRentals.reduce((sum, r) => sum + (r.rentalFee || 0), 0);
+    return salesTotal + rentalTotal;
   };
 
   const revenueBreakdown = [
     {
-      name: 'Uniform Sales',
-      amount: sales.reduce((sum, s) => sum + s.totalAmount, 0),
+      name: 'Sales',
+      amount: sales
+        .filter(s => s.status === 'completed')
+        .reduce((sum, s) => {
+          const amount = parseFloat(String(s.total_amount || s.totalAmount || 0));
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0),
       icon: '📦',
       color: 'bg-blue-50',
       borderColor: 'border-blue-200',
     },
     {
       name: 'Locker Rentals',
-      amount: lockerRentals.reduce((sum, r) => sum + r.rentalFee, 0),
+      amount: lockerRentals.reduce((sum, r) => sum + (r.rentalFee || 0), 0),
       icon: '🔒',
       color: 'bg-green-50',
       borderColor: 'border-green-200',
     },
-    {
-      name: 'Key Duplications',
-      amount: keyDuplications.reduce((sum, k) => sum + k.fee, 0),
-      icon: '🔑',
-      color: 'bg-purple-50',
-      borderColor: 'border-purple-200',
-    },
   ];
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -59,7 +88,7 @@ export const BillingPage: React.FC = () => {
                 ₱{calculateTotalRevenue().toLocaleString()}
               </h2>
               <p className="text-purple-100 text-sm">
-                From {sales.length} sales, {lockerRentals.length} rentals, {keyDuplications.length} key requests
+                From {sales.filter(s => s.status === 'completed').length} completed sales, {lockerRentals.length} rentals
               </p>
             </div>
             <div className="p-3 bg-white/20 rounded-lg">
@@ -69,7 +98,7 @@ export const BillingPage: React.FC = () => {
         </div>
 
         {/* Revenue Breakdown */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {revenueBreakdown.map((item, idx) => (
             <div
               key={idx}
@@ -94,22 +123,20 @@ export const BillingPage: React.FC = () => {
               <CreditCard size={20} />
               <span>Recent Sales</span>
             </h3>
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {sales.slice(-10).map((sale) => (
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              {sales.filter(s => s.status === 'completed').slice(-10).map((sale) => (
                 <div
                   key={sale.id}
-                  className="flex justify-between items-center pb-3 border-b border-slate-100 last:border-0"
+                  className="flex justify-between items-center pb-2 border-b border-slate-100 last:border-0"
                 >
-                  <div>
+                  <div className="flex-1">
                     <p className="font-semibold text-slate-900">
-                      {sale.receiptNo}
+                      {sale.first_name} {sale.last_name}
                     </p>
-                    <p className="text-xs text-slate-500">
-                      {sale.paymentMethod.toUpperCase()} • {new Date(sale.createdAt).toLocaleDateString()}
-                    </p>
+                    <p className="text-xs text-slate-500">{sale.receipt_no || sale.receiptNo}</p>
                   </div>
-                  <p className="font-bold text-slate-900">
-                    ₱{sale.totalAmount.toLocaleString()}
+                  <p className="font-bold text-slate-900 ml-2">
+                    ₱{((sale.total_amount || sale.totalAmount) || 0).toLocaleString()}
                   </p>
                 </div>
               ))}

@@ -1,6 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  TrendingUp,
   Users,
   Box,
   DollarSign,
@@ -8,31 +7,55 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
 import { StaffTimeCard } from '../components/StaffTimeCard';
 import { StudentDashboard } from './StudentDashboard';
 
 export const DashboardPage: React.FC = () => {
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-  
   const { user } = useAuth();
-  
-  // Show StudentDashboard for users with 'user' role
-  if (user?.role === 'user') {
-    return <StudentDashboard />;
-  }
-
   const {
     lockers,
     members,
     products,
     lockerRentals,
-    sales,
     keyDuplications,
   } = useAppStore();
+
+  // Fetch data directly from database
+  const [sales, setSales] = useState<any[]>([]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Fetch orders directly from API on mount and set up polling
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        // Use getAllTransactions which checks user role on backend
+        const orders = await apiClient.getAllTransactions(user?.id || '');
+        
+        if (Array.isArray(orders)) {
+          setSales(orders);
+        }
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+      }
+    };
+
+    fetchOrders();
+
+    // Poll for updates every 5 seconds to reflect real-time changes
+    const interval = setInterval(fetchOrders, 5000);
+    return () => clearInterval(interval);
+  }, [user?.id, user?.role]);
+
+  const completedTransactions = sales.filter(s => s.status === 'completed').length;
+  const totalRevenue = sales.filter(s => s.status === 'completed').reduce((sum, s) => {
+    const amount = parseFloat(String(s.total_amount || s.totalAmount || 0));
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0) + lockerRentals.reduce((sum, r) => sum + (r.rentalFee || 0), 0);
 
   const stats = [
     {
@@ -50,15 +73,15 @@ export const DashboardPage: React.FC = () => {
       glow: 'shadow-lg shadow-green-500/30',
     },
     {
-      title: 'Active Rentals',
-      value: lockerRentals.filter((r) => r.status === 'active').length,
+      title: 'Total Transactions',
+      value: completedTransactions,
       icon: <CheckCircle2 className="text-white" />,
       bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
       glow: 'shadow-lg shadow-purple-500/30',
     },
     {
       title: 'Total Revenue',
-      value: `₱${(sales.reduce((sum, s) => sum + s.totalAmount, 0) + lockerRentals.reduce((sum, r) => sum + r.rentalFee, 0)).toLocaleString()}`,
+      value: `₱${totalRevenue.toLocaleString()}`,
       icon: <DollarSign className="text-white" />,
       bg: 'bg-gradient-to-br from-green-500 to-green-600',
       glow: 'shadow-lg shadow-green-500/30',
@@ -73,12 +96,17 @@ export const DashboardPage: React.FC = () => {
     (k) => k.approvalStatus === 'pending'
   ).length;
 
+  // Show StudentDashboard for users with 'user' role
+  if (user?.role === 'user') {
+    return <StudentDashboard />;
+  }
+
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold bg-gradient-to-r from-green-600 via-purple-600 to-purple-700 bg-clip-text text-transparent mb-2">Dashboard</h1>
+          <h1 className="text-5xl font-bold text-black mb-2">Dashboard</h1>
           <p className="text-slate-700 text-lg font-medium">
             Welcome back! Here's an overview of your system.
           </p>
@@ -156,18 +184,21 @@ export const DashboardPage: React.FC = () => {
             <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-4">
               Recent Sales
             </h3>
-            {sales.slice(-5).length > 0 ? (
-              <div className="space-y-3">
-                {sales.slice(-5).map((sale) => (
+            {sales.filter(s => s.status === 'completed').length > 0 ? (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {sales.filter(s => s.status === 'completed').slice(-5).map((sale) => (
                   <div
                     key={sale.id}
-                    className="flex items-center justify-between p-2 hover:bg-white/50 rounded transition-colors"
+                    className="flex items-center justify-between p-2 hover:bg-white/50 rounded transition-colors border-b border-slate-100 last:border-0"
                   >
-                    <span className="text-sm text-slate-600">
-                      Receipt: {sale.receiptNo}
-                    </span>
-                    <span className="font-semibold text-slate-900">
-                      ₱{sale.totalAmount.toLocaleString()}
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-700 font-medium">
+                        {sale.first_name} {sale.last_name}
+                      </p>
+                      <p className="text-xs text-slate-500">{sale.receipt_no || sale.receiptNo}</p>
+                    </div>
+                    <span className="font-semibold text-slate-900 ml-2">
+                      ₱{((sale.total_amount || sale.totalAmount) || 0).toLocaleString()}
                     </span>
                   </div>
                 ))}

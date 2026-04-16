@@ -1,7 +1,67 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Mail } from 'lucide-react';
+import { Check, X, Edit2, Mail, Clock, Send, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
-import type { Member } from '../types';
+import { useUIStore } from '../store/uiStore';
+import { apiClient } from '../services/api';
+
+interface PendingRequest {
+  id: string;
+  userId?: string;
+  name: string;
+  email: string;
+  phone: string;
+  requestedAt: string;
+  status: 'pending';
+}
+
+interface ApiUser {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  role: string;
+  membership_status: string;
+  status: string;
+  created_at: string;
+}
+
+interface EmailState {
+  isOpen: boolean;
+  to: string;
+  subject: string;
+  body: string;
+  isSending: boolean;
+  animatingIcon: boolean;
+}
+
+interface EditState {
+  isOpen: boolean;
+  member: ApiUser | null;
+  first_name: string;
+  last_name: string;
+  email: string;
+  isSaving: boolean;
+  isDeleting: boolean;
+  isDemoting: boolean;
+  isFreezing: boolean;
+  animatingIcon: boolean;
+}
+
+interface ConfirmationModal {
+  isOpen: boolean;
+  title: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading?: boolean;
+  actionType?: 'delete' | 'demote' | 'freeze';
+}
+
+interface MessageModal {
+  isOpen: boolean;
+  message: string;
+  type: 'success' | 'error';
+  onClose: () => void;
+}
 
 export const MembersPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -9,73 +69,610 @@ export const MembersPage: React.FC = () => {
     window.scrollTo(0, 0);
   }, []);
   
-  const { members, addMember, updateMember, deleteMember } = useAppStore();
-  const [showForm, setShowForm] = useState(false);
+  const { } = useAppStore();
+  const { showNotification } = useUIStore();
   const [searchTerm, setSearchTerm] = useState('');
-
-  const [formData, setFormData] = useState<Partial<Member>>({
-    name: '',
-    email: '',
-    phone: '',
-    membershipNo: '',
-    status: 'active',
+  const [pendingRequests, setPendingRequests] = useState<PendingRequest[]>([]);
+  const [databaseMembers, setDatabaseMembers] = useState<ApiUser[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  
+  // Email modal state
+  const [emailState, setEmailState] = useState<EmailState>({
+    isOpen: false,
+    to: '',
+    subject: '',
+    body: '',
+    isSending: false,
+    animatingIcon: false
   });
 
-  const handleAddMember = () => {
-    if (
-      formData.name &&
-      formData.email &&
-      formData.phone &&
-      formData.membershipNo
-    ) {
-      const newMember: Member = {
-        id: Date.now().toString(),
-        name: formData.name,
-        email: formData.email,
-        phone: formData.phone,
-        membershipNo: formData.membershipNo,
-        status: 'active',
-        createdAt: new Date().toISOString(),
-      };
-      addMember(newMember);
-      setFormData({
-        name: '',
-        email: '',
-        phone: '',
-        membershipNo: '',
-        status: 'active',
-      });
-      setShowForm(false);
+  // Edit modal state
+  const [editState, setEditState] = useState<EditState>({
+    isOpen: false,
+    member: null,
+    first_name: '',
+    last_name: '',
+    email: '',
+    isSaving: false,
+    isDeleting: false,
+    isDemoting: false,
+    isFreezing: false,
+    animatingIcon: false
+  });
+
+  // Confirmation modal state
+  const [confirmationModal, setConfirmationModal] = useState<ConfirmationModal>({
+    isOpen: false,
+    title: '',
+    onConfirm: () => {},
+    onCancel: () => {},
+    isLoading: false
+  });
+
+  // Message modal state
+  const [messageModal, setMessageModal] = useState<MessageModal>({
+    isOpen: false,
+    message: '',
+    type: 'success',
+    onClose: () => {}
+  });
+
+  // Load members from database
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Load pending membership requests
+        try {
+          const requestsResponse = await apiClient.getPendingMembershipRequests() as any;
+          const requests = requestsResponse.requests || [];
+          setPendingRequests(requests);
+        } catch (err) {
+          console.error('Failed to load pending requests:', err);
+        }
+
+        // Load active members
+        try {
+          const response = await apiClient.getUsers() as any;
+          const users = Array.isArray(response) ? response : (response.users || response);
+          const members = users.filter((user: ApiUser) => user.membership_status === 'approved');
+          setDatabaseMembers(members);
+        } catch (err) {
+          console.error('Failed to load members:', err);
+        }
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
+
+  const handleApproveMember = async (request: PendingRequest) => {
+    try {
+      setApprovingId(request.id);
+      
+      console.log('=== APPROVE MEMBERSHIP DEBUG ===');
+      console.log('Request object:', JSON.stringify(request, null, 2));
+      console.log('Request ID:', request.id);
+      
+      // Approve the membership request through the API
+      console.log('Calling approveMembershipRequest with ID:', request.id);
+      
+      const response = await apiClient.approveMembershipRequest(request.id);
+      console.log('Approval response:', response);
+      
+      // Remove from pending requests in state
+      const updated = pendingRequests.filter((r) => r.id !== request.id);
+      setPendingRequests(updated);
+      console.log('Removed request from pending list');
+      
+      // Refresh members list to show the newly approved member
+      try {
+        const usersResponse = await apiClient.getUsers() as any;
+        console.log('getUsers API response:', usersResponse);
+        
+        const users = Array.isArray(usersResponse) ? usersResponse : (usersResponse?.users || usersResponse);
+        console.log('Parsed users array:', users);
+        
+        const members = users.filter((user: ApiUser) => user.membership_status === 'approved');
+        console.log('Filtered members (membership_status=approved):', members);
+        setDatabaseMembers(members);
+      } catch (refreshError) {
+        console.error('Failed to refresh members:', refreshError);
+        throw refreshError;
+      }
+      
+      console.log('=== APPROVAL SUCCESS ===');
+      showNotification(`${request.name} has been approved as a member!`, 'success');
+    } catch (error: any) {
+      console.error('APPROVAL ERROR - Full error object:', error);
+      console.error('Error constructor:', error?.constructor?.name);
+      console.error('Error toString:', error?.toString());
+      
+      let errorMsg = 'Unknown error occurred';
+      if (typeof error === 'string') {
+        errorMsg = error;
+      } else if (error?.message) {
+        errorMsg = error.message;
+      } else if (error?.error) {
+        errorMsg = error.error;
+      }
+      
+      console.error('Extracted error message:', errorMsg);
+      showNotification(`Failed to approve membership: ${errorMsg}`, 'error');
+    } finally {
+      setApprovingId(null);
     }
   };
 
-  const filteredMembers = members.filter(
+  const handleRejectMember = async (requestId: string) => {
+    try {
+      // Reject the membership request through the API
+      await apiClient.rejectMembershipRequest(requestId);
+      
+      // Remove from pending requests
+      const updated = pendingRequests.filter((r) => r.id !== requestId);
+      setPendingRequests(updated);
+      
+      showNotification('Membership request rejected', 'success');
+    } catch (error: any) {
+      console.error('Failed to reject request:', error);
+      showNotification(`Failed to reject membership request: ${error?.message || 'Unknown error'}`, 'error');
+    }
+  };
+
+  // Icon animation handlers
+  const animateIcon = (type: 'email' | 'edit') => {
+    if (type === 'email') {
+      setEmailState(prev => ({ ...prev, animatingIcon: true }));
+      setTimeout(() => setEmailState(prev => ({ ...prev, animatingIcon: false })), 300);
+    } else {
+      setEditState(prev => ({ ...prev, animatingIcon: true }));
+      setTimeout(() => setEditState(prev => ({ ...prev, animatingIcon: false })), 300);
+    }
+  };
+
+  // Email handlers
+  const openEmailModal = (memberEmail: string, memberName: string) => {
+    animateIcon('email');
+    setEmailState({
+      isOpen: true,
+      to: memberEmail,
+      subject: `Message to ${memberName}`,
+      body: '',
+      isSending: false,
+      animatingIcon: false
+    });
+  };
+
+  const closeEmailModal = () => {
+    setEmailState({
+      isOpen: false,
+      to: '',
+      subject: '',
+      body: '',
+      isSending: false,
+      animatingIcon: false
+    });
+  };
+
+  const sendEmail = async () => {
+    // Validate required fields
+    if (!emailState.subject) {
+      showNotification('Please fill in the subject', 'error');
+      return;
+    }
+    if (!emailState.body) {
+      showNotification('Please fill in the body', 'error');
+      return;
+    }
+
+    try {
+      setEmailState(prev => ({ ...prev, isSending: true }));
+      
+      // Call the email API endpoint
+      await apiClient.sendEmail({
+        to: emailState.to,
+        subject: emailState.subject,
+        body: emailState.body
+      });
+      
+      showNotification(`Email sent successfully to ${emailState.to}`, 'success');
+      closeEmailModal();
+    } catch (error: any) {
+      console.error('Failed to send email:', error);
+      showNotification(`Failed to send email: ${error?.message || 'Unknown error'}`, 'error');
+    } finally {
+      setEmailState(prev => ({ ...prev, isSending: false }));
+    }
+  };
+
+  // Edit member handlers
+  const openEditModal = (member: ApiUser) => {
+    animateIcon('edit');
+    setEditState({
+      isOpen: true,
+      member,
+      first_name: member.first_name,
+      last_name: member.last_name,
+      email: member.email,
+      isSaving: false,
+      isDeleting: false,
+      isDemoting: false,
+      isFreezing: false,
+      animatingIcon: false
+    });
+  };
+
+  const closeEditModal = () => {
+    setEditState({
+      isOpen: false,
+      member: null,
+      first_name: '',
+      last_name: '',
+      email: '',
+      isSaving: false,
+      isDeleting: false,
+      isDemoting: false,
+      isFreezing: false,
+      animatingIcon: false
+    });
+  };
+
+  const saveChanges = async () => {
+    if (!editState.member || !editState.first_name || !editState.last_name || !editState.email) {
+      showNotification('Please fill in all fields', 'error');
+      return;
+    }
+
+    try {
+      setEditState(prev => ({ ...prev, isSaving: true }));
+      
+      // Call API to update user
+      await apiClient.updateUser(editState.member.id, {
+        first_name: editState.first_name,
+        last_name: editState.last_name,
+        email: editState.email
+      });
+
+      // Update local state
+      setDatabaseMembers(members =>
+        members.map(m =>
+          m.id === editState.member!.id
+            ? {
+                ...m,
+                first_name: editState.first_name,
+                last_name: editState.last_name,
+                email: editState.email
+              }
+            : m
+        )
+      );
+
+      setMessageModal({
+        isOpen: true,
+        message: 'Member updated successfully',
+        type: 'success',
+        onClose: () => {
+          setMessageModal(prev => ({ ...prev, isOpen: false }));
+          closeEditModal();
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to update member:', error);
+      setMessageModal({
+        isOpen: true,
+        message: `Failed to update member: ${error?.message || 'Unknown error'}`,
+        type: 'error',
+        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
+      });
+    } finally {
+      setEditState(prev => ({ ...prev, isSaving: false }));
+    }
+  };
+
+  const deleteMember = async () => {
+    if (!editState.member) return;
+
+    setConfirmationModal({
+      isOpen: true,
+      title: `Are you sure you want to delete ${editState.member.first_name} ${editState.member.last_name} from the active members list?`,
+      onConfirm: async () => {
+        await confirmDeleteMember();
+      },
+      onCancel: () => {
+        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      },
+      isLoading: false
+    });
+  };
+
+  const confirmDeleteMember = async () => {
+    if (!editState.member) return;
+
+    try {
+      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
+      setEditState(prev => ({ ...prev, isDeleting: true }));
+      
+      // Log debug information
+      const token = localStorage.getItem('token');
+      console.log('Delete member request:', {
+        memberId: editState.member.id,
+        memberName: `${editState.member.first_name} ${editState.member.last_name}`,
+        hasToken: !!token,
+        tokenLength: token?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Call API to delete user
+      await apiClient.deleteUser(editState.member.id);
+
+      // Remove from local state
+      setDatabaseMembers(members =>
+        members.filter(m => m.id !== editState.member!.id)
+      );
+
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: 'Member deleted successfully',
+        type: 'success',
+        onClose: () => {
+          setMessageModal(prev => ({ ...prev, isOpen: false }));
+          closeEditModal();
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to delete member - Full error:', error);
+      console.error('Error message:', error?.message);
+      console.error('Error status:', error?.status);
+      
+      // Provide helpful guidance based on error type
+      let helpfulMessage = error?.message || 'Unknown error';
+      if (error?.message?.includes('Invalid or expired token')) {
+        helpfulMessage = 'Your session has expired. Please logout and login again to continue.';
+      } else if (error?.message?.includes('Access denied')) {
+        helpfulMessage = 'You do not have permission to delete members. Only admin and staff can delete members.';
+      }
+      
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: `Failed to delete member: ${helpfulMessage}`,
+        type: 'error',
+        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
+      });
+    } finally {
+      setEditState(prev => ({ ...prev, isDeleting: false }));
+      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
+    }
+  }
+
+  const demoteMember = async () => {
+    if (!editState.member) return;
+
+    setConfirmationModal({
+      isOpen: true,
+      title: `Are you sure you want to demote ${editState.member.first_name} ${editState.member.last_name} back to a regular user? They will lose member privileges.`,
+      onConfirm: async () => {
+        await confirmDemoteMember();
+      },
+      onCancel: () => {
+        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      },
+      actionType: 'demote',
+      isLoading: false
+    });
+  };
+
+  const confirmDemoteMember = async () => {
+    if (!editState.member) return;
+
+    try {
+      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
+      setEditState(prev => ({ ...prev, isDemoting: true }));
+      
+      // Call API to demote user
+      await apiClient.demoteMember(editState.member.id);
+
+      // Update local state
+      setDatabaseMembers(members =>
+        members.map(m =>
+          m.id === editState.member!.id
+            ? { ...m, role: 'user', membership_status: 'pending' }
+            : m
+        )
+      );
+
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: `${editState.member.first_name} ${editState.member.last_name} has been demoted to user`,
+        type: 'success',
+        onClose: () => {
+          setMessageModal(prev => ({ ...prev, isOpen: false }));
+          closeEditModal();
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to demote member:', error);
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: `Failed to demote member: ${error?.message || 'Unknown error'}`,
+        type: 'error',
+        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
+      });
+    } finally {
+      setEditState(prev => ({ ...prev, isDemoting: false }));
+      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
+    }
+  }
+
+  const freezeMember = async () => {
+    if (!editState.member) return;
+
+    setConfirmationModal({
+      isOpen: true,
+      title: `Are you sure you want to freeze ${editState.member.first_name} ${editState.member.last_name}'s account? They will not be able to access benefits temporarily.`,
+      onConfirm: async () => {
+        await confirmFreezeMember();
+      },
+      onCancel: () => {
+        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      },
+      actionType: 'freeze',
+      isLoading: false
+    });
+  };
+
+  const confirmFreezeMember = async () => {
+    if (!editState.member) return;
+
+    try {
+      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
+      setEditState(prev => ({ ...prev, isFreezing: true }));
+      
+      // Call API to freeze user
+      await apiClient.freezeMember(editState.member.id);
+
+      // Update local state
+      setDatabaseMembers(members =>
+        members.map(m =>
+          m.id === editState.member!.id
+            ? { ...m, status: 'frozen' }
+            : m
+        )
+      );
+
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: `${editState.member.first_name} ${editState.member.last_name}'s account has been frozen`,
+        type: 'success',
+        onClose: () => {
+          setMessageModal(prev => ({ ...prev, isOpen: false }));
+          closeEditModal();
+        }
+      });
+    } catch (error: any) {
+      console.error('Failed to freeze member:', error);
+      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
+      setMessageModal({
+        isOpen: true,
+        message: `Failed to freeze account: ${error?.message || 'Unknown error'}`,
+        type: 'error',
+        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
+      });
+    } finally {
+      setEditState(prev => ({ ...prev, isFreezing: false }));
+      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
+    }
+  }
+
+  const filteredMembers = databaseMembers.filter(
     (m) =>
-      m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      m.membershipNo.includes(searchTerm)
+      m.first_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.last_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      m.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">Members</h1>
-            <p className="text-slate-600 mt-2">Manage member profiles and records</p>
-          </div>
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all"
-          >
-            <Plus size={20} />
-            <span>Add Member</span>
-          </button>
+        <div>
+          <h1 className="text-3xl font-bold text-slate-900">Members</h1>
+          <p className="text-slate-600 mt-2">Manage member profiles and records</p>
         </div>
 
+        {/* Pending Requests Section */}
+        {pendingRequests.length > 0 && (
+          <div className="mt-8 mb-8">
+            <div className="flex items-center space-x-2 mb-4">
+              <Clock size={24} className="text-amber-600" />
+              <h2 className="text-2xl font-bold text-slate-900">Pending Membership Requests</h2>
+              <span className="bg-amber-100 text-amber-800 px-3 py-1 rounded-full text-sm font-semibold">
+                {pendingRequests.length}
+              </span>
+            </div>
+
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-amber-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Phone
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Requested
+                    </th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {pendingRequests.map((request) => (
+                    <tr
+                      key={request.id}
+                      className="border-b border-slate-200 hover:bg-amber-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                        {request.name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {request.email}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {request.phone}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {new Date(request.requestedAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => handleApproveMember(request)}
+                            disabled={approvingId === request.id}
+                            className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Approve"
+                          >
+                            {approvingId === request.id ? (
+                              <div className="animate-spin">⏳</div>
+                            ) : (
+                              <Check size={18} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleRejectMember(request.id)}
+                            disabled={approvingId === request.id}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Reject"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
         {/* Search */}
-        <div className="mb-6">
+        <div className="mb-6 mt-8">
           <input
             type="text"
             placeholder="Search by name, email, or membership number..."
@@ -85,153 +682,382 @@ export const MembersPage: React.FC = () => {
           />
         </div>
 
-        {/* Add Member Form */}
-        {showForm && (
-          <div className="bg-white rounded-xl p-6 border border-slate-200 mb-8 shadow-sm">
-            <h3 className="text-lg font-semibold mb-4">Register New Member</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <input
-                type="text"
-                placeholder="Full Name"
-                value={formData.name || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                className="border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="email"
-                placeholder="Email"
-                value={formData.email || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                className="border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="tel"
-                placeholder="Phone Number"
-                value={formData.phone || ''}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone: e.target.value })
-                }
-                className="border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <input
-                type="text"
-                placeholder="Membership Number"
-                value={formData.membershipNo || ''}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    membershipNo: e.target.value,
-                  })
-                }
-                className="border border-slate-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
+        {/* Active Members Table */}
+        <div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-4">Active Members</h2>
+          {isLoading ? (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-8 text-center">
+              <p className="text-slate-500">Loading members...</p>
             </div>
-            <div className="flex space-x-3 mt-4">
-              <button
-                onClick={handleAddMember}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Add Member
-              </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="bg-slate-200 text-slate-900 px-6 py-2 rounded-lg hover:bg-slate-300 transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Members Table */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Member Name
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Membership #
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Email
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Phone
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                  Joined
-                </th>
-                <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredMembers.map((member) => (
-                <tr
-                  key={member.id}
-                  className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
-                >
-                  <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                    {member.name}
-                  </td>
-                  <td className="px-6 py-4 text-sm font-mono text-slate-600">
-                    {member.membershipNo}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {member.email}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {member.phone}
-                  </td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
-                      {member.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-slate-600">
-                    {new Date(member.createdAt).toLocaleDateString()}
-                  </td>
-                  <td className="px-6 py-4 text-center">
-                    <div className="flex justify-center space-x-2">
-                      <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                        <Mail size={18} />
-                      </button>
-                      <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
-                        <Edit2 size={18} />
-                      </button>
-                      <button
-                        onClick={() => deleteMember(member.id)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredMembers.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-slate-500">
-                {searchTerm
-                  ? 'No members found matching your search'
-                  : 'No members registered yet'}
-              </p>
+          ) : (
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Member Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Email
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Status
+                    </th>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                      Joined
+                    </th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredMembers.map((member) => (
+                    <tr
+                      key={member.id}
+                      className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                    >
+                      <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                        {member.first_name} {member.last_name}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {member.email}
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
+                          {member.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-slate-600">
+                        {new Date(member.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <div className="flex justify-center space-x-2">
+                          <button 
+                            onClick={() => openEmailModal(member.email, `${member.first_name} ${member.last_name}`)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
+                            title="Send Email"
+                          >
+                            <Mail 
+                              size={18} 
+                              style={{
+                                animation: emailState.animatingIcon && emailState.to === member.email ? 'iconPulse 0.3s ease-out' : 'none',
+                                transformOrigin: 'center'
+                              }}
+                            />
+                          </button>
+                          <button 
+                            onClick={() => openEditModal(member)}
+                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" 
+                            title="Edit"
+                          >
+                            <Edit2 
+                              size={18}
+                              style={{
+                                animation: editState.animatingIcon && editState.member?.id === member.id ? 'iconPulse 0.3s ease-out' : 'none',
+                                transformOrigin: 'center'
+                              }}
+                            />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {filteredMembers.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-slate-500">
+                    {searchTerm
+                      ? 'No members found matching your search'
+                      : 'No active members yet'}
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Email Compose Modal */}
+      {emailState.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-fade-in">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col modal-content-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">Compose Email</h3>
+              <button
+                onClick={closeEmailModal}
+                className="p-1 text-slate-500 hover:bg-slate-100 rounded transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  To
+                </label>
+                <input
+                  type="email"
+                  value={emailState.to}
+                  readOnly
+                  className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg bg-slate-50 text-slate-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  placeholder="Email subject"
+                  value={emailState.subject}
+                  onChange={(e) =>
+                    setEmailState(prev => ({ ...prev, subject: e.target.value }))
+                  }
+                  onFocus={(e) => {
+                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                  }}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Message
+                </label>
+                <textarea
+                  placeholder="Type your message here..."
+                  value={emailState.body}
+                  onChange={(e) =>
+                    setEmailState(prev => ({ ...prev, body: e.target.value }))
+                  }
+                  onFocus={(e) => {
+                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                  }}
+                  rows={10}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200 resize-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+              <button
+                onClick={closeEmailModal}
+                disabled={emailState.isSending}
+                className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendEmail}
+                disabled={emailState.isSending}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              >
+                <Send size={16} />
+                {emailState.isSending ? 'Sending...' : 'Send'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Member Modal */}
+      {editState.isOpen && editState.member && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-fade-in">
+          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col modal-content-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+              <h3 className="text-lg font-semibold text-slate-900">Edit Member</h3>
+              <button
+                onClick={closeEditModal}
+                disabled={editState.isSaving || editState.isDeleting}
+                className="p-1 text-slate-500 hover:bg-slate-100 rounded transition-colors disabled:opacity-50"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  First Name
+                </label>
+                <input
+                  type="text"
+                  value={editState.first_name}
+                  onChange={(e) =>
+                    setEditState(prev => ({ ...prev, first_name: e.target.value }))
+                  }
+                  onFocus={(e) => {
+                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                  }}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
+                  disabled={editState.isSaving || editState.isDeleting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  value={editState.last_name}
+                  onChange={(e) =>
+                    setEditState(prev => ({ ...prev, last_name: e.target.value }))
+                  }
+                  onFocus={(e) => {
+                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                  }}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
+                  disabled={editState.isSaving || editState.isDeleting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={editState.email}
+                  onChange={(e) =>
+                    setEditState(prev => ({ ...prev, email: e.target.value }))
+                  }
+                  onFocus={(e) => {
+                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                  }}
+                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
+                  disabled={editState.isSaving || editState.isDeleting}
+                />
+              </div>
+
+              {/* Member Info Display */}
+              <div className="bg-slate-50 p-4 rounded-lg mt-6 space-y-2">
+                <p className="text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">Role:</span> {editState.member.role}
+                </p>
+                <p className="text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">Status:</span> {editState.member.status}
+                </p>
+                <p className="text-sm text-slate-600">
+                  <span className="font-medium text-slate-900">Joined:</span> {new Date(editState.member.created_at).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="space-y-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
+              {/* Action Buttons for Approved Members */}
+              {editState.member.membership_status === 'approved' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={demoteMember}
+                    disabled={editState.isSaving || editState.isDemoting || editState.isDeleting || editState.isFreezing}
+                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {editState.isDemoting ? 'Demoting...' : 'Demote to User'}
+                  </button>
+                  <button
+                    onClick={freezeMember}
+                    disabled={editState.isSaving || editState.isFreezing || editState.isDeleting || editState.isDemoting}
+                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
+                  >
+                    {editState.isFreezing ? 'Freezing...' : 'Freeze Account'}
+                  </button>
+                </div>
+              )}
+
+              {/* Delete and Main Actions */}
+              <div className="flex justify-between gap-3">
+                <button
+                  onClick={deleteMember}
+                  disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  <Trash2 size={16} />
+                  {editState.isDeleting ? 'Deleting...' : 'Delete Member'}
+                </button>
+                <div className="flex gap-3">
+                  <button
+                    onClick={closeEditModal}
+                    disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                    className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveChanges}
+                    disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {editState.isSaving ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
+            <p className="text-slate-900 text-center mb-6">{confirmationModal.title}</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={confirmationModal.onCancel}
+                disabled={confirmationModal.isLoading}
+                className="px-6 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmationModal.onConfirm}
+                disabled={confirmationModal.isLoading}
+                className={`px-6 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                  confirmationModal.actionType === 'delete'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : confirmationModal.actionType === 'freeze'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : confirmationModal.actionType === 'demote'
+                    ? 'bg-purple-600 hover:bg-purple-700'
+                    : 'bg-green-600 hover:bg-green-700'
+                }`}
+              >
+                {confirmationModal.isLoading ? 'Confirming...' : 'OK'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal */}
+      {messageModal.isOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
+            <p className={`text-center mb-6 ${messageModal.type === 'success' ? 'text-slate-900' : 'text-red-600'}`}>
+              {messageModal.message}
+            </p>
+            <div className="flex justify-center">
+              <button
+                onClick={messageModal.onClose}
+                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

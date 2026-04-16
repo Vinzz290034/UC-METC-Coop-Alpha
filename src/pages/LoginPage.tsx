@@ -1,33 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { FloatingInput } from '../components/FloatingInput';
 import { LoginTransition } from '../components/PageTransition';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
-import type { User, UserRole } from '../types';
-import { LogIn, Mail, Lock, User as UserIcon, ChevronLeft, Eye, EyeOff, UserPlus } from 'lucide-react';
+
+import { UserIcon, ChevronLeft, UserPlus } from 'lucide-react';
 
 
 const COURSES = ['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM', 'SHS', 'JHS'];
 
-const COLLEGE_COURSES = ['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM'];
 const COLLEGE_YEARS = ['1st', '2nd', '3rd', '4th'];
 const SHS_YEARS = ['11th', '12th'];
 const JHS_YEARS = ['10th', '9th', '8th', '7th'];
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login, register, logout } = useAuth();
   const { showNotification } = useUIStore();
   
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-  
-  const [loginMode, setLoginMode] = useState<'selection' | 'admin_staff' | 'student' | 'member'>('selection');
+  const [loginMode, setLoginMode] = useState<'selection' | 'admin_staff' | 'student'>('selection');
   const [formType, setFormType] = useState<'login' | 'signup' | 'membership'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -52,17 +47,23 @@ export const LoginPage: React.FC = () => {
   const [year, setYear] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Membership Registration States
-  const [membershipFullName, setMembershipFullName] = useState('');
-  const [membershipEmail, setMembershipEmail] = useState('');
-  const [membershipPhone, setMembershipPhone] = useState('');
-  const [membershipAddress, setMembershipAddress] = useState('');
-  const [membershipCompany, setMembershipCompany] = useState('');
-  const [membershipPosition, setMembershipPosition] = useState('');
-  const [membershipPassword, setMembershipPassword] = useState('');
-  const [membershipConfirmPassword, setMembershipConfirmPassword] = useState('');
-  const [showMembershipPassword, setShowMembershipPassword] = useState(false);
-  const [showMembershipConfirmPassword, setShowMembershipConfirmPassword] = useState(false);
+  // Scroll to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Handle query parameters for redirect after signup
+  useEffect(() => {
+    const mode = searchParams.get('mode') as 'student' | 'admin_staff' | null;
+    const form = searchParams.get('form') as 'login' | 'signup' | null;
+    
+    if (mode) {
+      setLoginMode(mode);
+    }
+    if (form && (form === 'login' || form === 'signup')) {
+      setFormType(form);
+    }
+  }, [searchParams]);
 
   // Handle form type changes
   const handleFormTypeChange = (newFormType: 'login' | 'signup' | 'membership') => {
@@ -88,18 +89,6 @@ export const LoginPage: React.FC = () => {
       setConfirmPassword('');
       setShowPassword(false);
       setShowConfirmPassword(false);
-    } else if (newFormType === 'membership') {
-      // Clear membership form
-      setMembershipFullName('');
-      setMembershipEmail('');
-      setMembershipPhone('');
-      setMembershipAddress('');
-      setMembershipCompany('');
-      setMembershipPosition('');
-      setMembershipPassword('');
-      setMembershipConfirmPassword('');
-      setShowMembershipPassword(false);
-      setShowMembershipConfirmPassword(false);
     }
   };
 
@@ -110,20 +99,25 @@ export const LoginPage: React.FC = () => {
 
     try {
       if (!email || !password) {
-        setError('Email and password are required');
+        setError('ID Number and password are required');
         setLoading(false);
         return;
       }
 
-      // Call backend API
-      await login(email, password);
+      // For students: email field contains the ID number, so pass as id_number
+      // For members: use email field as-is
+      if (loginMode === 'student') {
+        await login(null, password, email); // email contains ID number for students
+      } else {
+        await login(email, password); // use email normally for members
+      }
       
       // Check user role from localStorage (which was just set by login)
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
-        const expectedRole = loginMode === 'student' ? 'user' : 'member';
-        const roleName = loginMode === 'student' ? 'Students' : 'Members';
+        const expectedRole = 'user';
+        const roleName = 'Students';
         
         if (userData.role !== expectedRole) {
           setError(`Only ${roleName} can login here. Please use the correct login form.`);
@@ -177,16 +171,20 @@ export const LoginPage: React.FC = () => {
         password: password,
         first_name: firstName,
         last_name: lastName || middleName,
-        role: loginMode === 'student' ? 'user' : 'member',
+        role: 'user',
       };
 
-      // Add course and year for students
+      // Add ID number and course/year for students
       if (loginMode === 'student') {
+        signupData.id_number = idNumber;
         signupData.course = course;
         signupData.year = year;
       }
 
       await register(signupData);
+      
+      // Logout immediately after signup (register auto-logs in)
+      logout();
       
       // Clear form
       setIdNumber('');
@@ -199,52 +197,19 @@ export const LoginPage: React.FC = () => {
       setPassword('');
       setConfirmPassword('');
       
-      navigate('/dashboard');
-    } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-    const handleMembershipRegistration = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-
-    if (membershipPassword !== membershipConfirmPassword) {
-      setError('Passwords do not match');
-      setLoading(false);
-      return;
-    }
-
-    if (membershipPassword.length < 6) {
-      setError('Password must be at least 6 characters');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      // Call backend API
-      await register({
-        email: membershipEmail,
-        password: membershipPassword,
-        first_name: membershipFullName.split(' ')[0],
-        last_name: membershipFullName.split(' ').slice(1).join(' '),
-        role: 'member',
-      });
+      // Show success notification and redirect to student login
+      showNotification('Signed up successfully! Please log in with your credentials.', 'success');
       
-      // Clear form
-      setMembershipFullName('');
-      setMembershipEmail('');
-      setMembershipPhone('');
-      setMembershipAddress('');
-      setMembershipCompany('');
-      setMembershipPosition('');
-      setMembershipPassword('');
-      setMembershipConfirmPassword('');
+      // Navigate directly to login form without transition
+      setLoginMode('student');
+      setFormType('login');
+      setIsTransitioning(false);
       
-      navigate('/dashboard');
+      // Small delay to ensure state updates
+      setTimeout(() => {
+        // Clear URL params by navigating to clean login page
+        navigate('/login', { replace: true });
+      }, 500);
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -264,7 +229,7 @@ export const LoginPage: React.FC = () => {
         return;
       }
 
-      // Call backend API
+      // Call backend API with email parameter
       await login(adminStaffEmail, adminStaffPassword);
       
       // Check user role from localStorage (which was just set by login)
@@ -272,7 +237,7 @@ export const LoginPage: React.FC = () => {
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         if (!['admin', 'staff'].includes(userData.role)) {
-          setAdminStaffError('Only admin and staff can login here. Please use the Student/Member login form.');
+          setAdminStaffError('Only admin and staff can login here. Please use the correct login form.');
           logout();
           setAdminStaffEmail('');
           setAdminStaffPassword('');
@@ -361,7 +326,7 @@ export const LoginPage: React.FC = () => {
             setAdminStaffError('');
             setAdminStaffEmail('');
             setAdminStaffPassword('');
-          } else if (loginMode === 'student' || loginMode === 'member') {
+          } else if (loginMode === 'student') {
             if (formType === 'login') {
               setLoginMode('selection');
             } else {
@@ -373,8 +338,6 @@ export const LoginPage: React.FC = () => {
         className={`absolute top-6 left-6 flex items-center space-x-2 text-white transition-all group z-20 p-2 rounded-lg shadow-lg ${
           loginMode === 'admin_staff'
             ? 'bg-slate-700 hover:bg-slate-800'
-            : (loginMode === 'member' || formType === 'membership')
-            ? 'bg-green-500 hover:bg-green-600'
             : 'bg-purple-600 hover:bg-purple-700'
         }`}
         title="Back"
@@ -382,10 +345,10 @@ export const LoginPage: React.FC = () => {
         <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
       </button>
 
-      <div className={`w-full flex items-center justify-center ${loginMode === 'selection' ? 'min-h-[500px]' : ''} ${(loginMode === 'student' || loginMode === 'member') ? (formType !== 'login' ? 'max-w-4xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
+      <div className={`w-full flex items-center justify-center ${loginMode === 'selection' ? 'min-h-[500px]' : ''} ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-4xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
         {/* Selection Screen */}
         {loginMode === 'selection' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto px-6">
             {/* Admin/Staff Login Box */}
             <button
               onClick={() => setLoginMode('admin_staff')}
@@ -415,23 +378,6 @@ export const LoginPage: React.FC = () => {
                 <h3 className="text-3xl font-bold text-slate-800">Student Login</h3>
                 <p className="text-slate-600 text-base">Login or register as a student</p>
                 <button className="mt-2 px-12 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold text-lg">
-                  Login
-                </button>
-              </div>
-            </button>
-
-            {/* Member Login Box */}
-            <button
-              onClick={() => setLoginMode('member')}
-              className="bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm"
-            >
-              <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-green-600 to-green-800 rounded-full flex items-center justify-center">
-                  <UserIcon size={48} className="text-white" />
-                </div>
-                <h3 className="text-3xl font-bold text-slate-800">Member Login</h3>
-                <p className="text-slate-600 text-base">Login or register as a member</p>
-                <button className="mt-2 px-12 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-semibold text-lg">
                   Login
                 </button>
               </div>
@@ -522,14 +468,12 @@ export const LoginPage: React.FC = () => {
           </div>
         )}
 
-        {/* Student/Member Form - Original Form */}
-        {(loginMode === 'student' || loginMode === 'member') && (
+        {/* Student Form */}
+        {loginMode === 'student' && (
           <div key={formType} className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex' : ''} form-transition-in animate-scale-in`}>
             {/* Sidebar for Sign Up and Membership */}
             {formType !== 'login' && (
-            <div className={`hidden sm:flex w-1/3 ${
-              (loginMode === 'member' || formType === 'membership') ? 'bg-gradient-to-b from-green-300 via-green-400 to-green-600' : 'bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600'
-            } flex-col items-center justify-center p-8 relative overflow-hidden sidebar-slide-in animate-slide-in-left`}>
+            <div className={`hidden sm:flex w-1/3 bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600 flex-col items-center justify-center p-8 relative overflow-hidden sidebar-slide-in animate-slide-in-left`}>
               <div className="absolute inset-0 opacity-20">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -542,7 +486,7 @@ export const LoginPage: React.FC = () => {
                 />
                 <h3 className="text-lg font-bold text-white mb-2">UC METC SILMS</h3>
                 <p className="text-sm text-white/90">
-                  {formType === 'signup' ? 'Create your account and join our community' : 'Register as a cooperative member'}
+                  {formType === 'signup' ? 'Create your account and join our community' : ''}
                 </p>
               </div>
             </div>
@@ -552,11 +496,7 @@ export const LoginPage: React.FC = () => {
           <div className={`${formType !== 'login' ? 'w-full sm:w-2/3' : 'w-full'} ${formType !== 'login' ? 'content-slide-in animate-slide-in-right' : 'animate-fade-in'}`}>
             {/* Header Banner for Login */}
             {formType === 'login' && (
-              <div className={`h-24 bg-gradient-to-r ${
-                loginMode === 'member' 
-                  ? 'from-green-300 via-green-400 to-green-600' 
-                  : 'from-purple-300 via-purple-400 to-purple-600'
-              } flex items-center justify-center relative overflow-hidden animate-slide-down`}>
+              <div className="h-24 bg-gradient-to-r from-purple-300 via-purple-400 to-purple-600 flex items-center justify-center relative overflow-hidden animate-slide-down">
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
                   <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -583,10 +523,10 @@ export const LoginPage: React.FC = () => {
                 <form onSubmit={handleLogin} className="space-y-3.5">
                   {/* Email/ID Input */}
                   <FloatingInput
-                    label={loginMode === 'member' ? 'Email' : 'ID Number'}
+                    label="ID Number"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    focusColor={loginMode === 'member' ? 'green' : 'purple'}
+                    focusColor="purple"
                     required
                   />
 
@@ -596,7 +536,7 @@ export const LoginPage: React.FC = () => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     type="password"
-                    focusColor={loginMode === 'member' ? 'green' : 'purple'}
+                    focusColor={loginMode === 'student' ? 'purple' : 'purple'}
                     required
                     showToggle
                     showVisibility={showPassword}
@@ -607,12 +547,8 @@ export const LoginPage: React.FC = () => {
                   <div className="flex justify-end">
                     <button
                       type="button"
-                      onClick={() => navigate('/forgot-password', { state: { fromMember: loginMode === 'member' } })}
-                      className={`text-sm font-medium ${
-                        loginMode === 'member'
-                          ? 'text-green-600 hover:text-green-700'
-                          : 'text-purple-600 hover:text-purple-700'
-                      }`}
+                      onClick={() => navigate('/forgot-password', { state: { fromMember: loginMode === 'student' } })}
+                      className="text-sm font-medium text-purple-600 hover:text-purple-700"
                     >
                       Forgot Password?
                     </button>
@@ -629,11 +565,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className={`w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse ${
-                      loginMode === 'member'
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-purple-600 hover:bg-purple-700'
-                    }`}
+                    className="w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse bg-purple-600 hover:bg-purple-700"
                   >
                     {loading ? 'Logging in...' : 'Login'}
                   </button>
@@ -652,23 +584,12 @@ export const LoginPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Membership Registration Link */}
-                {loginMode === 'member' && (
-                  <div className="text-center text-xs text-slate-600 mt-2">
-                    Want to register as a member?{' '}
-                    <button
-                      onClick={() => handleFormTypeChange('membership')}
-                      className="text-green-600 hover:text-green-700 font-semibold hover:underline transition-all"
-                    >
-                      Register Here
-                    </button>
-                  </div>
-                )}
+
               </>
-            ) : formType === 'signup' ? (
+            ) : (
               <>
                 <h2 className="text-lg font-bold text-center text-slate-800 mb-3">
-                  Create {loginMode === 'member' ? 'Member Account' : 'Student Account'}
+                  Create Student Account
                 </h2>
 
                 <form onSubmit={handleSignUp} className="space-y-2.5">
@@ -797,11 +718,7 @@ export const LoginPage: React.FC = () => {
                   {/* Register Button */}
                   <button
                     type="submit"
-                    className={`w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse ${
-                      loginMode === 'member'
-                        ? 'bg-green-600 hover:bg-green-700'
-                        : 'bg-purple-600 hover:bg-purple-700'
-                    }`}
+                    className="w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse bg-purple-600 hover:bg-purple-700"
                   >
                     <UserPlus size={20} />
                     <span>Register</span>
@@ -813,153 +730,13 @@ export const LoginPage: React.FC = () => {
                   Already have an account?{' '}
                   <button
                     onClick={() => handleFormTypeChange('login')}
-                    className={`font-semibold hover:underline transition-all ${
-                      loginMode === 'member'
-                        ? 'text-green-600 hover:text-green-700'
-                        : 'text-purple-600 hover:text-purple-700'
-                    }`}
+                    className="font-semibold hover:underline transition-all text-purple-600 hover:text-purple-700"
                   >
                     Sign In
                   </button>
                 </div>
 
-                {/* Membership Registration Link */}
-                <div className="text-center text-sm text-slate-600 mt-1">
-                  Want to register as a member?{' '}
-                  <button
-                    onClick={() => handleFormTypeChange('membership')}
-                    className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
-                  >
-                    Register Here
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <h2 className="text-lg font-bold text-center text-slate-800 mb-3">
-                  Coop Member Registration
-                </h2>
 
-                <form onSubmit={handleMembershipRegistration} className="space-y-2.5 membership-form">
-                  {/* Full Name */}
-                  <FloatingInput
-                    label="Full Name"
-                    value={membershipFullName}
-                    onChange={(e) => setMembershipFullName(e.target.value)}
-                    required
-                  />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Email */}
-                    <div>
-                      <FloatingInput
-                        label="Email Address"
-                        value={membershipEmail}
-                        onChange={(e) => setMembershipEmail(e.target.value)}
-                        type="email"
-                        required
-                      />
-                    </div>
-
-                    {/* Phone */}
-                    <div>
-                      <FloatingInput
-                        label="Phone Number"
-                        value={membershipPhone}
-                        onChange={(e) => setMembershipPhone(e.target.value)}
-                        type="tel"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Address */}
-                  <FloatingInput
-                    label="Address"
-                    value={membershipAddress}
-                    onChange={(e) => setMembershipAddress(e.target.value)}
-                    required
-                  />
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Company/Organization */}
-                    <div>
-                      <FloatingInput
-                        label="Company/Organization"
-                        value={membershipCompany}
-                        onChange={(e) => setMembershipCompany(e.target.value)}
-                        required
-                      />
-                    </div>
-
-                    {/* Position */}
-                    <div>
-                      <FloatingInput
-                        label="Position/Title"
-                        value={membershipPosition}
-                        onChange={(e) => setMembershipPosition(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Password */}
-                    <div>
-                      <FloatingInput
-                        label="Password"
-                        value={membershipPassword}
-                        onChange={(e) => setMembershipPassword(e.target.value)}
-                        type="password"
-                        required
-                        showToggle
-                        showVisibility={showMembershipPassword}
-                        onToggleVisibility={() => setShowMembershipPassword(!showMembershipPassword)}
-                      />
-                    </div>
-
-                    {/* Confirm Password */}
-                    <div>
-                      <FloatingInput
-                        label="Confirm Password"
-                        value={membershipConfirmPassword}
-                        onChange={(e) => setMembershipConfirmPassword(e.target.value)}
-                        type="password"
-                        required
-                        showToggle
-                        showVisibility={showMembershipConfirmPassword}
-                        onToggleVisibility={() => setShowMembershipConfirmPassword(!showMembershipConfirmPassword)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Error Message */}
-                  {error && (
-                    <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
-                      {error}
-                    </div>
-                  )}
-
-                  {/* Register Button */}
-                  <button
-                    type="submit"
-                    className="w-full bg-green-500 text-white font-semibold py-3 rounded-lg hover:bg-green-600 active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse"
-                  >
-                    <UserPlus size={20} />
-                    <span>Register as Member</span>
-                  </button>
-                </form>
-
-                {/* Back to Login Link */}
-                <div className="mt-3 text-center text-sm text-slate-600">
-                  Already a member?{' '}
-                  <button
-                    onClick={() => handleFormTypeChange('login')}
-                    className="text-green-600 hover:text-green-700 font-semibold hover:underline transition-all"
-                  >
-                    Sign In
-                  </button>
-                </div>
               </>
             )}
             
@@ -969,22 +746,14 @@ export const LoginPage: React.FC = () => {
                 By signing up or logging in, you consent to UC METC SILMS'{' '}
                 <button
                   onClick={() => setShowTermsModal(true)}
-                  className={`underline ${
-                    loginMode === 'member'
-                      ? 'text-green-600 hover:text-green-700'
-                      : 'text-purple-600 hover:text-purple-700'
-                  }`}
+                  className="underline text-purple-600 hover:text-purple-700"
                 >
                   Terms of Use
                 </button>
                 {' '}and{' '}
                 <button
                   onClick={() => setShowPrivacyModal(true)}
-                  className={`underline ${
-                    loginMode === 'member'
-                      ? 'text-green-600 hover:text-green-700'
-                      : 'text-purple-600 hover:text-purple-700'
-                  }`}
+                  className="underline text-purple-600 hover:text-purple-700"
                 >
                   Privacy Policy
                 </button>

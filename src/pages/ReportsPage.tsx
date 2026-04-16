@@ -1,21 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { Download, Filter, BarChart3 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { apiClient } from '../services/api';
+import { useAuth } from '../store/authContext';
 
 export const ReportsPage: React.FC = () => {
-  // Scroll to top when component mounts
-  useEffect(() => {
-    window.scrollTo(0, 0);
-  }, []);
-  
+  const { user } = useAuth();
   const {
-    sales,
     lockerRentals,
     lockers,
     keyDuplications,
     products,
-    members,
   } = useAppStore();
+
+  // Fetch data directly from database
+  const [sales, setSales] = useState<any[]>([]);
+
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  // Fetch orders directly from API on mount and set up polling
+  useEffect(() => {
+    const fetchOrders = async () => {
+      try {
+        // Use getAllTransactions which checks user role on backend
+        let orders: any[] = [];
+        orders = await apiClient.getAllTransactions(user?.id || '');
+        
+        if (Array.isArray(orders)) {
+          setSales(orders);
+        }
+      } catch (error) {
+        console.error('Failed to load orders:', error);
+      }
+    };
+
+    fetchOrders();
+
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchOrders, 5000);
+    return () => clearInterval(interval);
+  }, [user?.id, user?.role]);
 
   const [reportType, setReportType] = useState<
     'sales' | 'inventory' | 'lockers' | 'keys' | 'income'
@@ -23,133 +49,161 @@ export const ReportsPage: React.FC = () => {
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
 
   const generateSalesReport = () => {
-    const totalSales = sales.length;
-    const totalRevenue = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const avgTransaction = totalSales > 0 ? totalRevenue / totalSales : 0;
+    try {
+      const completedSales = sales.filter(s => s && s.status === 'completed');
+      const totalSales = completedSales.length;
+      const totalRevenue = completedSales.length > 0 ? completedSales.reduce((sum, s) => {
+        const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0) : 0;
+      const avgTransaction = totalSales > 0 ? totalRevenue / totalSales : 0;
 
-    return {
-      title: 'Sales Report',
-      data: [
-        { label: 'Total Transactions', value: totalSales },
-        { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}` },
-        {
-          label: 'Average Transaction',
-          value: `₱${avgTransaction.toLocaleString()}`,
-        },
-        {
-          label: 'Cash Payments',
-          value: sales.filter((s) => s.paymentMethod === 'cash').length,
-        },
-        {
-          label: 'E-Wallet Payments',
-          value: sales.filter((s) => s.paymentMethod === 'ewallet').length,
-        },
-      ],
-    };
+      return {
+        title: 'Sales Report',
+        data: [
+          { label: 'Total Transactions', value: String(totalSales) },
+          { label: 'Total Revenue', value: `₱${String(Number(totalRevenue || 0).toFixed(2))}` },
+          {
+            label: 'Average Transaction',
+            value: `₱${String(Number(avgTransaction || 0).toFixed(2))}`,
+          },
+          {
+            label: 'Cash Payments',
+            value: String(completedSales.filter((s) => (s?.payment_method || s?.paymentMethod) === 'cash').length),
+          },
+          {
+            label: 'E-Wallet Payments',
+            value: String(completedSales.filter((s) => (s?.payment_method || s?.paymentMethod) === 'ewallet').length),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Sales Report Error:', error);
+      return { title: 'Sales Report', data: [] };
+    }
   };
 
   const generateInventoryReport = () => {
-    const totalItems = products.reduce((sum, p) => sum + p.stock, 0);
-    const lowStockItems = products.filter((p) => p.stock <= 5).length;
-    const outOfStock = products.filter((p) => p.stock === 0).length;
+    try {
+      const totalItems = products.reduce((sum, p) => sum + (p?.stock || 0), 0);
+      const lowStockItems = products.filter((p) => (p?.stock || 0) <= 5).length;
+      const outOfStock = products.filter((p) => (p?.stock || 0) === 0).length;
+      const inventoryValue = products.reduce((sum, p) => sum + ((p?.price || 0) * (p?.stock || 0)), 0);
 
-    return {
-      title: 'Inventory Report',
-      data: [
-        { label: 'Total Products', value: products.length },
-        { label: 'Total Units in Stock', value: totalItems },
-        { label: 'Low Stock Items (≤5)', value: lowStockItems },
-        { label: 'Out of Stock Items', value: outOfStock },
-        {
-          label: 'Inventory Value',
-          value: `₱${products.reduce((sum, p) => sum + p.price * p.stock, 0).toLocaleString()}`,
-        },
-      ],
-    };
+      return {
+        title: 'Inventory Report',
+        data: [
+          { label: 'Total Products', value: String(products.length) },
+          { label: 'Total Units in Stock', value: String(totalItems) },
+          { label: 'Low Stock Items (≤5)', value: String(lowStockItems) },
+          { label: 'Out of Stock Items', value: String(outOfStock) },
+          {
+            label: 'Inventory Value',
+            value: `₱${String(Number(inventoryValue || 0).toFixed(2))}`,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Inventory Report Error:', error);
+      return { title: 'Inventory Report', data: [] };
+    }
   };
 
   const generateLockerReport = () => {
-    const available = lockers.filter((l) => l.status === 'available').length;
-    const occupied = lockers.filter((l) => l.status === 'occupied').length;
-    const maintenance = lockers.filter((l) => l.status === 'under_maintenance')
-      .length;
-    const occupancyRate =
-      lockers.length > 0 ? ((occupied / lockers.length) * 100).toFixed(1) : 0;
+    try {
+      const available = lockers.filter((l) => l?.status === 'available').length;
+      const occupied = lockers.filter((l) => l?.status === 'occupied').length;
+      const maintenance = lockers.filter((l) => l?.status === 'under_maintenance').length;
+      const occupancyRate = lockers.length > 0 ? String(((occupied / lockers.length) * 100).toFixed(1)) : '0';
 
-    return {
-      title: 'Locker Occupancy Report',
-      data: [
-        { label: 'Total Lockers', value: lockers.length },
-        { label: 'Available Lockers', value: available },
-        { label: 'Occupied Lockers', value: occupied },
-        { label: 'Under Maintenance', value: maintenance },
-        { label: 'Occupancy Rate', value: `${occupancyRate}%` },
-        {
-          label: 'Active Rentals',
-          value: lockerRentals.filter((r) => r.status === 'active').length,
-        },
-        {
-          label: 'Expired Rentals',
-          value: lockerRentals.filter((r) => r.status === 'expired').length,
-        },
-      ],
-    };
+      return {
+        title: 'Locker Occupancy Report',
+        data: [
+          { label: 'Total Lockers', value: String(lockers.length) },
+          { label: 'Available Lockers', value: String(available) },
+          { label: 'Occupied Lockers', value: String(occupied) },
+          { label: 'Under Maintenance', value: String(maintenance) },
+          { label: 'Occupancy Rate', value: `${occupancyRate}%` },
+          {
+            label: 'Active Rentals',
+            value: String(lockerRentals.filter((r) => r?.status === 'active').length),
+          },
+          {
+            label: 'Expired Rentals',
+            value: String(lockerRentals.filter((r) => r?.status === 'expired').length),
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Locker Report Error:', error);
+      return { title: 'Locker Occupancy Report', data: [] };
+    }
   };
 
   const generateKeyReport = () => {
-    const totalRequests = keyDuplications.length;
-    const pending = keyDuplications.filter(
-      (k) => k.approvalStatus === 'pending'
-    ).length;
-    const approved = keyDuplications.filter(
-      (k) => k.approvalStatus === 'approved'
-    ).length;
-    const totalRevenue = keyDuplications.reduce((sum, k) => sum + k.fee, 0);
+    try {
+      const totalRequests = keyDuplications.length;
+      const pending = keyDuplications.filter((k) => k?.approvalStatus === 'pending').length;
+      const approved = keyDuplications.filter((k) => k?.approvalStatus === 'approved').length;
+      const released = keyDuplications.filter((k) => k?.releaseStatus === 'released').length;
+      const totalRevenue = keyDuplications.reduce((sum, k) => sum + (k?.fee || 0), 0);
+      const avgFee = totalRequests > 0 ? totalRevenue / totalRequests : 0;
 
-    return {
-      title: 'Key Duplication Report',
-      data: [
-        { label: 'Total Requests', value: totalRequests },
-        { label: 'Pending Approval', value: pending },
-        { label: 'Approved', value: approved },
-        {
-          label: 'Released Keys',
-          value: keyDuplications.filter((k) => k.releaseStatus === 'released')
-            .length,
-        },
-        { label: 'Total Revenue', value: `₱${totalRevenue.toLocaleString()}` },
-        {
-          label: 'Average Fee',
-          value: totalRequests > 0 ? `₱${(totalRevenue / totalRequests).toLocaleString()}` : '₱0',
-        },
-      ],
-    };
+      return {
+        title: 'Key Duplication Report',
+        data: [
+          { label: 'Total Requests', value: String(totalRequests) },
+          { label: 'Pending Approval', value: String(pending) },
+          { label: 'Approved', value: String(approved) },
+          { label: 'Released Keys', value: String(released) },
+          { label: 'Total Revenue', value: `₱${String(Number(totalRevenue || 0).toFixed(2))}` },
+          {
+            label: 'Average Fee',
+            value: totalRequests > 0 ? `₱${String(Number(avgFee || 0).toFixed(2))}` : '₱0',
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Key Report Error:', error);
+      return { title: 'Key Duplication Report', data: [] };
+    }
   };
 
   const generateIncomeReport = () => {
-    const salesIncome = sales.reduce((sum, s) => sum + s.totalAmount, 0);
-    const rentalIncome = lockerRentals.reduce((sum, r) => sum + r.rentalFee, 0);
-    const keyIncome = keyDuplications.reduce((sum, k) => sum + k.fee, 0);
-    const totalIncome = salesIncome + rentalIncome + keyIncome;
+    try {
+      const salesIncome = sales.reduce((sum, s) => {
+        const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+      const rentalIncome = lockerRentals.reduce((sum, r) => sum + (r?.rentalFee || 0), 0);
+      const keyIncome = keyDuplications.reduce((sum, k) => sum + (k?.fee || 0), 0);
+      const totalIncome = salesIncome + rentalIncome + keyIncome;
+      const saleSalesPercent = totalIncome > 0 ? String(((salesIncome / totalIncome) * 100).toFixed(1)) : '0';
+      const rentalPercent = totalIncome > 0 ? String(((rentalIncome / totalIncome) * 100).toFixed(1)) : '0';
+      const keyPercent = totalIncome > 0 ? String(((keyIncome / totalIncome) * 100).toFixed(1)) : '0';
 
-    return {
-      title: 'Income Breakdown Report',
-      data: [
-        { label: 'Total Income', value: `₱${totalIncome.toLocaleString()}` },
-        {
-          label: 'Uniform Sales',
-          value: `₱${salesIncome.toLocaleString()} (${totalIncome > 0 ? ((salesIncome / totalIncome) * 100).toFixed(1) : 0}%)`,
-        },
-        {
-          label: 'Locker Services',
-          value: `₱${rentalIncome.toLocaleString()} (${totalIncome > 0 ? ((rentalIncome / totalIncome) * 100).toFixed(1) : 0}%)`,
-        },
-        {
-          label: 'Key Services',
-          value: `₱${keyIncome.toLocaleString()} (${totalIncome > 0 ? ((keyIncome / totalIncome) * 100).toFixed(1) : 0}%)`,
-        },
-      ],
-    };
+      return {
+        title: 'Income Breakdown Report',
+        data: [
+          { label: 'Total Income', value: `₱${String(Number(totalIncome || 0).toFixed(2))}` },
+          {
+            label: 'Uniform Sales',
+            value: `₱${String(Number(salesIncome || 0).toFixed(2))} (${saleSalesPercent}%)`,
+          },
+          {
+            label: 'Locker Services',
+            value: `₱${String(Number(rentalIncome || 0).toFixed(2))} (${rentalPercent}%)`,
+          },
+          {
+            label: 'Key Services',
+            value: `₱${String(Number(keyIncome || 0).toFixed(2))} (${keyPercent}%)`,
+          },
+        ],
+      };
+    } catch (error) {
+      console.error('Income Report Error:', error);
+      return { title: 'Income Breakdown Report', data: [] };
+    }
   };
 
   const getReport = () => {
@@ -171,8 +225,20 @@ export const ReportsPage: React.FC = () => {
 
   const report = getReport();
 
+  // Add guard to prevent rendering errors before data loads
+  if (!report || !report.data) {
+    return (
+      <div className="min-h-screen p-6 animate-slide-in-right">
+        <div className="max-w-7xl mx-auto">
+          <h1 className="text-3xl font-bold text-slate-900 mb-4">Reports & Analytics</h1>
+          <p className="text-slate-600">Loading reports...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -294,18 +360,18 @@ export const ReportsPage: React.FC = () => {
                     <tbody>
                       {sales.map((sale) => (
                         <tr
-                          key={sale.id}
+                          key={sale?.id || Math.random()}
                           className="border-b border-slate-200 hover:bg-slate-50"
                         >
-                          <td className="py-2 px-4 font-mono">{sale.receiptNo}</td>
+                          <td className="py-2 px-4 font-mono">{sale?.receipt_no || sale?.receiptNo || 'N/A'}</td>
                           <td className="py-2 px-4">
-                            ₱{sale.totalAmount.toLocaleString()}
+                            ₱{String(Number(sale?.total_amount || sale?.totalAmount || 0).toFixed(2))}
                           </td>
                           <td className="py-2 px-4">
-                            {sale.paymentMethod.toUpperCase()}
+                            {(sale?.payment_method || sale?.paymentMethod || 'UNKNOWN').toUpperCase()}
                           </td>
                           <td className="py-2 px-4">
-                            {new Date(sale.createdAt).toLocaleDateString()}
+                            {sale?.created_at || sale?.createdAt ? new Date(sale?.created_at || sale?.createdAt).toLocaleDateString() : 'N/A'}
                           </td>
                         </tr>
                       ))}

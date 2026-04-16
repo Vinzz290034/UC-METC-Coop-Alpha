@@ -7,8 +7,10 @@ export const AccountSettingsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [formData, setFormData] = useState({
-    id: '',
-    full_name: '',
+    id_number: '',
+    first_name: '',
+    middle_name: '',
+    last_name: '',
     email: '',
     course: '',
     year: '',
@@ -23,8 +25,10 @@ export const AccountSettingsPage: React.FC = () => {
   useEffect(() => {
     if (user) {
       setFormData({
-        id: user.id || '',
-        full_name: `${user.first_name} ${user.last_name}`,
+        id_number: user.id_number || '',
+        first_name: user.first_name || '',
+        middle_name: user.middle_name || '',
+        last_name: user.last_name || '',
         email: user.email || '',
         course: user.course || '',
         year: user.year || '',
@@ -45,7 +49,7 @@ export const AccountSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 py-8 px-4">
+    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex items-center space-x-4">
@@ -75,30 +79,63 @@ export const AccountSettingsPage: React.FC = () => {
 
             {/* Form Fields */}
             <div className="space-y-6">
-              {/* ID Number */}
+              {/* ID Number - Only for non-admin/staff users */}
+              {user?.role !== 'admin' && user?.role !== 'staff' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    ID Number
+                  </label>
+                  <input
+                    type="text"
+                    name="id_number"
+                    value={formData.id_number}
+                    onChange={handleChange}
+                    disabled
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  />
+                </div>
+              )}
+
+              {/* First Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  ID Number
+                  First Name
                 </label>
                 <input
                   type="text"
-                  name="id"
-                  value={formData.id}
+                  name="first_name"
+                  value={formData.first_name}
                   onChange={handleChange}
                   disabled
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
                 />
               </div>
 
-              {/* Full Name */}
+              {/* Middle Name */}
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Full Name
+                  Middle Name
                 </label>
                 <input
                   type="text"
-                  name="full_name"
-                  value={formData.full_name}
+                  name="middle_name"
+                  value={formData.middle_name}
+                  onChange={handleChange}
+                  disabled
+                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  placeholder=""
+                />
+              </div>
+
+              {/* Last Name */}
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Last Name
+                </label>
+                <input
+                  type="text"
+                  name="last_name"
+                  value={formData.last_name}
                   onChange={handleChange}
                   disabled
                   className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
@@ -120,41 +157,45 @@ export const AccountSettingsPage: React.FC = () => {
                 />
               </div>
 
-              {/* Course */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Course
-                </label>
-                <input
-                  type="text"
-                  name="course"
-                  value={formData.course}
-                  onChange={handleChange}
-                  disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
-                />
-              </div>
+              {/* Course - Only for non-admin/staff users */}
+              {user?.role !== 'admin' && user?.role !== 'staff' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Course
+                  </label>
+                  <input
+                    type="text"
+                    name="course"
+                    value={formData.course}
+                    onChange={handleChange}
+                    disabled
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  />
+                </div>
+              )}
 
-              {/* Year */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Year
-                </label>
-                <input
-                  type="text"
-                  name="year"
-                  value={formData.year}
-                  onChange={handleChange}
-                  disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
-                />
-              </div>
+              {/* Year - Only for non-admin/staff users */}
+              {user?.role !== 'admin' && user?.role !== 'staff' && (
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                    Year
+                  </label>
+                  <input
+                    type="text"
+                    name="year"
+                    value={formData.year}
+                    onChange={handleChange}
+                    disabled
+                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Info Note */}
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
               <p className="text-sm text-blue-700">
-                ℹ️ Your account information is managed by the administration. Please contact support if you need to make changes.
+                ℹ️ Your account information is managed by the administration. Please proceed to UC Coop Office if you need to make changes.
               </p>
             </div>
           </div>

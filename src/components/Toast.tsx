@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, LogOut } from 'lucide-react';
+import { CheckCircle2, LogOut, XCircle } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
 
 interface ToastProps {
@@ -32,7 +32,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
       default:
         return {
           bgColor: 'bg-red-500',
-          icon: <CheckCircle2 size={24} className="text-white" />,
+          icon: <XCircle size={24} className="text-white" />,
         };
     }
   };

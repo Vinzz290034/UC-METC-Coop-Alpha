@@ -14,28 +14,19 @@ export const ForgotPasswordPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const fromAdminStaff = (location.state as any)?.fromAdminStaff || false;
-  const fromMember = (location.state as any)?.fromMember || false;
   
   // Color scheme based on where the request came from
   const backButtonClass = fromAdminStaff
     ? 'bg-slate-700 hover:bg-slate-800'
-    : fromMember
-    ? 'bg-green-600 hover:bg-green-700'
     : 'bg-purple-600 hover:bg-purple-700';
   const headerGradient = fromAdminStaff
     ? 'from-slate-600 via-slate-700 to-slate-800'
-    : fromMember
-    ? 'from-green-300 via-green-400 to-green-600'
     : 'from-purple-300 via-purple-400 to-purple-600';
   const buttonClass = fromAdminStaff
     ? 'bg-slate-700 hover:bg-slate-800'
-    : fromMember
-    ? 'bg-green-600 hover:bg-green-700'
     : 'bg-purple-600 hover:bg-purple-700';
   const linkClass = fromAdminStaff
     ? 'text-slate-600 hover:text-slate-700'
-    : fromMember
-    ? 'text-green-600 hover:text-green-700'
     : 'text-purple-600 hover:text-purple-700';
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
@@ -110,7 +101,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative"
+      className="min-h-screen flex items-center justify-center p-4 relative animate-slide-in-right"
       style={{
         backgroundImage: 'url(/src/assets/Background2.jpeg)',
         backgroundSize: 'cover',
@@ -165,7 +156,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       type="email"
-                      focusColor={fromMember ? 'green' : 'purple'}
+                      focusColor='purple'
                       required
                     />
                   </div>
@@ -220,7 +211,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       label="Reset Code"
                       value={resetCode}
                       onChange={(e) => setResetCode(e.target.value)}
-                      focusColor={fromMember ? 'green' : 'purple'}
+                      focusColor='purple'
                       required
                     />
                   </div>
@@ -232,7 +223,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
                       type="password"
-                      focusColor={fromMember ? 'green' : 'purple'}
+                      focusColor='purple'
                       required
                       showToggle
                       showVisibility={showPassword}
@@ -247,7 +238,7 @@ export const ForgotPasswordPage: React.FC = () => {
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       type="password"
-                      focusColor={fromMember ? 'green' : 'purple'}
+                      focusColor='purple'
                       required
                       showToggle
                       showVisibility={showConfirmPassword}

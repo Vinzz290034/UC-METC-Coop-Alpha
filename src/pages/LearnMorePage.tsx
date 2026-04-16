@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle2, Users, Zap, Shield, BarChart3, Lock, Globe, ShoppingCart, Bell, Facebook, Mail, Github } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Users, Zap, BarChart3, Lock, ShoppingCart, Bell, Facebook, Mail, Github } from 'lucide-react';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 // @ts-ignore
@@ -89,7 +89,7 @@ export const LearnMorePage: React.FC = () => {
   return (
     <>
       <style>{styles}</style>
-      <div className="min-h-screen bg-gradient-to-b from-white to-purple-400 text-slate-900 overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-b from-white to-purple-400 text-slate-900 overflow-hidden animate-slide-in-right">
         
         {/* Animated Background Pattern */}
         <div className="absolute inset-0 opacity-80 pointer-events-none">

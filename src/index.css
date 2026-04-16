@@ -280,3 +280,51 @@ input:hover:-webkit-autofill {
 .modal-content-out {
   animation: modalContentSlideOut 0.3s ease-in forwards;
 }
+
+/* Custom Scrollbar Styling - Thin, Invisible, Purple on Hover */
+/* For Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(147, 51, 234, 0.3);
+  border-radius: 4px;
+  transition: background 0.3s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(147, 51, 234);
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: rgb(126, 34, 206);
+}
+
+/* For Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(147, 51, 234, 0.3) transparent;
+}
+
+*:hover {
+  scrollbar-color: rgb(147, 51, 234) transparent;
+}
+
+/* Icon click animation */
+@keyframes iconPulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2) rotate(5deg);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

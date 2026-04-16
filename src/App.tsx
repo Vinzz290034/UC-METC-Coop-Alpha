@@ -1,8 +1,8 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
+import { ScrollToTop } from './components/ScrollToTop';
 import { ToastContainer } from './components/Toast';
 
 // Pages
@@ -21,12 +21,20 @@ import { DTRPage } from './pages/DTRPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { AccountSettingsPage } from './pages/AccountSettingsPage';
+import { MerchandisePage } from './pages/MerchandisePage';
+import { CartPage } from './pages/CartPage';
+import { LockerPage } from './pages/LockerPage';
+import { TransactionPage } from './pages/TransactionPage';
+import { BillingHistoryPage } from './pages/BillingHistoryPage';
+import { EventsPage } from './pages/EventsPage';
+import { InboxPage } from './pages/InboxPage';
 
 function AppContent() {
-  const { user, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
 
   return (
     <>
+      <ScrollToTop />
       {!isAuthenticated ? (
         <Routes>
           <Route path="/" element={<LandingPage />} />
@@ -41,6 +49,13 @@ function AppContent() {
         <Layout>
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/merchandise" element={<MerchandisePage />} />
+            <Route path="/cart" element={<CartPage />} />
+            <Route path="/locker" element={<LockerPage />} />
+            <Route path="/transaction" element={<TransactionPage />} />
+            <Route path="/billing-history" element={<BillingHistoryPage />} />
+            <Route path="/events" element={<EventsPage />} />
+            <Route path="/inbox" element={<InboxPage />} />
             <Route path="/lockers" element={<LockerManagementPage />} />
             <Route path="/sales" element={<SalesInventoryPage />} />
             <Route path="/keys" element={<KeyDuplicationPage />} />

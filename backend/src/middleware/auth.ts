@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import * as jwt from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { config } from '../config/config.js';
 import { AuthPayload } from '../types/index.js';
 
@@ -19,11 +19,50 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction) 
       return res.status(401).json({ message: 'No token provided' });
     }
 
+    console.log('[AUTH DEBUG] Token verification attempt:', {
+      tokenLength: token.length,
+      tokenPrefix: token.substring(0, 20) + '...',
+      secretLength: config.jwt.secret.length,
+      secretPrefix: config.jwt.secret.substring(0, 20) + '...',
+      secretValue: config.jwt.secret,
+      method: req.method,
+      path: req.path,
+      timestamp: new Date().toISOString()
+    });
+
     const decoded = jwt.verify(token, config.jwt.secret as string) as AuthPayload;
+    
+    console.log('[AUTH SUCCESS] Token verified for user:', {
+      userId: decoded.id,
+      userEmail: decoded.email,
+      userRole: decoded.role
+    });
+    
     req.user = decoded;
     next();
-  } catch (err) {
-    res.status(401).json({ message: 'Invalid or expired token' });
+  } catch (err: any) {
+    console.error('[AUTH ERROR] Token verification failed:', {
+      errorName: err.name,
+      errorMessage: err.message,
+      errorCode: (err as any).code,
+      secretLength: config.jwt.secret.length,
+      secretValue: config.jwt.secret,
+      timestamp: new Date().toISOString()
+    });
+    
+    // Return more detailed error message for debugging
+    const errorDetail = err.name === 'TokenExpiredError' 
+      ? 'Token has expired'
+      : err.name === 'JsonWebTokenError'
+      ? 'Invalid token'
+      : 'Token verification failed';
+    
+    res.status(401).json({ 
+      message: 'Invalid or expired token',
+      detail: errorDetail,
+      errorName: err.name,
+      secret: config.jwt.secret.substring(0, 20)
+    });
   }
 };
 

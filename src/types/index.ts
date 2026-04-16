@@ -3,13 +3,16 @@ export type UserRole = 'admin' | 'staff' | 'member' | 'user';
 
 export interface User {
   id: string;
+  id_number?: string; // Student/Member ID number
   email: string;
   first_name: string;
+  middle_name?: string; // Optional middle name
   last_name: string;
   role: UserRole;
   staffType?: 'cashier' | 'locker_officer' | 'inventory_officer'; // Only for staff role
   course?: string; // For user/student role
   year?: string; // For user/student role (e.g., "1st Year", "2nd Year")
+  membership_status?: 'approved' | 'pending' | 'rejected'; // Membership status
 }
 
 // Daily Time Record (DTR) Types
@@ -38,14 +41,13 @@ export interface Member {
 
 // Product Types - All items as per specification
 export const ITEM_INVENTORY = [
-  'Type A Uniform',
-  'Type B Uniform',
+  'Type A & B Uniform',
   'Type C Uniform',
   'Lanyard',
   'ID Case',
   'Handbag',
   'Hard Bound',
-  'Shoes',
+  'Safety Shoes',
   'Goggles',
   'Cover All',
   'Gloves',
@@ -67,8 +69,6 @@ export const ITEM_INVENTORY = [
   'Belt',
   'Cloth',
   'Shoulder Board',
-  'Locker Rent',
-  'Locker Deposit',
   'PE Short',
 ] as const;
 
@@ -82,6 +82,14 @@ export interface Product {
   sku: string;
   category: 'uniform' | 'accessory' | 'equipment' | 'service';
   createdAt: string;
+  available?: boolean;
+  image?: string;
+  note?: string;
+  options?: Array<{
+    id: string;
+    label: string;
+    choices: string[];
+  }>;
 }
 
 // Transaction Types
@@ -151,6 +159,36 @@ export interface LockerReplacement {
   createdAt: string;
 }
 
+// Message/Email Types
+export interface Message {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderRole: UserRole;
+  recipientId?: string;
+  recipientName?: string;
+  recipientRole?: UserRole;
+  subject: string;
+  content: string;
+  preview: string;
+  timestamp: string;
+  isRead: boolean;
+  isFavorite: boolean;
+  folder: 'inbox' | 'sent';
+  status: 'unread' | 'read' | 'archived' | 'deleted';
+}
+
+// Cart Item Types
+export interface CartItem {
+  id: string;
+  productId: string;
+  name: string;
+  price: number;
+  quantity: number;
+  image: string;
+  selectedOptions?: Record<string, string>;
+}
+
 // Sale Item Types
 export interface SaleItem {
   id: string;
@@ -167,6 +205,6 @@ export interface Sale {
   items: SaleItem[];
   totalAmount: number;
   paymentMethod: 'cash' | 'ewallet';
-  status: 'completed' | 'cancelled';
+  status: 'completed' | 'pending' | 'cancelled';
   createdAt: string;
 }

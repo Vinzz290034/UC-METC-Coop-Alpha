@@ -12,6 +12,9 @@ import inventoryRoutes from './routes/inventory.js';
 import keyRoutes from './routes/keys.js';
 import billingRoutes from './routes/billing.js';
 import reportsRoutes from './routes/reports.js';
+import cartRoutes from './routes/cart.js';
+import ordersRoutes from './routes/orders.js';
+import messagesRoutes from './routes/messages.js';
 
 const app = express();
 
@@ -27,6 +30,9 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/keys', keyRoutes);
 app.use('/api/billing', billingRoutes);
 app.use('/api/reports', reportsRoutes);
+app.use('/api/cart', cartRoutes);
+app.use('/api/orders', ordersRoutes);
+app.use('/api/messages', messagesRoutes);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {

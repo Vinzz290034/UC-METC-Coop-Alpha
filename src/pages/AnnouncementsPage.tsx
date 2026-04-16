@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
-import { ArrowLeft, Bell, Calendar, User, ChevronLeft } from 'lucide-react';
+import { Bell, Calendar, User, ChevronLeft } from 'lucide-react';
 
 const styles = `
   @keyframes float {
@@ -155,7 +155,7 @@ export const AnnouncementsPage: React.FC = () => {
   return (
     <>
       <style>{styles}</style>
-      <div className="min-h-screen bg-gradient-to-b from-white to-purple-400 text-slate-900 overflow-hidden">
+      <div className="min-h-screen bg-gradient-to-b from-white to-purple-400 text-slate-900 overflow-hidden animate-slide-in-right">
         
         {/* Animated Background Elements */}
         <div className="fixed inset-0 pointer-events-none overflow-hidden">

@@ -2,12 +2,16 @@ export type UserRole = 'admin' | 'cashier' | 'locker_officer' | 'inventory_offic
 
 export interface User {
   id: string;
+  id_number?: string;
   email: string;
   password: string;
   first_name: string;
+  middle_name?: string;
   last_name: string;
   role: UserRole;
   status: 'active' | 'inactive';
+  course?: string;
+  year?: string;
   created_at: Date;
   updated_at: Date;
 }

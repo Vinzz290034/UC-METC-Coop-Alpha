@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, ShoppingCart } from 'lucide-react';
+import { Plus, Edit2, Trash2, CheckCircle, Clock } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useAuth } from '../store/authContext';
+import { apiClient } from '../services/api';
+import { AppDataSync } from '../store/appDataSync';
+import { Toast } from '../components/Toast';
 import { ITEM_INVENTORY } from '../types';
 import type { Product, Sale, SaleItem, ItemType } from '../types';
 
@@ -10,15 +14,54 @@ export const SalesInventoryPage: React.FC = () => {
     window.scrollTo(0, 0);
   }, []);
   
-  const { products, addProduct, updateProduct, deleteProduct, addSale } =
+  const { products, addProduct, deleteProduct, addSale } =
     useAppStore();
+  const { user } = useAuth();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'pos'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'pending'>('inventory');
   const [showForm, setShowForm] = useState(false);
   const [cart, setCart] = useState<SaleItem[]>([]);
+  const [pendingOrders, setPendingOrders] = useState<any[]>([]);
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>(
     'cash'
   );
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Load pending orders on component mount and when page becomes visible
+  useEffect(() => {
+    const loadData = () => {
+      if (user?.id) {
+        // Always load pending orders on mount, regardless of active tab
+        // This ensures the count is accurate
+        loadPendingOrders();
+      }
+    };
+
+    loadData();
+
+    // Reload data when page becomes visible (user returns to tab)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && user?.id) {
+        loadPendingOrders();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user?.id]);
+
+  const loadPendingOrders = async () => {
+    try {
+      const orders = await apiClient.getPendingOrders(user?.id || '');
+      if (Array.isArray(orders)) {
+        setPendingOrders(orders);
+      }
+      console.log('Loaded pending orders:', orders);
+    } catch (err) {
+      console.error('Failed to load pending orders:', err);
+    }
+  };
 
   const [formData, setFormData] = useState<Partial<Product> & { name?: ItemType }>({
     name: ITEM_INVENTORY[0],
@@ -102,10 +145,11 @@ export const SalesInventoryPage: React.FC = () => {
     }
   };
 
-  const lowStockProducts = products.filter((p) => p.stock <= 5);
+  // Low stock products calculated but kept for potential future use
+  // const lowStockProducts = products.filter((p) => p.stock <= 5);
 
   return (
-    <div className="min-h-screen bg-white p-6">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
@@ -139,14 +183,14 @@ export const SalesInventoryPage: React.FC = () => {
             Inventory ({products.length})
           </button>
           <button
-            onClick={() => setActiveTab('pos')}
+            onClick={() => setActiveTab('pending')}
             className={`px-6 py-3 font-semibold transition-colors ${
-              activeTab === 'pos'
+              activeTab === 'pending'
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            POS
+            Pending Orders ({pendingOrders.length})
           </button>
         </div>
 
@@ -319,117 +363,217 @@ export const SalesInventoryPage: React.FC = () => {
           </div>
         )}
 
-        {/* POS Tab */}
-        {activeTab === 'pos' && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Product Grid */}
-            <div className="lg:col-span-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {products.map((product) => (
-                  <div
-                    key={product.id}
-                    className="bg-white rounded-lg border border-slate-200 p-4 hover:shadow-lg transition-shadow"
-                  >
-                    <h4 className="font-semibold text-slate-900 mb-2">
-                      {product.name}
-                    </h4>
-                    <p className="text-sm text-slate-600 mb-3">
-                      SKU: {product.sku}
-                    </p>
-                    <div className="flex justify-between items-center mb-3">
-                      <span className="text-xl font-bold text-blue-600">
-                        ₱{product.price.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        Stock: {product.stock}
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => addToCart(product)}
-                      disabled={product.stock <= 0}
-                      className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-                    >
-                      Add to Cart
-                    </button>
+        {/* Pending Orders Tab */}
+        {activeTab === 'pending' && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="p-6">
+                <p className="text-slate-600 mb-6">View and process pending orders from users</p>
+                
+                {pendingOrders.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Clock size={48} className="mx-auto text-slate-300 mb-4" />
+                    <p className="text-slate-600 text-lg">No pending orders at the moment</p>
                   </div>
-                ))}
-              </div>
-            </div>
+                ) : (
+                  <div className="space-y-4">
+                    {pendingOrders.map((order) => (
+                      <div key={order.id} className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <p className="font-semibold text-slate-900">
+                              {order.first_name} {order.last_name}
+                            </p>
+                            <p className="text-sm text-slate-600">
+                              {order.email} • ID: {order.id_number}
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-2xl font-bold text-purple-600">
+                              ₱{parseFloat(order.total_amount).toLocaleString()}
+                            </p>
+                            <p className="text-sm text-slate-600 mt-1">
+                              {order.payment_method === 'cash' ? '💵 Cash' : '📱 E-Wallet'}
+                            </p>
+                          </div>
+                        </div>
 
-            {/* Cart */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6 h-fit sticky top-32">
-              <h3 className="text-lg font-semibold mb-4 flex items-center space-x-2">
-                <ShoppingCart size={20} />
-                <span>Shopping Cart</span>
-              </h3>
+                        {/* Order Details */}
+                        <div className="bg-slate-50 rounded p-3 mb-3">
+                          <p className="text-sm font-semibold text-slate-700 mb-2">Items:</p>
+                          <div className="space-y-1">
+                            {order.items && order.items.length > 0 && order.items[0] && order.items.map((item: any, idx: number) => {
+                              const options = typeof item.selectedOptions === 'string' ? JSON.parse(item.selectedOptions) : item.selectedOptions;
+                              return (
+                                <div key={idx} className="text-xs text-slate-600">
+                                  <p>• {item.productName || 'Unknown'} (Qty: {item.quantity}) - ₱{parseFloat(item.subtotal).toLocaleString()}</p>
+                                  {options && Object.keys(options).length > 0 && (
+                                    <p className="text-slate-500 ml-2">
+                                      {Object.entries(options).map(([key, val]) => `${key}: ${val}`).join(', ')}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto mb-4 border-b border-slate-200 pb-4">
-                {cart.map((item) => {
-                  const product = products.find((p) => p.id === item.productId);
-                  return (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          {product?.name}
-                        </p>
-                        <p className="text-slate-600">
-                          Qty: {item.quantity} x ₱{item.unitPrice.toLocaleString()}
-                        </p>
+                        {/* Metadata */}
+                        <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
+                          <span>Receipt: {order.receipt_no}</span>
+                          <span>{new Date(order.created_at).toLocaleDateString()}</span>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={async () => {
+                              try {
+                                await AppDataSync.updateOrderStatus(order.id, 'completed', user?.id || '');
+                                await loadPendingOrders();
+                                // Also update the global store so Dashboard/Billing/Reports see the change
+                                if (user?.id) {
+                                  await AppDataSync.loadOrdersFromAPI(user.id);
+                                }
+                                setToast({ message: 'Order marked as paid!', type: 'success' });
+                              } catch (err) {
+                                console.error('Failed to mark order as paid:', err);
+                                setToast({ message: 'Failed to mark order as paid. Please try again.', type: 'error' });
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center justify-center space-x-1 text-sm"
+                          >
+                            <CheckCircle size={16} />
+                            <span>Paid</span>
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await AppDataSync.updateOrderStatus(order.id, 'cancelled', user?.id || '');
+                                await loadPendingOrders();
+                                // Also update the global store so Dashboard/Billing/Reports see the change
+                                if (user?.id) {
+                                  await AppDataSync.loadOrdersFromAPI(user.id);
+                                }
+                                setToast({ message: 'Order cancelled successfully!', type: 'success' });
+                              } catch (err) {
+                                console.error('Failed to cancel order:', err);
+                                setToast({ message: 'Failed to cancel order. Please try again.', type: 'error' });
+                              }
+                            }}
+                            className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors text-sm"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-slate-900">
-                          ₱{item.subtotal.toLocaleString()}
-                        </p>
-                        <button
-                          onClick={() => removeFromCart(item.id)}
-                          className="text-red-600 hover:text-red-800 text-xs mt-1"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              <div className="space-y-3 border-t border-slate-200 pt-4">
-                <div className="flex justify-between items-center text-lg font-bold">
-                  <span>Total:</span>
-                  <span className="text-blue-600">
-                    ₱{cartTotal.toLocaleString()}
-                  </span>
-                </div>
-
-                <select
-                  value={paymentMethod}
-                  onChange={(e) =>
-                    setPaymentMethod(e.target.value as 'cash' | 'ewallet')
-                  }
-                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="cash">Cash</option>
-                  <option value="ewallet">E-Wallet</option>
-                </select>
-
-                <button
-                  onClick={handleCheckout}
-                  disabled={cart.length === 0}
-                  className="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors font-semibold"
-                >
-                  Checkout
-                </button>
-
-                <button
-                  onClick={() => setCart([])}
-                  className="w-full bg-slate-200 text-slate-900 py-2 rounded-lg hover:bg-slate-300 transition-colors font-semibold"
-                >
-                  Clear Cart
-                </button>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </div>
         )}
       </div>
+
+      {/* Toast Notification */}
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
+      )}
+
+      {/* Order Details Modal */}
+      {selectedOrder && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-xl w-full max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl font-bold mb-4">Order Details</h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-600 uppercase">Customer</p>
+                  <p className="font-semibold">{selectedOrder.first_name} {selectedOrder.last_name}</p>
+                  <p className="text-sm text-slate-600">{selectedOrder.email}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-600 uppercase">Receipt</p>
+                  <p className="font-semibold">{selectedOrder.receipt_no}</p>
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <p className="text-sm font-semibold text-slate-700 mb-3">Items Ordered:</p>
+                <div className="bg-slate-50 rounded p-3 space-y-2">
+                  {selectedOrder.items && selectedOrder.items.length > 0 && selectedOrder.items[0] && selectedOrder.items.map((item: any, idx: number) => (
+                    <div key={idx} className="border-b last:border-b-0 pb-2 last:pb-0">
+                      <div className="flex justify-between">
+                        <span className="font-medium">{item.productName || 'Unknown'}</span>
+                        <span>₱{parseFloat(item.subtotal).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm text-slate-600">
+                        <span>Qty: {item.quantity}</span>
+                        <span>Unit: ₱{parseFloat(item.unitPrice).toLocaleString()}</span>
+                      </div>
+                      {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                        <p className="text-xs text-slate-500 mt-1">
+                          {Object.entries(item.selectedOptions)
+                            .map(([key, value]) => `${key}: ${value}`)
+                            .join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t pt-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-semibold">Total Amount:</span>
+                  <span className="text-2xl font-bold text-purple-600">₱{parseFloat(selectedOrder.total_amount).toLocaleString()}</span>
+                </div>
+                <p className="text-sm text-slate-600">
+                  Payment Method: <span className="font-semibold">{selectedOrder.payment_method === 'cash' ? 'Cash' : 'E-Wallet'}</span>
+                </p>
+              </div>
+
+              <div className="flex space-x-2 pt-4 border-t">
+                <button
+                  onClick={() => setSelectedOrder(null)}
+                  className="flex-1 px-4 py-2 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-colors"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const response = await fetch(`/api/orders/${selectedOrder.id}/status`, {
+                        method: 'PUT',
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'x-user-id': user?.id || '',
+                        },
+                        body: JSON.stringify({ status: 'completed' }),
+                      });
+                      if (response.ok) {
+                        setPendingOrders(pendingOrders.filter(o => o.id !== selectedOrder.id));
+                        setSelectedOrder(null);
+                        alert('Order marked as paid!');
+                      }
+                    } catch (err) {
+                      console.error('Failed to mark order as paid:', err);
+                    }
+                  }}
+                  className="flex-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors"
+                >
+                  Mark as Paid
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

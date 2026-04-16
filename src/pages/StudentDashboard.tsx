@@ -4,63 +4,141 @@ import {
   MapPin,
   Clock,
   ShoppingBag,
-  Bell,
   ArrowRight,
-  Zap,
+  Users,
 } from 'lucide-react';
 import { useAuth } from '../store/authContext';
+import { useUIStore } from '../store/uiStore';
+import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../services/api';
 
 export const StudentDashboard: React.FC = () => {
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
+  const navigate = useNavigate();
+  const { showNotification } = useUIStore();
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isOfficeOpen, setIsOfficeOpen] = useState(false);
+  const [showMembershipModal, setShowMembershipModal] = useState(false);
+  const [membershipRequested, setMembershipRequested] = useState(false);
+
+  // Refresh user data on mount to get latest membership status
+  useEffect(() => {
+    refreshUser();
+  }, [refreshUser]);
+
+  // Define holidays (Philippine holidays and special closures)
+  // Format: "YYYY-MM-DD"
+  const holidays = [
+    // 2026 Holidays
+    '2026-01-01', // New Year's Day
+    '2026-02-10', // EDSA Revolution
+    '2026-02-25', // EDSA Revolution (observed)
+    '2026-04-02', // Maundy Thursday
+    '2026-04-03', // Good Friday
+    '2026-04-04', // Black Saturday
+    '2026-04-09', // Day of Valor
+    '2026-06-12', // Independence Day
+    '2026-08-21', // Ninoy Aquino Day
+    '2026-11-01', // All Saints' Day
+    '2026-11-30', // Bonifacio Day
+    '2026-12-08', // Feast of Immaculate Conception
+    '2026-12-25', // Christmas Day
+    '2026-12-30', // Rizal Day
+    '2026-12-31', // New Year's Eve
+  ];
+
+  // Function to check if today is a holiday
+  const isHoliday = (date: Date): boolean => {
+    const dateStr = date.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+    return holidays.includes(dateStr);
+  };
+
+  // Function to check if office is currently open
+  const checkOfficeStatus = () => {
+    const now = new Date();
+    const day = now.getDay(); // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+    const currentTime = hours + minutes / 60;
+
+    // Office is closed on Sunday (0)
+    if (day === 0) {
+      setIsOfficeOpen(false);
+      return;
+    }
+
+    // Office is closed on holidays
+    if (isHoliday(now)) {
+      setIsOfficeOpen(false);
+      return;
+    }
+
+    // Check if within office hours: 8 AM - 5 PM (Monday to Friday), 8 AM - 4 PM (Saturday)
+    if (day >= 1 && day <= 5) {
+      // Monday to Friday: 8 AM - 5 PM
+      const isOpenMonToFri = currentTime >= 8 && currentTime < 17;
+      setIsOfficeOpen(isOpenMonToFri);
+    } else if (day === 6) {
+      // Saturday: 8 AM - 4 PM
+      const isOpenSat = currentTime >= 8 && currentTime < 16;
+      setIsOfficeOpen(isOpenSat);
+    } else {
+      // Sunday: Closed
+      setIsOfficeOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    checkOfficeStatus();
+    // Update every second for real-time status
+    const timer = setInterval(checkOfficeStatus, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const banners = [
     {
-      title: 'Acquaintance Party 2025',
-      subtitle: 'Connect, Celebrate, Create Memories',
-      date: 'October 16, 2025',
-      time: '5:00 PM - 9:00 PM',
-      cta: 'Get Tickets',
+      title: 'Back to School 2026',
+      subtitle: 'Get Your Coop Essentials & Exclusive Discounts',
+      date: 'June 15, 2026',
+      time: '8:00 AM - 5:00 PM',
+      cta: 'Shop Now',
       bg: 'from-green-600/40 to-purple-600/40',
     },
     {
-      title: 'Back to School 2025',
-      subtitle: 'Get Your Coop Essentials',
-      date: 'August 1, 2025',
-      time: '8:00 AM - 5:00 PM',
-      cta: 'Shop Now',
-      bg: 'from-purple-600/40 to-purple-700/40',
+      title: '11th General Assembly',
+      subtitle: 'Be Part of Our Cooperative\'s Future',
+      date: 'March 21, 2026',
+      time: '1:00 PM - 5:00 PM',
+      cta: 'Learn More',
+      bg: 'from-blue-600/40 to-purple-700/40',
     },
   ];
 
   const upcomingEvents = [
     {
       id: 1,
-      title: 'ICT Congress 2026 (Early Bird)',
-      description: 'Innovating The Future: Empowering Tomorrow\'s Tech Leaders',
-      date: '4/22/2026',
-      icon: Calendar,
-      color: 'border-l-purple-500',
-    },
-    {
-      id: 2,
-      title: 'Acquaintance Party 2025',
-      description: 'CCS fam, the wait is OVER! 🎉 This Saturday, 28th of September, 6 PM onwards at The Quad.',
-      date: '9/28/2025',
-      icon: Zap,
+      title: 'Back to School 2026',
+      description: 'Start your semester right! Shop for school essentials, uniforms, and office supplies at discounted cooperative prices. Join our membership drive and get exclusive back-to-school benefits.',
+      date: 'TBA',
+      icon: ShoppingBag,
       color: 'border-l-green-500',
     },
+  ];
+
+  const recentActivities = [
     {
-      id: 3,
-      title: 'General Assembly Meeting',
-      description: 'Important meeting for all members regarding cooperative policies and updates.',
-      date: '10/5/2025',
-      icon: Bell,
-      color: 'border-l-blue-500',
+      id: 1,
+      title: '11TH GENERAL ASSEMBLY 2026',
+      subtitle: 'Shaping Our Cooperative\'s Future Together',
+      date: 'March 21, 2026',
+      time: '1:00 PM - 5:00 PM',
+      description: 'The 11th General Assembly brought together members to discuss cooperative governance, financial performance, and member welfare initiatives. Distinguished discussions on cooperative policies, sustainability programs, and the election of new leadership took place. Members engaged in meaningful conversations about expanding our services and strengthening our commitment to student welfare. Every voice contributed to shaping the cooperative\'s strategic direction for the upcoming year.',
+      image: true,
+      editor: 'Photo by UC METC Communications Team',
     },
   ];
 
@@ -69,7 +147,8 @@ export const StudentDashboard: React.FC = () => {
       title: 'Office Hours',
       status: 'Open',
       details: [
-        'Monday to Saturday: 7 AM - 11 AM, 1 PM - 5 PM',
+        'Monday to Friday: 8 AM - 5 PM',
+        'Saturday: 8 AM - 4 PM',
         'Sunday & Holidays: Closed',
       ],
     },
@@ -90,16 +169,13 @@ export const StudentDashboard: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen p-6 animate-fade-in-long">
+    <div className="min-h-screen p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 via-purple-600 to-purple-700 bg-clip-text text-transparent mb-2">
-            Dashboard
+          <h1 className="text-4xl font-bold text-black mb-2">
+            DASHBOARD
           </h1>
-          <p className="text-slate-700 text-lg font-medium">
-            Welcome back, {user?.first_name}! Here's what's happening in your cooperative.
-          </p>
         </div>
 
         {/* Main Content Grid */}
@@ -183,65 +259,209 @@ export const StudentDashboard: React.FC = () => {
                 })}
               </div>
             </div>
+
+            {/* Recent Activities Section */}
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
+              <div className="text-center mb-8">
+                <h2 className="text-2xl font-bold text-slate-900">Recent Activities</h2>
+              </div>
+              {recentActivities.map((activity) => (
+                <div key={activity.id} className="space-y-6">
+                  {/* Activity Content Card */}
+                  <div className="bg-gradient-to-br from-teal-500/60 to-teal-600/60 rounded-xl p-8 text-white">
+                    <h3 className="text-3xl font-bold mb-2">{activity.title}</h3>
+                    <p className="text-teal-100 text-lg mb-4">{activity.subtitle}</p>
+                    
+                    <p className="text-teal-50 leading-relaxed mb-6">
+                      {activity.description}
+                    </p>
+                    
+                    <a href="#" className="text-white font-semibold underline hover:no-underline transition-all">
+                      See more
+                    </a>
+                    
+                    <div className="mt-4 text-teal-100 text-sm">
+                      Edited By | {activity.editor}
+                    </div>
+                  </div>
+                  
+                  {/* Activity Image Placeholder */}
+                  {activity.image && (
+                    <div className="w-full h-48 bg-gradient-to-br from-purple-300 to-pink-300 rounded-xl flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="text-6xl mb-2">📷</div>
+                        <p className="text-slate-600">Event Gallery</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Right Column - Important Info & Quick Actions */}
           <div className="space-y-6">
             {/* Important Info */}
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-white/50 shadow-lg space-y-6">
-              {importantInfo.map((info, idx) => (
-                <div key={idx} className="border-b border-slate-200 pb-6 last:border-b-0 last:pb-0">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3 flex items-center space-x-2">
-                    {info.title === 'Office Hours' && <Clock size={20} className="text-purple-600" />}
-                    {info.title === 'Location' && <MapPin size={20} className="text-green-600" />}
-                    <span>{info.title}</span>
-                  </h3>
-                  <div className="space-y-2">
-                    {info.details.map((detail, detailIdx) => (
-                      <p key={detailIdx} className="text-sm text-slate-600">
-                        {detail}
-                      </p>
-                    ))}
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-lg">
+              {/* Current Office Status Card */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-slate-900">Current Office Status</h3>
+                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                    isOfficeOpen 
+                      ? 'bg-green-200 text-green-700' 
+                      : 'bg-gray-300 text-gray-700'
+                  }`}>
+                    {isOfficeOpen ? 'Open' : 'Closed'}
+                  </span>
+                </div>
+                
+                <div className="space-y-2">
+                  {importantInfo[0].details.map((detail, idx) => (
+                    <div key={idx}>
+                      <p className="text-slate-600 text-sm">{detail}</p>
+                    </div>
+                  ))}
+                  
+                  <div className="flex items-start space-x-3 pt-2 border-t border-slate-200">
+                    <MapPin size={18} className="text-green-600 mt-1 flex-shrink-0" />
+                    <div>
+                      <p className="text-slate-600 text-sm">Next to Clinic</p>
+                      <p className="text-slate-600 text-sm">UC Coop Office</p>
+                    </div>
                   </div>
                 </div>
-              ))}
+              </div>
             </div>
 
             {/* Membership Card */}
-            <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
-              <div className="relative z-10">
-                <ShoppingBag size={32} className="mb-4 group-hover:scale-110 transition-transform duration-300" />
-                <h3 className="text-xl font-bold mb-2">Explore Coop Shop</h3>
-                <p className="text-green-50 text-sm mb-6">Get exclusive member benefits and special discounts on cooperative products.</p>
-                <button className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all duration-300 flex items-center justify-center space-x-2">
-                  <ShoppingBag size={18} />
-                  <span>Shop Now</span>
-                </button>
+            {user?.membership_status === 'approved' ? (
+              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="relative z-10">
+                  <div className="text-4xl mb-4">✓</div>
+                  <h3 className="text-xl font-bold mb-3">Welcome Member!</h3>
+                  <p className="text-green-50 text-sm">
+                    You are now a part of the UC Coop. Enjoy your exclusive benefits and discounts!
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : membershipRequested ? (
+              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="relative z-10">
+                  <div className="text-4xl mb-4">✓</div>
+                  <h3 className="text-xl font-bold mb-3">Membership Request Pending</h3>
+                  <p className="text-green-50 text-sm">
+                    Your membership request has been successfully submitted. If needed, you can cancel this transaction at the Coop Office.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+                <div className="relative z-10">
+                  <Users size={32} className="mb-4 group-hover:scale-110 transition-transform duration-300" />
+                  <h3 className="text-lg font-bold mb-2">Become Part of the UC Coop</h3>
+                  <p className="text-green-50 text-sm mb-6">Get exclusive member benefits and special discounts on our products.</p>
+                  <button 
+                    onClick={() => setShowMembershipModal(true)}
+                    className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all duration-300 flex items-center justify-center space-x-2">
+            
+                    <span>Join Now!</span>
+                  </button>
+                </div>
+              </div>
+            )}
 
-            {/* Quick Links */}
+            {/* Quick Links - Only for approved members */}
+            {user?.membership_status === 'approved' && (
             <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-white/50 shadow-lg">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Links</h3>
               <div className="space-y-3">
-                <button className="w-full text-left px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-green-500/10 hover:from-purple-500/20 hover:to-green-500/20 transition-all duration-300 text-slate-900 font-medium flex items-center justify-between group">
+                <button 
+                  onClick={() => navigate('/locker')}
+                  className="w-full text-left px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-green-500/10 hover:from-purple-500/20 hover:to-green-500/20 transition-all duration-300 text-slate-900 font-medium flex items-center justify-between group">
                   <span>My Locker</span>
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>
-                <button className="w-full text-left px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-green-500/10 hover:from-purple-500/20 hover:to-green-500/20 transition-all duration-300 text-slate-900 font-medium flex items-center justify-between group">
+                <button 
+                  onClick={() => navigate('/billing-history')}
+                  className="w-full text-left px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-green-500/10 hover:from-purple-500/20 hover:to-green-500/20 transition-all duration-300 text-slate-900 font-medium flex items-center justify-between group">
                   <span>Billing History</span>
-                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                </button>
-                <button className="w-full text-left px-4 py-3 rounded-lg bg-gradient-to-r from-purple-500/10 to-green-500/10 hover:from-purple-500/20 hover:to-green-500/20 transition-all duration-300 text-slate-900 font-medium flex items-center justify-between group">
-                  <span>Request Key Duplication</span>
                   <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
                 </button>
               </div>
             </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Membership Confirmation Modal */}
+      {showMembershipModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full animate-scale-in">
+            <h2 className="text-2xl font-bold text-slate-900 mb-4">Request Membership</h2>
+            
+            <p className="text-slate-600 mb-6">
+              Are you sure you want to request membership? Once approved, you'll gain access to exclusive member benefits and discounts.
+            </p>
+
+            <div className="bg-green-50 rounded-lg p-4 mb-6">
+              <h3 className="font-semibold text-green-900 mb-3">Membership Benefits:</h3>
+              <ul className="space-y-2 text-sm text-green-800">
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-600 mt-1">✓</span>
+                  <span>Discounted prices on specific merchandise and products</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-600 mt-1">✓</span>
+                  <span>Exclusive member benefits and priority access</span>
+                </li>
+                <li className="flex items-start space-x-2">
+                  <span className="text-green-600 mt-1">✓</span>
+                  <span>Special events and exclusive activities for members</span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowMembershipModal(false)}
+                className="flex-1 px-4 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all duration-200"
+              >
+                No
+              </button>
+              <button
+                onClick={async () => {
+                  try {
+                    // Create membership request via API
+                    await apiClient.createMembershipRequest({
+                      user_id: user?.id,
+                      name: user ? `${user.first_name} ${user.last_name}` : 'Student',
+                      email: user?.email || '',
+                      phone: '',
+                    });
+                    
+                    setShowMembershipModal(false);
+                    setMembershipRequested(true);
+                    showNotification('Membership request submitted successfully!', 'success');
+                  } catch (error: any) {
+                    console.error('Failed to submit membership request:', error);
+                    showNotification(`Failed to submit membership request: ${error?.message || 'Unknown error'}`, 'error');
+                  }
+                }}
+                className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                Yes
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+
     </div>
   );
 };

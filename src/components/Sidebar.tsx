@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Menu,
@@ -13,6 +13,11 @@ import {
   LogOut,
   Clock,
   User,
+  ShoppingBag,
+  ShoppingCart,
+  Receipt,
+  Calendar,
+  Mail,
 } from 'lucide-react';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
@@ -45,10 +50,12 @@ interface SidebarItem {
   label: string;
   id: string;
   roles?: string[];
+  requiresMembership?: boolean;
 }
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sidebarOpen, setSidebarOpen, setCurrentPage, showNotification } = useUIStore();
   const { user, logout } = useAuth();
 
@@ -57,6 +64,43 @@ export const Sidebar: React.FC = () => {
       icon: <LayoutDashboard size={20} />,
       label: 'Dashboard',
       id: 'dashboard',
+    },
+    {
+      icon: <ShoppingBag size={20} />,
+      label: 'Merchandise',
+      id: 'merchandise',
+      roles: ['user'],
+    },
+    {
+      icon: <ShoppingCart size={20} />,
+      label: 'Cart',
+      id: 'cart',
+      roles: ['user'],
+    },
+    {
+      icon: <Mail size={20} />,
+      label: 'Inbox',
+      id: 'inbox',
+      roles: ['admin', 'staff', 'user'],
+    },
+    {
+      icon: <Box size={20} />,
+      label: 'Locker',
+      id: 'locker',
+      roles: ['user'],
+    },
+    {
+      icon: <Receipt size={20} />,
+      label: 'Transaction',
+      id: 'transaction',
+      roles: ['user'],
+    },
+    {
+      icon: <Calendar size={20} />,
+      label: 'Events',
+      id: 'events',
+      roles: ['user'],
+      requiresMembership: true,
     },
     {
       icon: <Box size={20} />,
@@ -103,7 +147,17 @@ export const Sidebar: React.FC = () => {
   ];
 
   const filteredItems = sidebarItems.filter(
-    (item) => !item.roles || !user || item.roles.includes(user.role)
+    (item) => {
+      // Check if user has the required role
+      if (item.roles && user && !item.roles.includes(user.role)) {
+        return false;
+      }
+      // Check if item requires membership and user is not an approved member
+      if (item.requiresMembership && user?.membership_status !== 'approved') {
+        return false;
+      }
+      return true;
+    }
   );
 
   const handleNavigation = (id: string) => {
@@ -112,11 +166,20 @@ export const Sidebar: React.FC = () => {
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
     logout();
     showNotification('Signed out successfully', 'logout');
     setTimeout(() => {
       navigate('/');
     }, 1500);
+  };
+
+  const cancelLogout = () => {
+    setShowLogoutConfirm(false);
   };
 
   return (
@@ -178,10 +241,10 @@ export const Sidebar: React.FC = () => {
                   <p className="text-sm font-semibold text-white truncate">{user.first_name} {user.last_name}</p>
                   <p className="text-xs text-purple-200 truncate">
                     {user.role === 'user' && user.course && user.year 
-                      ? `${user.course}, ${user.year}` 
+                      ? `${user.course}-${user.year.replace(/[a-z]+/gi, '')}` 
                       : user.role === 'user' 
                         ? 'Student' 
-                        : user.role.replace('_', ' ')}
+                        : user.role.replace('_', ' ').charAt(0).toUpperCase() + user.role.replace('_', ' ').slice(1)}
                   </p>
                 </div>
               </div>
@@ -194,13 +257,13 @@ export const Sidebar: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => handleNavigation(item.id)}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-purple-100 hover:bg-gradient-to-r hover:from-green-500/20 hover:to-green-400/10 hover:border-l-4 hover:border-green-400 transition-all duration-200 group nav-item-entrance"
+                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-purple-100 hover:bg-green-500/40 transition-colors duration-200 group nav-item-entrance"
                 style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
               >
-                <span className="group-hover:text-green-400 transition-colors">
+                <span className="group-hover:text-green-300 transition-colors duration-200">
                   {item.icon}
                 </span>
-                <span className="text-sm font-medium">{item.label}</span>
+                <span className="text-sm font-medium group-hover:text-green-300 transition-colors duration-200">{item.label}</span>
               </button>
             ))}
           </nav>
@@ -217,6 +280,32 @@ export const Sidebar: React.FC = () => {
           </div>
         </div>
       </aside>
+
+      {/* Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 animate-scale-in">
+            <h2 className="text-2xl font-bold text-slate-900 mb-3">Confirm Logout</h2>
+            <p className="text-slate-600 mb-6">
+              Are you sure you want to log out? 
+            </p>
+            <div className="flex space-x-4">
+              <button
+                onClick={cancelLogout}
+                className="flex-1 px-4 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                Logout
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };
