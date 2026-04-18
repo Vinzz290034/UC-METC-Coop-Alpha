@@ -24,6 +24,7 @@ export const DashboardPage: React.FC = () => {
 
   // Fetch data directly from database
   const [sales, setSales] = useState<any[]>([]);
+  const [approvedMembers, setApprovedMembers] = useState<any[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -51,16 +52,46 @@ export const DashboardPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [user?.id, user?.role]);
 
+  // Fetch approved members from API
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        const response = await apiClient.getUsers() as any;
+        const users = Array.isArray(response) ? response : (response.users || response);
+        const approved = users.filter((user: any) => user.membership_status === 'approved');
+        setApprovedMembers(approved);
+      } catch (error) {
+        console.error('Failed to load members:', error);
+      }
+    };
+
+    fetchMembers();
+
+    // Poll for updates every 5 seconds
+    const interval = setInterval(fetchMembers, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   const completedTransactions = sales.filter(s => s.status === 'completed').length;
   const totalRevenue = sales.filter(s => s.status === 'completed').reduce((sum, s) => {
     const amount = parseFloat(String(s.total_amount || s.totalAmount || 0));
     return sum + (isNaN(amount) ? 0 : amount);
   }, 0) + lockerRentals.reduce((sum, r) => sum + (r.rentalFee || 0), 0);
 
+  // Get recent completed/paid orders sorted by date (most recent first)
+  const recentCompletedOrders = sales
+    .filter(s => s.status === 'completed')
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+      return dateB - dateA; // Most recent first
+    })
+    .slice(0, 5);
+
   const stats = [
     {
       title: 'Total Members',
-      value: members.length,
+      value: approvedMembers.length,
       icon: <Users className="text-white" />,
       bg: 'bg-gradient-to-br from-purple-500 to-purple-600',
       glow: 'shadow-lg shadow-purple-500/30',
@@ -135,7 +166,7 @@ export const DashboardPage: React.FC = () => {
         {/* Staff Time Card for Staff Members */}
         {user && user.role === 'staff' && (
           <div className="mb-8 animate-fade-in-long" style={{ animationDelay: '0.7s' }}>
-            <StaffTimeCard />"
+            <StaffTimeCard />
           </div>
         )}
 
@@ -184,27 +215,31 @@ export const DashboardPage: React.FC = () => {
             <h3 className="text-lg font-semibold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-4">
               Recent Sales
             </h3>
-            {sales.filter(s => s.status === 'completed').length > 0 ? (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {sales.filter(s => s.status === 'completed').slice(-5).map((sale) => (
+            {recentCompletedOrders.length > 0 ? (
+              <div className="space-y-3 max-h-64 overflow-y-auto">
+                {recentCompletedOrders.map((sale) => (
                   <div
                     key={sale.id}
-                    className="flex items-center justify-between p-2 hover:bg-white/50 rounded transition-colors border-b border-slate-100 last:border-0"
+                    className="flex items-center justify-between p-3 hover:bg-white/50 rounded-lg transition-colors border border-slate-100 hover:border-green-300"
                   >
                     <div className="flex-1">
-                      <p className="text-sm text-slate-700 font-medium">
+                      <p className="text-sm text-slate-800 font-semibold">
                         {sale.first_name} {sale.last_name}
                       </p>
-                      <p className="text-xs text-slate-500">{sale.receipt_no || sale.receiptNo}</p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{sale.receipt_no || sale.receiptNo}</span>
+                        <span>•</span>
+                        <span>{new Date(sale.created_at || sale.createdAt).toLocaleDateString()}</span>
+                      </div>
                     </div>
-                    <span className="font-semibold text-slate-900 ml-2">
-                      ₱{((sale.total_amount || sale.totalAmount) || 0).toLocaleString()}
+                    <span className="font-bold text-green-600 ml-2 whitespace-nowrap">
+                      ₱{parseFloat(String(sale.total_amount || sale.totalAmount || 0)).toLocaleString()}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-slate-500">No sales yet</p>
+              <p className="text-sm text-slate-500">No paid sales yet</p>
             )}
           </div>
 

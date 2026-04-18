@@ -32,6 +32,20 @@ export const InboxPage: React.FC = () => {
     content: '',
   });
 
+  // Load all users on mount for name lookups
+  useEffect(() => {
+    if (allUsers.length === 0) {
+      apiClient.getUsers()
+        .then((response: any) => {
+          const users = response.users || [];
+          setAllUsers(users);
+        })
+        .catch((error) => {
+          console.error('Failed to fetch users:', error);
+        });
+    }
+  }, []);
+
   // Load messages from API on mount
   useEffect(() => {
     if (user?.id) {
@@ -41,34 +55,49 @@ export const InboxPage: React.FC = () => {
     }
   }, [user?.id]);
 
-  // Fetch all users when compose modal opens
+  // Auto-reload messages every 3 seconds to catch new messages
   useEffect(() => {
-    if (showCompose && allUsers.length === 0) {
-      apiClient.getUsers()
-        .then((response: any) => {
-          const users = response.users || [];
-          setAllUsers(users);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch users:', error);
-          showNotification('Failed to load users list', 'error');
-        });
-    }
-  }, [showCompose]);
+    if (!user?.id) return;
+
+    const interval = setInterval(() => {
+      AppDataSync.loadMessagesFromAPI(user.id, 'inbox');
+      AppDataSync.loadMessagesFromAPI(user.id, 'sent');
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [user?.id]);
 
   const inboxMessages = messages.filter(msg => {
-    if (msg.folder !== 'inbox') return false;
-    // Include messages where recipient is this user by ID, or messages sent to this user's role
-    return msg.recipientId === user?.id || msg.recipientRole === user?.role;
+    // Show messages in inbox folder
+    if (msg.folder === 'inbox') {
+      // Include messages where recipient is this user by ID, or messages sent to this user's role
+      return msg.recipientId === user?.id || msg.recipientRole === user?.role;
+    }
+    // Also include sent messages TO this user (for specific person sends)
+    // This catches messages where the backend might not have properly set folder='inbox' for the recipient
+    if (msg.folder === 'sent' && msg.recipientId === user?.id) {
+      return true;
+    }
+    return false;
   });
   const sentMessages = messages.filter(msg => msg.folder === 'sent' && msg.senderId === user?.id);
   const displayMessages = activeTab === 'inbox' ? inboxMessages : sentMessages;
   const unreadCount = inboxMessages.filter(m => !m.isRead).length;
 
-  const handleDelete = (id: string) => {
-    removeMessage(id);
-    setSelectedMessage(null);
-    showNotification('Message deleted', 'success');
+  const handleDelete = async (id: string) => {
+    try {
+      // Delete from backend first
+      if (user?.id) {
+        await apiClient.deleteMessage(id, user.id);
+      }
+      // Then remove from local store
+      removeMessage(id);
+      setSelectedMessage(null);
+      showNotification('Message deleted', 'success');
+    } catch (error) {
+      console.error('Failed to delete message:', error);
+      showNotification('Failed to delete message', 'error');
+    }
   };
 
   const handleMarkAsRead = (id: string) => {
@@ -84,15 +113,26 @@ export const InboxPage: React.FC = () => {
     if (!selectedMessage || !user?.id) return;
 
     try {
+      // Look up sender's actual name
+      let senderActualName = selectedMessage.senderName;
+      if (selectedMessage.senderId) {
+        const sender = allUsers.find(u => u.id === selectedMessage.senderId);
+        if (sender) {
+          senderActualName = `${sender.first_name} ${sender.last_name}`;
+        }
+      }
+
       const messageData = {
         recipientType: selectedMessage.senderRole as any,
         recipientId: selectedMessage.senderId,
+        recipientName: senderActualName,
+        recipientRole: selectedMessage.senderRole,
         subject: selectedMessage.subject.startsWith('Re:') ? selectedMessage.subject : `Re: ${selectedMessage.subject}`,
         content: replyData.content,
       };
 
       await AppDataSync.sendMessageViaAPI(messageData, user.id);
-      showNotification(`Reply sent to ${selectedMessage.senderName}`, 'success');
+      showNotification(`Reply sent to ${senderActualName}`, 'success');
       setReplyingToMessageId(null);
       setReplyData({ subject: '', content: '' });
     } catch (err: any) {
@@ -118,14 +158,49 @@ export const InboxPage: React.FC = () => {
     }
 
     try {
+      // Get recipient name and role based on recipient type
+      let recipientName = '';
+      let recipientRole = '';
+      
+      if (composeData.recipientType === 'specific_person') {
+        const recipient = allUsers.find(u => u.id === composeData.recipientId);
+        recipientName = recipient ? `${recipient.first_name} ${recipient.last_name}` : '';
+        recipientRole = recipient?.role || '';
+      } else {
+        // For role-based sends (admin, staff, etc.)
+        recipientRole = composeData.recipientType;
+        if (composeData.recipientType === 'all_users') {
+          recipientName = 'All Users';
+          recipientRole = 'user';
+        } else if (composeData.recipientType === 'all_members') {
+          recipientName = 'All Members';
+          recipientRole = 'member';
+        } else if (composeData.recipientType === 'all_both') {
+          recipientName = 'All Users & Members';
+          recipientRole = 'all_both';
+        } else {
+          // For single roles like 'admin', 'staff'
+          recipientName = '';
+          recipientRole = composeData.recipientType;
+        }
+      }
+
       const messageData = {
         recipientType: composeData.recipientType,
         recipientId: composeData.recipientId,
+        recipientName: recipientName,
+        recipientRole: recipientRole,
         subject: composeData.subject,
         content: composeData.content,
       };
 
       await AppDataSync.sendMessageViaAPI(messageData, user.id);
+      
+      // Refresh messages immediately after sending
+      setTimeout(() => {
+        AppDataSync.loadMessagesFromAPI(user.id, 'inbox');
+        AppDataSync.loadMessagesFromAPI(user.id, 'sent');
+      }, 500);
       
       // Determine recipient count for feedback
       let recipientCount = 1;
@@ -139,8 +214,7 @@ export const InboxPage: React.FC = () => {
         recipientCount = allUsers.filter(u => u.role === 'user' || u.role === 'member').length;
         showNotification(`Message sent to ${recipientCount} users and members`, 'success');
       } else if (composeData.recipientType === 'specific_person') {
-        const recipient = allUsers.find(u => u.id === composeData.recipientId);
-        showNotification(`Message sent to ${recipient?.first_name} ${recipient?.last_name}`, 'success');
+        showNotification(`Message sent to ${recipientName}`, 'success');
       } else {
         showNotification(`Message sent to ${composeData.recipientType}`, 'success');
       }
@@ -251,7 +325,25 @@ export const InboxPage: React.FC = () => {
                                   : 'text-slate-700'
                               }`}
                             >
-                              {activeTab === 'inbox' ? message.senderName : message.recipientName || message.recipientRole}
+                              {activeTab === 'inbox' 
+                                ? (() => {
+                                    // Try to look up sender's actual name from allUsers
+                                    if (message.senderId) {
+                                      const sender = allUsers.find(u => u.id === message.senderId);
+                                      if (sender) return `${sender.first_name} ${sender.last_name}`;
+                                    }
+                                    // Fallback to senderName
+                                    return message.senderName || 'Unknown';
+                                  })()
+                                : (() => {
+                                    if (message.recipientName) return message.recipientName;
+                                    if (message.recipientId) {
+                                      const recipient = allUsers.find(u => u.id === message.recipientId);
+                                      return recipient ? `${recipient.first_name} ${recipient.last_name}` : message.recipientRole;
+                                    }
+                                    return message.recipientRole || 'Unknown';
+                                  })()
+                              }
                             </p>
                             {message.isFavorite && (
                               <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
@@ -280,16 +372,48 @@ export const InboxPage: React.FC = () => {
                 <div className="mb-6 pb-6 border-b border-slate-200">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <h2 className="text-2xl font-bold text-slate-900 mb-2">
-                        {selectedMessage.subject}
-                      </h2>
-                      <p className="text-slate-600 mb-1">
-                        From: <span className="font-semibold">{selectedMessage.senderName}</span>
-                        <span className="text-xs text-slate-500 ml-2">({selectedMessage.senderRole})</span>
-                      </p>
-                      <p className="text-sm text-slate-500">
-                        {new Date(selectedMessage.timestamp).toLocaleString()}
-                      </p>
+                      {(() => {
+                        // Helper to get recipient/sender name
+                        let displayName = '';
+                        if (activeTab === 'sent') {
+                          if (selectedMessage.recipientName) {
+                            displayName = selectedMessage.recipientName;
+                          } else if (selectedMessage.recipientId) {
+                            const recipient = allUsers.find(u => u.id === selectedMessage.recipientId);
+                            displayName = recipient ? `${recipient.first_name} ${recipient.last_name}` : selectedMessage.recipientRole || 'Unknown';
+                          } else {
+                            displayName = selectedMessage.recipientRole || 'Unknown';
+                          }
+                        } else {
+                          // For inbox - look up sender's actual name
+                          if (selectedMessage.senderId) {
+                            const sender = allUsers.find(u => u.id === selectedMessage.senderId);
+                            if (sender) {
+                              displayName = `${sender.first_name} ${sender.last_name}`;
+                            } else {
+                              displayName = selectedMessage.senderName || 'Unknown';
+                            }
+                          } else {
+                            displayName = selectedMessage.senderName || 'Unknown';
+                          }
+                        }
+                        return (
+                          <>
+                            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                              {selectedMessage.subject}
+                            </h2>
+                            <p className="text-slate-600 mb-1">
+                              {activeTab === 'sent' ? 'To:' : 'From:'} <span className="font-semibold">
+                                {displayName}
+                              </span>
+                              <span className="text-xs text-slate-500 ml-2">({activeTab === 'sent' ? selectedMessage.recipientRole : selectedMessage.senderRole})</span>
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              {new Date(selectedMessage.timestamp).toLocaleString()}
+                            </p>
+                          </>
+                        );
+                      })()}
                     </div>
                     <button
                       onClick={() => toggleFavorite(selectedMessage.id)}
@@ -334,7 +458,15 @@ export const InboxPage: React.FC = () => {
                 {/* Reply Form */}
                 {replyingToMessageId === selectedMessage.id && (
                   <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h3 className="font-semibold text-slate-900 mb-4">Reply to {selectedMessage.senderName}</h3>
+                    <h3 className="font-semibold text-slate-900 mb-4">
+                      Reply to {(() => {
+                        if (selectedMessage.senderId) {
+                          const sender = allUsers.find(u => u.id === selectedMessage.senderId);
+                          if (sender) return `${sender.first_name} ${sender.last_name}`;
+                        }
+                        return selectedMessage.senderName || 'Unknown';
+                      })()}
+                    </h3>
                     <textarea
                       value={replyData.content}
                       onChange={(e) => setReplyData({ ...replyData, content: e.target.value })}

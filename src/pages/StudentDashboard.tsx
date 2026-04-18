@@ -6,6 +6,7 @@ import {
   ShoppingBag,
   ArrowRight,
   Users,
+  Bell,
 } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
@@ -129,6 +130,45 @@ export const StudentDashboard: React.FC = () => {
     },
   ];
 
+  const announcements = [
+    {
+      id: 1,
+      title: 'System Maintenance Scheduled',
+      date: '2026-02-15',
+      author: 'Admin',
+      content:
+        'The UC METC SILMS system will undergo scheduled maintenance on February 15th from 10:00 PM to 12:00 AM. Please plan accordingly.',
+      category: 'Maintenance',
+    },
+    {
+      id: 2,
+      title: 'New Locker Units Available',
+      date: '2026-02-10',
+      author: 'Locker Officer',
+      content:
+        'We are pleased to announce the addition of 50 new locker units to our facility. Members can now request lockers online through the system.',
+      category: 'Services',
+    },
+    {
+      id: 3,
+      title: 'Updated Uniform Inventory',
+      date: '2026-02-05',
+      author: 'Inventory Officer',
+      content:
+        'New maritime uniforms have been added to our inventory. Check out the latest designs in the Sales & Inventory section.',
+      category: 'Inventory',
+    },
+    {
+      id: 4,
+      title: 'Member Registration Now Open',
+      date: '2026-01-28',
+      author: 'Admin',
+      content:
+        'We are now accepting new member registrations. Visit the Members section to learn more about membership benefits.',
+      category: 'Registration',
+    },
+  ];
+
   const recentActivities = [
     {
       id: 1,
@@ -224,35 +264,47 @@ export const StudentDashboard: React.FC = () => {
               </div>
             </div>
 
-            {/* Upcoming Events Section */}
+            {/* Announcements Section */}
             <div className="bg-white/90 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-6">
-                Upcoming Events
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-6 flex items-center gap-2">
+                <Bell size={28} className="text-purple-600" />
+                Announcements
               </h2>
               <div className="space-y-4">
-                {upcomingEvents.map((event) => {
-                  const IconComponent = event.icon;
+                {announcements.slice(0, 3).map((announcement) => {
+                  // Category color mapping
+                  const categoryColors: { [key: string]: string } = {
+                    'Maintenance': 'border-l-orange-500 bg-orange-50/40',
+                    'Services': 'border-l-blue-500 bg-blue-50/40',
+                    'Inventory': 'border-l-green-500 bg-green-50/40',
+                    'Registration': 'border-l-purple-500 bg-purple-50/40',
+                  };
+                  const borderColor = categoryColors[announcement.category] || 'border-l-slate-500 bg-slate-50/40';
+                  
                   return (
                     <div
-                      key={event.id}
-                      className={`border-l-4 ${event.color} bg-gradient-to-r from-white/50 to-white/30 rounded-lg p-5 hover:from-white/70 hover:to-white/50 transition-all duration-300 group cursor-pointer`}
+                      key={announcement.id}
+                      className={`border-l-4 ${borderColor} rounded-lg p-5 hover:shadow-md transition-all duration-300 group cursor-pointer`}
                     >
                       <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-start space-x-4 flex-1">
-                          <div className="p-2 bg-gradient-to-br from-purple-500/20 to-green-500/20 rounded-lg mt-1">
-                            <IconComponent size={20} className="text-purple-600" />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="px-2 py-1 text-xs font-semibold text-purple-600 bg-purple-100 rounded-full">
+                              {announcement.category}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {new Date(announcement.date).toLocaleDateString()}
+                            </span>
                           </div>
-                          <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-slate-900 group-hover:text-purple-600 transition-colors">
-                              {event.title}
-                            </h3>
-                            <p className="text-sm text-slate-600 mt-1">{event.description}</p>
-                          </div>
+                          <h3 className="text-lg font-semibold text-slate-900 group-hover:text-purple-600 transition-colors">
+                            {announcement.title}
+                          </h3>
                         </div>
                       </div>
-                      <div className="flex items-center space-x-2 text-sm text-purple-600 font-medium ml-12">
-                        <Calendar size={14} />
-                        <span>{event.date}</span>
+                      <p className="text-sm text-slate-600 line-clamp-2 mb-2">{announcement.content}</p>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-slate-500">by {announcement.author}</span>
+                        <ArrowRight size={16} className="text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </div>
                   );

@@ -101,7 +101,7 @@ export const ForgotPasswordPage: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen flex items-center justify-center p-4 relative animate-slide-in-right"
+      className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
         backgroundImage: 'url(/src/assets/Background2.jpeg)',
         backgroundSize: 'cover',

@@ -48,6 +48,16 @@ export const BillingPage: React.FC = () => {
     return salesTotal + rentalTotal;
   };
 
+  // Get recent completed/paid orders sorted by date (most recent first)
+  const recentCompletedOrders = sales
+    .filter(s => s.status === 'completed')
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at || a.createdAt || 0).getTime();
+      const dateB = new Date(b.created_at || b.createdAt || 0).getTime();
+      return dateB - dateA; // Most recent first
+    })
+    .slice(0, 10);
+
   const revenueBreakdown = [
     {
       name: 'Sales',
@@ -57,14 +67,12 @@ export const BillingPage: React.FC = () => {
           const amount = parseFloat(String(s.total_amount || s.totalAmount || 0));
           return sum + (isNaN(amount) ? 0 : amount);
         }, 0),
-      icon: '📦',
       color: 'bg-blue-50',
       borderColor: 'border-blue-200',
     },
     {
       name: 'Locker Rentals',
       amount: lockerRentals.reduce((sum, r) => sum + (r.rentalFee || 0), 0),
-      icon: '🔒',
       color: 'bg-green-50',
       borderColor: 'border-green-200',
     },
@@ -104,10 +112,7 @@ export const BillingPage: React.FC = () => {
               key={idx}
               className={`${item.color} border ${item.borderColor} rounded-xl p-6`}
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="text-3xl">{item.icon}</div>
-                <p className="text-slate-600 font-semibold text-sm">{item.name}</p>
-              </div>
+              <p className="text-slate-600 font-semibold text-sm mb-4">{item.name}</p>
               <p className="text-2xl font-bold text-slate-900">
                 ₱{item.amount.toLocaleString()}
               </p>
@@ -123,23 +128,31 @@ export const BillingPage: React.FC = () => {
               <CreditCard size={20} />
               <span>Recent Sales</span>
             </h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {sales.filter(s => s.status === 'completed').slice(-10).map((sale) => (
-                <div
-                  key={sale.id}
-                  className="flex justify-between items-center pb-2 border-b border-slate-100 last:border-0"
-                >
-                  <div className="flex-1">
-                    <p className="font-semibold text-slate-900">
-                      {sale.first_name} {sale.last_name}
-                    </p>
-                    <p className="text-xs text-slate-500">{sale.receipt_no || sale.receiptNo}</p>
+            <div className="space-y-3 max-h-64 overflow-y-auto">
+              {recentCompletedOrders.length > 0 ? (
+                recentCompletedOrders.map((sale) => (
+                  <div
+                    key={sale.id}
+                    className="flex items-center justify-between p-3 hover:bg-slate-50 rounded-lg transition-colors border border-slate-100 hover:border-blue-300"
+                  >
+                    <div className="flex-1">
+                      <p className="text-sm text-slate-800 font-semibold">
+                        {sale.first_name} {sale.last_name}
+                      </p>
+                      <div className="flex items-center gap-2 text-xs text-slate-500">
+                        <span>{sale.receipt_no || sale.receiptNo}</span>
+                        <span>•</span>
+                        <span>{new Date(sale.created_at || sale.createdAt).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    <span className="font-bold text-green-600 ml-2 whitespace-nowrap">
+                      ₱{parseFloat(String(sale.total_amount || sale.totalAmount || 0)).toLocaleString()}
+                    </span>
                   </div>
-                  <p className="font-bold text-slate-900 ml-2">
-                    ₱{((sale.total_amount || sale.totalAmount) || 0).toLocaleString()}
-                  </p>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-slate-500">No paid sales yet</p>
+              )}
             </div>
           </div>
 

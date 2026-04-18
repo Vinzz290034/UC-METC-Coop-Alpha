@@ -15,6 +15,7 @@ export const ReportsPage: React.FC = () => {
 
   // Fetch data directly from database
   const [sales, setSales] = useState<any[]>([]);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -36,10 +37,24 @@ export const ReportsPage: React.FC = () => {
       }
     };
 
+    const fetchUsers = async () => {
+      try {
+        const response = await apiClient.getUsers();
+        const users = response?.users || [];
+        setAllUsers(users);
+      } catch (error) {
+        console.error('Failed to load users:', error);
+      }
+    };
+
     fetchOrders();
+    fetchUsers();
 
     // Poll for updates every 5 seconds
-    const interval = setInterval(fetchOrders, 5000);
+    const interval = setInterval(() => {
+      fetchOrders();
+      fetchUsers();
+    }, 5000);
     return () => clearInterval(interval);
   }, [user?.id, user?.role]);
 
@@ -342,39 +357,116 @@ export const ReportsPage: React.FC = () => {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
-                      <tr className="border-b-2 border-slate-300">
-                        <th className="text-left py-2 px-4 font-semibold">
+                      <tr className="border-b-2 border-slate-300 bg-slate-50">
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
                           Receipt
                         </th>
-                        <th className="text-left py-2 px-4 font-semibold">
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
+                          Customer Name
+                        </th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
+                          Product
+                        </th>
+                        <th className="text-center py-4 px-6 font-semibold text-slate-900">
+                          Quantity
+                        </th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
                           Amount
                         </th>
-                        <th className="text-left py-2 px-4 font-semibold">
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
                           Payment
                         </th>
-                        <th className="text-left py-2 px-4 font-semibold">
-                          Date
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
+                          Timestamp
+                        </th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
+                          Course
+                        </th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">
+                          Year
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {sales.map((sale) => (
-                        <tr
-                          key={sale?.id || Math.random()}
-                          className="border-b border-slate-200 hover:bg-slate-50"
-                        >
-                          <td className="py-2 px-4 font-mono">{sale?.receipt_no || sale?.receiptNo || 'N/A'}</td>
-                          <td className="py-2 px-4">
-                            ₱{String(Number(sale?.total_amount || sale?.totalAmount || 0).toFixed(2))}
-                          </td>
-                          <td className="py-2 px-4">
-                            {(sale?.payment_method || sale?.paymentMethod || 'UNKNOWN').toUpperCase()}
-                          </td>
-                          <td className="py-2 px-4">
-                            {sale?.created_at || sale?.createdAt ? new Date(sale?.created_at || sale?.createdAt).toLocaleDateString() : 'N/A'}
-                          </td>
-                        </tr>
-                      ))}
+                      {sales.map((sale) => {
+                        // Look up user data by user_id to get course and year
+                        const userData = allUsers.find(u => u.id === sale?.user_id);
+                        const course = userData?.course || 'N/A';
+                        const year = userData?.year || 'N/A';
+                        
+                        // Get the items array from the sale
+                        const items = sale?.items || [];
+                        
+                        // If there are items, render one row per item
+                        if (items.length > 0) {
+                          return items.map((item: any, itemIdx: number) => (
+                            <tr
+                              key={`${sale?.id}-${itemIdx}`}
+                              className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                            >
+                              <td className="py-4 px-6 font-mono text-slate-900">{sale?.receipt_no || sale?.receiptNo || 'N/A'}</td>
+                              <td className="py-4 px-6 text-slate-900">
+                                {sale?.first_name || sale?.firstName ? `${sale?.first_name || sale?.firstName} ${sale?.last_name || sale?.lastName || ''}`.trim() : 'N/A'}
+                              </td>
+                              <td className="py-4 px-6 text-slate-900">
+                                {item?.product_name || item?.productName || 'Unknown Product'}
+                              </td>
+                              <td className="py-4 px-6 text-center text-slate-900">
+                                {item?.quantity || 0}
+                              </td>
+                              <td className="py-4 px-6 font-semibold text-green-700">
+                                ₱{String(Number(item?.subtotal || 0).toFixed(2))}
+                              </td>
+                              <td className="py-4 px-6 text-slate-900">
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                  {(sale?.payment_method || sale?.paymentMethod || 'UNKNOWN').toUpperCase()}
+                                </span>
+                              </td>
+                              <td className="py-4 px-6 text-slate-700 text-xs">
+                                {sale?.created_at || sale?.createdAt ? new Date(sale?.created_at || sale?.createdAt).toLocaleString() : 'N/A'}
+                              </td>
+                              <td className="py-4 px-6 text-slate-900">
+                                {course}
+                              </td>
+                              <td className="py-4 px-6 text-slate-900">
+                                {year}
+                              </td>
+                            </tr>
+                          ));
+                        }
+                        
+                        // Fallback: if no items, show one row with total amount
+                        return (
+                          <tr
+                            key={sale?.id || Math.random()}
+                            className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                          >
+                            <td className="py-4 px-6 font-mono text-slate-900">{sale?.receipt_no || sale?.receiptNo || 'N/A'}</td>
+                            <td className="py-4 px-6 text-slate-900">
+                              {sale?.first_name || sale?.firstName ? `${sale?.first_name || sale?.firstName} ${sale?.last_name || sale?.lastName || ''}`.trim() : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-slate-500">Multiple Items</td>
+                            <td className="py-4 px-6 text-center text-slate-500">-</td>
+                            <td className="py-4 px-6 font-semibold text-green-700">
+                              ₱{String(Number(sale?.total_amount || sale?.totalAmount || 0).toFixed(2))}
+                            </td>
+                            <td className="py-4 px-6">
+                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                {(sale?.payment_method || sale?.paymentMethod || 'UNKNOWN').toUpperCase()}
+                              </span>
+                            </td>
+                            <td className="py-4 px-6 text-slate-700 text-xs">
+                              {sale?.created_at || sale?.createdAt ? new Date(sale?.created_at || sale?.createdAt).toLocaleString() : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-slate-900">
+                              {course}
+                            </td>
+                            <td className="py-4 px-6 text-slate-900">
+                              {year}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

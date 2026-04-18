@@ -191,7 +191,14 @@ export class AppDataSync {
         folder: msg.folder,
         status: msg.status,
       }));
-      useAppStore.setState({ messages: transformedMessages });
+      
+      // Merge with existing messages - remove old messages from this folder and add new ones
+      useAppStore.setState(state => ({
+        messages: [
+          ...state.messages.filter(m => m.folder !== folder),
+          ...transformedMessages
+        ]
+      }));
       return transformedMessages;
     } catch (error) {
       console.error('Failed to load messages from API:', error);
