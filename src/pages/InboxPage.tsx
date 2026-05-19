@@ -17,8 +17,8 @@ interface SystemUser {
 
 export const InboxPage: React.FC = () => {
   const { user } = useAuth();
-  const { messages, addMessage, removeMessage, markAsRead, toggleFavorite } = useAppStore();
-  const { showNotification } = useUIStore();
+  const { messages, removeMessage, markAsRead, toggleFavorite } = useAppStore();
+  const { showNotification, setSidebarOpen } = useUIStore();
   const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
   const [showCompose, setShowCompose] = useState(false);
   const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
@@ -34,17 +34,20 @@ export const InboxPage: React.FC = () => {
 
   // Load all users on mount for name lookups
   useEffect(() => {
+    const loadUsers = async () => {
+      try {
+        const response = (await apiClient.getUsersForMessaging()) as { users: SystemUser[] };
+        const users = response.users || [];
+        setAllUsers(users);
+      } catch (error) {
+        showNotification('Failed to load users', 'error');
+      }
+    };
+
     if (allUsers.length === 0) {
-      apiClient.getUsers()
-        .then((response: any) => {
-          const users = response.users || [];
-          setAllUsers(users);
-        })
-        .catch((error) => {
-          console.error('Failed to fetch users:', error);
-        });
+      loadUsers();
     }
-  }, []);
+  }, [allUsers.length, showNotification]);
 
   // Load messages from API on mount
   useEffect(() => {
@@ -95,13 +98,22 @@ export const InboxPage: React.FC = () => {
       setSelectedMessage(null);
       showNotification('Message deleted', 'success');
     } catch (error) {
-      console.error('Failed to delete message:', error);
       showNotification('Failed to delete message', 'error');
     }
   };
 
-  const handleMarkAsRead = (id: string) => {
-    markAsRead(id);
+  const handleMarkAsRead = async (id: string) => {
+    try {
+      // Update backend first
+      if (user?.id) {
+        await apiClient.markMessageAsRead(id, user.id);
+      }
+      // Then update local state
+      markAsRead(id);
+    } catch {
+      // Still update local state even if API call fails
+      markAsRead(id);
+    }
   };
 
   const handleReply = async () => {
@@ -246,22 +258,52 @@ export const InboxPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 p-6 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-4xl font-bold text-black">Inbox</h1>
+        <div className="mb-8">
+          {/* Desktop Header */}
+          <div className="hidden lg:flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-4xl font-bold text-black">Inbox</h1>
+              </div>
+              <p className="text-black">
+                {activeTab === 'inbox' ? `${unreadCount} unread messages` : `${sentMessages.length} sent messages`}
+              </p>
             </div>
-            <p className="text-black">
+            <button
+              onClick={() => setShowCompose(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold hover:bg-white/90 transition-all hover:scale-105 shadow-lg"
+            >
+              <Plus size={20} />
+              Compose
+            </button>
+          </div>
+
+          {/* Mobile Header */}
+          <div className="lg:hidden">
+            <div className="flex items-center gap-2 mb-2">
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-bold text-black">Inbox</h1>
+            </div>
+            <p className="text-black text-sm mb-3">
               {activeTab === 'inbox' ? `${unreadCount} unread messages` : `${sentMessages.length} sent messages`}
             </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowCompose(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold hover:bg-white/90 transition-all shadow-lg text-sm"
+              >
+                <Plus size={18} />
+                Compose
+              </button>
+            </div>
           </div>
-          <button
-            onClick={() => setShowCompose(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold hover:bg-white/90 transition-all hover:scale-105 shadow-lg"
-          >
-            <Plus size={20} />
-            Compose
-          </button>
         </div>
 
         {/* Tabs */}
@@ -578,14 +620,23 @@ export const InboxPage: React.FC = () => {
                     className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
                   >
                     <option value="">-- Select a person --</option>
-                    {allUsers
-                      .filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff') // Filter out current user, admin, and staff
-                      .map((u) => (
+                    {(() => {
+                      const filteredUsers = allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff');
+                      console.log('[InboxPage] All users:', allUsers.length, allUsers);
+                      console.log('[InboxPage] Current user:', user?.id, user?.role);
+                      console.log('[InboxPage] Filtered users for dropdown:', filteredUsers.length, filteredUsers);
+                      return filteredUsers.map((u) => (
                         <option key={u.id} value={u.id}>
                           {u.first_name} {u.last_name}
                         </option>
-                      ))}
+                      ));
+                    })()}
                   </select>
+                  {allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff').length === 0 && (
+                    <p className="text-sm text-red-600 mt-2">
+                      No users or members available. Please create user accounts first.
+                    </p>
+                  )}
                 </div>
               )}
 

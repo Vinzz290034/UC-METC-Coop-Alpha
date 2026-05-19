@@ -1,9 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
-console.log('%c=== API CONFIGURATION ===', 'color: blue; font-weight: bold;');
-console.log('VITE_API_URL env:', import.meta.env.VITE_API_URL);
-console.log('API_BASE_URL being used:', API_BASE_URL);
-
 export interface ApiError {
   message: string;
   status?: number;
@@ -34,15 +30,6 @@ class ApiClient {
     const token = this.getAuthToken();
     if (token) {
       (headers as any)['Authorization'] = `Bearer ${token}`;
-      
-      // Log token info for debugging
-      console.log(`[API ${options.method || 'GET'} ${endpoint}] Token present:`, {
-        tokenLength: token.length,
-        tokenPrefix: token.substring(0, 30) + '...',
-        timestamp: new Date().toISOString()
-      });
-    } else {
-      console.warn(`[API ${options.method || 'GET'} ${endpoint}] NO TOKEN FOUND`);
     }
 
     // Add user ID if provided
@@ -63,19 +50,27 @@ class ApiClient {
           const error = await response.json();
           errorMessage = error.message || error.error || errorMessage;
           errorDetail = error;
-          console.error(`API Error [${endpoint}]:`, { status: response.status, error });
         } catch (e) {
-          console.error(`API Error [${endpoint}]: Could not parse error response`, response);
+          // Could not parse error response
         }
         
-        // Log detailed token error info
+        // Handle auth errors
         if (response.status === 401) {
-          console.error('[AUTH ERROR] Token rejected by server:', {
-            errorMessage,
-            errorDetail,
-            endpoint,
-            tokenLength: token?.length || 0
-          });
+          // Token was rejected by server
+        }
+
+        // Handle 403 - Account deactivated
+        if (response.status === 403 && errorDetail.accountStatus === 'inactive') {
+          // Clear local storage and reload to login page
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+          sessionStorage.clear();
+          window.location.href = '/login?deactivated=true';
+          throw {
+            message: errorMessage,
+            status: response.status,
+            detail: errorDetail
+          };
         }
         
         throw {
@@ -87,7 +82,6 @@ class ApiClient {
 
       return await response.json();
     } catch (err: any) {
-      console.error(`API Error [${endpoint}]:`, err);
       throw err;
     }
   }
@@ -120,10 +114,34 @@ class ApiClient {
     });
   }
 
+  async forgotPassword(email: string) {
+    return this.request('/auth/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
+  async verifyResetCode(email: string, code: string) {
+    return this.request('/auth/verify-reset-code', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  async resetPassword(email: string, code: string, newPassword: string) {
+    return this.request('/auth/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ email, code, newPassword }),
+    });
+  }
+
   // Users endpoints
   async getUsers() {
-    // Temporarily use test endpoint (no auth required) for debugging
-    return this.request('/users/test-get-all');
+    return this.request('/users');
+  }
+
+  async getUsersForMessaging() {
+    return this.request('/users/for-messaging/list');
   }
 
   async getUser(id: string) {
@@ -155,6 +173,12 @@ class ApiClient {
 
   async freezeMember(id: string) {
     return this.request(`/users/${id}/freeze`, {
+      method: 'POST',
+    });
+  }
+
+  async reactivateUser(id: string) {
+    return this.request(`/users/${id}/reactivate`, {
       method: 'POST',
     });
   }
@@ -256,8 +280,11 @@ class ApiClient {
 
   // Membership Requests endpoints
   async getPendingMembershipRequests() {
-    // Temporarily use test endpoint (no auth required) for debugging
-    return this.request('/users/membership-requests/pending-test');
+    return this.request('/users/membership-requests/pending');
+  }
+
+  async checkMyMembershipStatus() {
+    return this.request('/users/membership-requests/my-status');
   }
 
   async createMembershipRequest(data: {
@@ -273,16 +300,14 @@ class ApiClient {
   }
 
   async approveMembershipRequest(id: string) {
-    // Temporarily use test endpoint (no auth required) for debugging
-    return this.request(`/users/membership-requests/${id}/approve-test`, {
+    return this.request(`/users/membership-requests/${id}/approve`, {
       method: 'PUT',
       body: JSON.stringify({}),
     });
   }
 
   async rejectMembershipRequest(id: string) {
-    // Temporarily use test endpoint (no auth required) for debugging
-    return this.request(`/users/membership-requests/${id}/reject-test`, {
+    return this.request(`/users/membership-requests/${id}/reject`, {
       method: 'PUT',
       body: JSON.stringify({}),
     });
@@ -415,6 +440,121 @@ class ApiClient {
     return this.request(`/messages/${messageId}`, {
       method: 'DELETE',
     }, userId);
+  }
+
+  // Products endpoints
+  async getProducts() {
+    return this.request('/products');
+  }
+
+  async createProduct(productData: any) {
+    return this.request('/products', {
+      method: 'POST',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async updateProduct(productId: string, productData: any) {
+    return this.request(`/products/${productId}`, {
+      method: 'PUT',
+      body: JSON.stringify(productData),
+    });
+  }
+
+  async deleteProduct(productId: string) {
+    return this.request(`/products/${productId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  // Landing page stats (public endpoint - no auth required)
+  async getLandingStats() {
+    return this.request('/public/stats');
+  }
+
+  // Announcements endpoints
+  async getPublicAnnouncements() {
+    return this.request('/announcements/public');
+  }
+
+  async getAnnouncements(userId: string) {
+    return this.request('/announcements', {}, userId);
+  }
+
+  async getAnnouncement(announcementId: string) {
+    return this.request(`/announcements/${announcementId}`);
+  }
+
+  async createAnnouncement(announcementData: any, userId: string) {
+    return this.request('/announcements', {
+      method: 'POST',
+      body: JSON.stringify(announcementData),
+    }, userId);
+  }
+
+  async updateAnnouncement(announcementId: string, announcementData: any, userId: string) {
+    return this.request(`/announcements/${announcementId}`, {
+      method: 'PUT',
+      body: JSON.stringify(announcementData),
+    }, userId);
+  }
+
+  async deleteAnnouncement(announcementId: string, userId: string) {
+    return this.request(`/announcements/${announcementId}`, {
+      method: 'DELETE',
+    }, userId);
+  }
+
+  // Stock Intake methods
+  async getStockIntakeRecords(userId: string) {
+    return this.request('/stock-intake', {
+      method: 'GET',
+    }, userId);
+  }
+
+  async createStockIntakeRecord(recordData: any, userId: string) {
+    return this.request('/stock-intake', {
+      method: 'POST',
+      body: JSON.stringify(recordData),
+    }, userId);
+  }
+
+  async deleteStockIntakeRecord(recordId: string, userId: string) {
+    return this.request(`/stock-intake/${recordId}`, {
+      method: 'DELETE',
+    }, userId);
+  }
+
+  // Notification methods
+  async getNotifications(limit: number = 20, offset: number = 0, unreadOnly: boolean = false) {
+    const params = new URLSearchParams({
+      limit: limit.toString(),
+      offset: offset.toString(),
+      unreadOnly: unreadOnly.toString(),
+    });
+    return this.request(`/notifications?${params.toString()}`);
+  }
+
+  async getUnreadNotificationCount() {
+    return this.request('/notifications/unread-count');
+  }
+
+  async markNotificationAsRead(notificationId: string) {
+    return this.request(`/notifications/${notificationId}/read`, {
+      method: 'PUT',
+    });
+  }
+
+  async markAllNotificationsAsRead() {
+    return this.request('/notifications/mark-all-read', {
+      method: 'PUT',
+    });
+  }
+
+  async deleteNotification(notificationId: string) {
+    return this.request(`/notifications/${notificationId}`, {
+      method: 'DELETE',
+    });
   }
 }
 

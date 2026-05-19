@@ -1,9 +1,10 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ToastContainer } from './components/Toast';
+import { useEffect, useRef } from 'react';
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -12,13 +13,12 @@ import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { LearnMorePage } from './pages/LearnMorePage';
 import { DashboardPage } from './pages/DashboardPage';
 import { LockerManagementPage } from './pages/LockerManagementPage';
-import { SalesInventoryPage } from './pages/SalesInventoryPage';
-import { KeyDuplicationPage } from './pages/KeyDuplicationPage';
+import { InventoryPage } from './pages/InventoryPage';
+import { SalesPage } from './pages/SalesPage';
 import { MembersPage } from './pages/MembersPage';
-import { BillingPage } from './pages/BillingPage';
 import { ReportsPage } from './pages/ReportsPage';
-import { DTRPage } from './pages/DTRPage';
 import { AnnouncementsPage } from './pages/AnnouncementsPage';
+import { AnnouncementsManagementPage } from './pages/AnnouncementsManagementPage';
 import { CommunityPage } from './pages/CommunityPage';
 import { AccountSettingsPage } from './pages/AccountSettingsPage';
 import { MerchandisePage } from './pages/MerchandisePage';
@@ -26,17 +26,51 @@ import { CartPage } from './pages/CartPage';
 import { LockerPage } from './pages/LockerPage';
 import { TransactionPage } from './pages/TransactionPage';
 import { BillingHistoryPage } from './pages/BillingHistoryPage';
-import { EventsPage } from './pages/EventsPage';
 import { InboxPage } from './pages/InboxPage';
+import { UserManagementPage } from './pages/UserManagementPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 
 function AppContent() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isValidating } = useAuth();
+  const navigate = useNavigate();
+  const prevAuthRef = useRef<boolean | null>(null);
+
+  // Track authentication state changes and redirect on logout
+  useEffect(() => {
+    console.log('[APP] Auth state:', { isAuthenticated, isValidating, prevAuth: prevAuthRef.current });
+    
+    // Skip during initial validation
+    if (isValidating) {
+      return;
+    }
+
+    // Initialize the ref on first render after validation
+    if (prevAuthRef.current === null) {
+      console.log('[APP] Initializing prevAuthRef to:', isAuthenticated);
+      prevAuthRef.current = isAuthenticated;
+      return;
+    }
+
+    // Detect logout: was authenticated, now not authenticated
+    if (prevAuthRef.current === true && isAuthenticated === false) {
+      console.log('[APP] Logout detected! Navigating to landing page');
+      navigate('/', { replace: true });
+    }
+
+    // Update ref for next comparison
+    prevAuthRef.current = isAuthenticated;
+  }, [isAuthenticated, isValidating, navigate]);
+
+  // Show blank screen while validating to prevent any cached state from flashing
+  if (isValidating) {
+    return <div className="w-full h-screen bg-white flex items-center justify-center" />;
+  }
 
   return (
     <>
       <ScrollToTop />
       {!isAuthenticated ? (
-        <Routes>
+        <Routes key="unauthenticated">
           <Route path="/" element={<LandingPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/forgot-password" element={<ForgotPasswordPage />} />
@@ -46,7 +80,7 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
-        <Layout>
+        <Layout key="authenticated">
           <Routes>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/merchandise" element={<MerchandisePage />} />
@@ -54,15 +88,15 @@ function AppContent() {
             <Route path="/locker" element={<LockerPage />} />
             <Route path="/transaction" element={<TransactionPage />} />
             <Route path="/billing-history" element={<BillingHistoryPage />} />
-            <Route path="/events" element={<EventsPage />} />
             <Route path="/inbox" element={<InboxPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/lockers" element={<LockerManagementPage />} />
-            <Route path="/sales" element={<SalesInventoryPage />} />
-            <Route path="/keys" element={<KeyDuplicationPage />} />
+            <Route path="/inventory" element={<InventoryPage />} />
+            <Route path="/sales" element={<SalesPage />} />
             <Route path="/members" element={<MembersPage />} />
-            <Route path="/billing" element={<BillingPage />} />
+            <Route path="/user-management" element={<UserManagementPage />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/dtr" element={<DTRPage />} />
+            <Route path="/announcements-management" element={<AnnouncementsManagementPage />} />
             <Route path="/account-settings" element={<AccountSettingsPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />

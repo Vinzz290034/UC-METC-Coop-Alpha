@@ -7,7 +7,6 @@ import type {
   KeyDuplication,
   LockerReplacement,
   Sale,
-  DTRRecord,
   CartItem,
   Message,
 } from '../types';
@@ -15,36 +14,53 @@ import type {
 // Default products based on ITEM_INVENTORY
 const createDefaultProducts = (): Product[] => {
   const defaultItems = [
-    { name: 'Type A & B Uniform', sku: 'UNI-001', price: 3150, stock: 45, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.' },
+    { name: 'Type A & B Uniform', sku: 'UNI-001', price: 3150, stock: 45, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [
+      { id: 'course', label: 'Course', choices: ['SHS (₱2,700)', 'BSMT (₱2,950)', 'BSMARE (₱2,950)'] }
+    ] },
     { name: 'Type C Uniform', sku: 'UNI-003', price: 400, stock: 28, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size', options: [
+      { id: 'course', label: 'Course', choices: ['SHS', 'BSMT', 'BSMARE'] },
       { id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL', '2XL', '3XL', '4XL'] }
     ] },
-    { name: 'Lanyard', sku: 'ACC-001', price: 100, stock: 100, category: 'accessory', available: true, image: '🔗' },
-    { name: 'ID Case', sku: 'ACC-002', price: 0, stock: 0, category: 'accessory', available: false, image: '📦' },
-    { name: 'Handbag', sku: 'ACC-003', price: 0, stock: 0, category: 'accessory', available: false, image: '👜' },
+    { name: 'Lanyard', sku: 'ACC-001', price: 100, stock: 100, category: 'accessory', available: true, image: '🔗', options: [
+      { id: 'course', label: 'Course', choices: ['SHS', 'BSMT', 'BSMARE', 'HM', 'TOURISM'] }
+    ] },
+    { name: 'ID Case', sku: 'ACC-002', price: 15, stock: 50, category: 'accessory', available: true, image: '📦' },
+    { name: 'Handbag', sku: 'ACC-003', price: 600, stock: 134, category: 'accessory', available: true, image: '👜' },
     { name: 'Hard Bound', sku: 'EQUIP-001', price: 300, stock: 35, category: 'equipment', available: true, image: '📕', note: 'Note: Make sure the pages are printed and in order to ensure smooth transaction.' },
     { name: 'Safety Shoes', sku: 'EQUIP-002', price: 550, stock: 28, category: 'equipment', available: true, image: '👟', note: 'Note: Please proceed to the Coop office for sizing or if you are not sure of your shoe size.', options: [{ id: 'size', label: 'Size', choices: ['39', '40', '41', '42', '43', '44', '45'] }] },
-    { name: 'Goggles', sku: 'EQUIP-003', price: 100, stock: 40, category: 'equipment', available: true, image: '👁️' },
-    { name: 'Cover All', sku: 'EQUIP-004', price: 1300, stock: 25, category: 'equipment', available: true, image: '🦺', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL'] }] },
+    { name: 'Safety Goggles', sku: 'EQUIP-003', price: 100, stock: 40, category: 'equipment', available: true, image: '👁️' },
+    { name: 'Cover All', sku: 'EQUIP-004', price: 1300, stock: 25, category: 'equipment', available: true, image: '🦺', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [
+      { id: 'color', label: 'Color', choices: ['Orange', 'Blue'] },
+      { id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL'] }
+    ] },
     { name: 'Gloves', sku: 'EQUIP-005', price: 50, stock: 50, category: 'equipment', available: true, image: '🧤' },
     { name: 'Hard Hat', sku: 'EQUIP-006', price: 150, stock: 20, category: 'equipment', available: true, image: '⛑️', options: [{ id: 'color', label: 'Color', choices: ['Yellow (₱150)', 'Blue (₱300)'] }] },
     { name: 'PE Tshirt', sku: 'UNI-004', price: 190, stock: 40, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱190)', 'Medium (₱190)', 'Large (₱190)', 'XL (₱200)', '2XL (₱210)', '3XL (₱220)', '4XL (₱230)', '5XL (₱240)'] }] },
     { name: 'PE Pants', sku: 'UNI-005', price: 260, stock: 35, category: 'uniform', available: true, image: '👖', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱260)', 'Medium (₱260)', 'Large (₱260)', 'XL (₱280)', '2XL (₱280)', '3XL (₱320)'] }] },
-    { name: 'Pershing Cap', sku: 'ACC-004', price: 350, stock: 30, category: 'accessory', available: true, image: '🧢', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['5 (₱350)', '6 (₱350)', '7 (₱350)', '8 (₱350)', '9 (₱350)'] }] },
+    { name: 'Pershing Cap', sku: 'ACC-004', price: 350, stock: 30, category: 'accessory', available: true, image: '🧢', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [
+      { id: 'course', label: 'Course', choices: ['BSMT', 'BSMARE'] },
+      { id: 'size', label: 'Size', choices: ['4 (₱350)', '5 (₱350)', '6 (₱350)', '7 (₱350)', '8 (₱350)', '9 (₱350)'] }
+    ] },
     { name: 'Plotting Sheet', sku: 'SS-001', price: 20, stock: 100, category: 'equipment', available: true, image: '📄' },
-    { name: 'Gala', sku: 'UNI-002', price: 1200, stock: 999, category: 'uniform', available: true, image: '👗', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [{ id: 'bundle', label: 'Bundle', choices: ['Bundle A (₱1,200 / ₱1,150 Member)', 'Bundle B (₱1,700 / ₱1,650 Member)', 'Bundle C (₱2,030 / ₱1,980 Member)', 'Bundle D (₱2,180 / ₱2,130 Member)', 'Bundle E (₱2,710 / ₱2,660 Member)', 'Bundle F (₱2,230 / ₱2,180 Member)', 'Bundle G (₱2,550 / ₱2,500 Member)', 'Bundle H - Girls Only (₱1,980 / ₱1,930 Member)', 'Bundle I - Girls Only (₱1,450 / ₱1,400 Member)'] }] },
+    { name: 'Gala', sku: 'UNI-002', price: 1200, stock: 999, category: 'uniform', available: true, image: '👗', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [
+      { id: 'course', label: 'Course', choices: ['BSMT', 'BSMARE'] },
+      { id: 'bundle', label: 'Bundle', choices: ['Bundle A (₱1,200 / ₱1,150 Member)', 'Bundle B (₱1,700 / ₱1,650 Member)', 'Bundle C (₱2,030 / ₱1,980 Member)', 'Bundle D (₱2,180 / ₱2,130 Member)', 'Bundle E (₱2,710 / ₱2,660 Member)', 'Bundle F (₱2,230 / ₱2,180 Member)', 'Bundle G (₱2,550 / ₱2,500 Member)', 'Bundle H - Girls Only (₱1,980 / ₱1,930 Member)', 'Bundle I - Girls Only (₱1,450 / ₱1,400 Member)'] }
+    ] },
     { name: 'BSNAME Uniform', sku: 'UNI-006', price: 3150, stock: 999, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.' },
-    { name: 'PE Short', sku: 'UNI-007', price: 280, stock: 40, category: 'uniform', available: true, image: '🩳', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱280)', 'Medium (₱280)', 'Large (₱280)', 'XL (₱280)', '2XL (₱280)'] }] },
+    { name: 'PE Short', sku: 'UNI-007', price: 280, stock: 40, category: 'uniform', available: true, image: '🩳', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱280)', 'Medium (₱280)', 'Large (₱280)', 'XL (₱280)', '2XL (₱280)', '3XL (₱280)'] }] },
     { name: 'Buttons', sku: 'ACC-005', price: 15, stock: 100, category: 'accessory', available: true, image: '🔘' },
     { name: 'Anchor Pins', sku: 'ACC-006', price: 30, stock: 100, category: 'accessory', available: true, image: '📍' },
     { name: 'Propeller Pins', sku: 'ACC-007', price: 40, stock: 100, category: 'accessory', available: true, image: '📍' },
-    { name: 'Shoulder Board', sku: 'ACC-008', price: 140, stock: 100, category: 'accessory', available: true, image: '🎖️' },
-    { name: 'Swimming Set', sku: 'UNI-008', price: 320, stock: 40, category: 'uniform', available: true, image: '🩱', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱320)', 'Medium (₱320)', 'Large (₱320)', 'XL (₱320)', '2XL (₱320)'] }] },
+    { name: 'Shoulder Board', sku: 'ACC-008', price: 140, stock: 100, category: 'accessory', available: true, image: '🎖️', options: [
+      { id: 'course', label: 'Course', choices: ['BSMT', 'BSMARE'] }
+    ] },
+    { name: 'Swimming Set', sku: 'UNI-008', price: 320, stock: 40, category: 'uniform', available: true, image: '🩱', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱320)', 'Medium (₱320)', 'Large (₱320)', 'XL (₱320)', '2XL (₱320)', '3XL (₱320)'] }] },
     { name: 'CWTS Shirt', sku: 'UNI-009', price: 250, stock: 40, category: 'uniform', available: true, image: '👕', note: 'Note: Sizes for CWTS Shirt is the same on PE Tshirt.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱250)', 'Medium (₱250)', 'Large (₱250)', 'XL (₱250)', '2XL (₱250)'] }] },
-    { name: 'ROTC Manual', sku: 'EQUIP-007', price: 150, stock: 50, category: 'equipment', available: true, image: '📘' },
+    { name: 'ROTC Manual', sku: 'EQUIP-007', price: 150, stock: 50, category: 'equipment', available: true, image: '📘', options: [{ id: 'part', label: 'Part', choices: ['Part 1 (₱150)', 'Part 2 (₱150)'] }] },
     { name: 'Belt', sku: 'ACC-009', price: 150, stock: 50, category: 'accessory', available: true, image: '🪣', options: [{ id: 'color', label: 'Color', choices: ['Black (₱150)', 'White (₱150)'] }] },
     { name: 'Swimming Cap', sku: 'ACC-010', price: 100, stock: 50, category: 'accessory', available: true, image: '🧢' },
     { name: 'White Shoes', sku: 'EQUIP-008', price: 550, stock: 30, category: 'equipment', available: true, image: '👟', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['4 (₱550)', '5 (₱550)', '6 (₱550)', '7 (₱550)', '8 (₱550)', '9 (₱550)', '10 (₱550)', '11 (₱550)', '12 (₱550)'] }] },
+    { name: 'Rope', sku: 'EQUIP-009', price: 200, stock: 50, category: 'equipment', available: true, image: '🪢' },
   ];
 
   return defaultItems.map((item, index) => ({
@@ -71,7 +87,6 @@ interface AppState {
   keyDuplications: KeyDuplication[];
   lockerReplacements: LockerReplacement[];
   sales: Sale[];
-  dtrRecords: DTRRecord[];
   cart: CartItem[];
   messages: Message[];
 
@@ -118,11 +133,6 @@ interface AppState {
   addSale: (sale: Sale) => void;
   updateSale: (id: string, sale: Partial<Sale>) => void;
 
-  // DTR actions
-  setDTRRecords: (records: DTRRecord[]) => void;
-  addDTRRecord: (record: DTRRecord) => void;
-  updateDTRRecord: (id: string, record: Partial<DTRRecord>) => void;
-
   // Message actions
   addMessage: (message: Message) => void;
   removeMessage: (id: string) => void;
@@ -144,7 +154,6 @@ export const useAppStore = create<AppState>((set) => ({
   keyDuplications: [],
   lockerReplacements: [],
   sales: [],
-  dtrRecords: [],
   cart: [],
   messages: [],
 
@@ -263,16 +272,6 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     })),
 
-  setDTRRecords: (records) => set({ dtrRecords: records }),
-  addDTRRecord: (record) =>
-    set((state) => ({ dtrRecords: [...state.dtrRecords, record] })),
-  updateDTRRecord: (id, updates) =>
-    set((state) => ({
-      dtrRecords: state.dtrRecords.map((r) =>
-        r.id === id ? { ...r, ...updates } : r
-      ),
-    })),
-
   addMessage: (message: Message) =>
     set((state) => ({ messages: [...state.messages, message] })),
 
@@ -315,7 +314,6 @@ export const useAppStore = create<AppState>((set) => ({
       keyDuplications: [],
       lockerReplacements: [],
       sales: [],
-      dtrRecords: [],
       cart: [],
       messages: [],
     }),

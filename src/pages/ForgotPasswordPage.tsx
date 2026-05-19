@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FloatingInput } from '../components/FloatingInput';
+import { apiClient } from '../services/api';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
 import { ChevronLeft, Mail } from 'lucide-react';
@@ -46,19 +47,35 @@ export const ForgotPasswordPage: React.FC = () => {
     setLoading(true);
 
     try {
-      // Simulate sending reset code
       if (!email) {
         setError('Please enter your email address');
         setLoading(false);
         return;
       }
 
-      // In real app, this would send to backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setSuccess('Reset code sent to your email!');
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        setError('Please enter a valid email address');
+        setLoading(false);
+        return;
+      }
+
+      // Call API to send reset code
+      const response = await apiClient.forgotPassword(email) as any;
+      
+      setSuccess('Reset code sent to your email! Please check your inbox.');
+      
+      // Show the reset code in development mode
+      if (response.resetCode) {
+        console.log('Development Mode - Reset Code:', response.resetCode);
+        setSuccess(`Reset code sent to your email! (Dev mode: ${response.resetCode})`);
+      }
+      
       setStep('reset');
-    } catch (err) {
-      setError('Failed to send reset code. Please try again.');
+    } catch (err: any) {
+      console.error('Forgot password error:', err);
+      setError(err?.message || 'Failed to send reset code. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -88,12 +105,14 @@ export const ForgotPasswordPage: React.FC = () => {
         return;
       }
 
-      // In real app, this would reset password via backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Call API to reset password
+      await apiClient.resetPassword(email, resetCode, newPassword);
+      
       setSuccess('Password reset successful! Redirecting to login...');
       setTimeout(() => navigate('/login'), 2000);
-    } catch (err) {
-      setError('Failed to reset password. Please try again.');
+    } catch (err: any) {
+      console.error('Reset password error:', err);
+      setError(err?.message || 'Invalid reset code or failed to reset password. Please try again.');
     } finally {
       setLoading(false);
     }

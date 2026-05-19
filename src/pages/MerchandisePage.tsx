@@ -1,11 +1,116 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { ShoppingBag, ShoppingCart, Filter, X, Eye } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 import { AppDataSync } from '../store/appDataSync';
+import { Z_INDEX } from '../constants/zIndex';
 import type { Product } from '../types';
+// @ts-ignore
+import typeABUniformImage from '../assets/Type A & B.jpeg';
+// @ts-ignore
+import bsnameUniformImage from '../assets/BSNAME Uniform.jpeg';
+// @ts-ignore
+import typeABBSMTImage from '../assets/Type C-BSMT.jpeg';
+// @ts-ignore
+import typeABBSMAREImage from '../assets/Type C-BSMARE.jpeg';
+// @ts-ignore
+import typeCBSMTImage from '../assets/Type C-BSMT.jpeg';
+// @ts-ignore
+import typeCBSMAREImage from '../assets/Type C-BSMARE.jpeg';
+// @ts-ignore
+import typeCSHSImage from '../assets/Type C-SHS.jpeg';
+// @ts-ignore
+import lanyardBSMTImage from '../assets/Lanyard-BSMT.jpeg';
+// @ts-ignore
+import lanyardBSMAREImage from '../assets/Lanyard-BSMARE.jpeg';
+// @ts-ignore
+import lanyardSHSImage from '../assets/Lanyard-SHS.jpeg';
+// @ts-ignore
+import lanyardHMImage from '../assets/Lanyard-HM.jpeg';
+// @ts-ignore
+import lanyardTMImage from '../assets/Lanyard-TM.jpeg';
+// @ts-ignore
+import idCaseImage from '../assets/ID Case.jpeg';
+// @ts-ignore
+import handbagImage from '../assets/Handbag.png';
+// @ts-ignore
+import hardboundImage from '../assets/Hardbound.jpeg';
+// @ts-ignore
+import safetyShoesImage from '../assets/Safety Shoes.jpeg';
+// @ts-ignore
+import coverallImage from '../assets/Coverall.jpeg';
+// @ts-ignore
+import coverallBlueImage from '../assets/Cover All BLUE.jpeg';
+// @ts-ignore
+import glovesImage from '../assets/Gloves.jpeg';
+// @ts-ignore
+import hardhatYellowImage from '../assets/Hardhat-Yellow.jpeg';
+// @ts-ignore
+import hardhatBlueImage from '../assets/Hardhat-Blue.jpeg';
+// @ts-ignore
+import peShirtImage from '../assets/PE Shirt.jpeg';
+// @ts-ignore
+import pePantsImage from '../assets/PE Pants.jpeg';
+// @ts-ignore
+import pershingCapImage from '../assets/Pershing Cap.jpeg';
+// @ts-ignore
+import plottingSheetImage from '../assets/Plotting Sheet.jpeg';
+// @ts-ignore
+import pershingCapBSMAREImage from '../assets/Pershing Cap BSMARE.jpeg';
+// @ts-ignore
+import peShortsImage from '../assets/PE Shorts.jpeg';
+// @ts-ignore
+import buttonsImage from '../assets/Buttons.jpeg';
+// @ts-ignore
+import anchorImage from '../assets/Anchor.jpeg';
+// @ts-ignore
+import propellerImage from '../assets/Propeller.jpeg';
+// @ts-ignore
+import shoulderBoard1Image from '../assets/Shoulder board 1.jpeg';
+// @ts-ignore
+import shoulderBoard2Image from '../assets/Shoulder board 2.jpeg';
+// @ts-ignore
+import swimmingTrunksImage from '../assets/Swimming Trunks.jpeg';
+// @ts-ignore
+import swimmingCapImage from '../assets/Cap.jpeg';
+// @ts-ignore
+import cwtsShirtImage from '../assets/CWTS Shirt.jpeg';
+// @ts-ignore
+import rotcManualImage from '../assets/ROTC Manual.jpeg';
+// @ts-ignore
+import rotcManualPart1Image from '../assets/ROTC Manual Part 1.png';
+// @ts-ignore
+import blackBeltImage from '../assets/Black Belt.jpeg';
+// @ts-ignore
+import whiteBeltImage from '../assets/White Belt.jpeg';
+// @ts-ignore
+import whiteShoesImage from '../assets/White Shoes .jpeg';
+// @ts-ignore
+import safetyGogglesImage from '../assets/Goggles.jpeg';
+// @ts-ignore
+import ropeImage from '../assets/Rope.png';
+// @ts-ignore
+import galaBundleAImage from '../assets/Gala Bundle A.png';
+// @ts-ignore
+import galaBundleBImage from '../assets/Gala Bundle B.png';
+// @ts-ignore
+import galaBundleCImage from '../assets/Gala Bundle C.png';
+// @ts-ignore
+import galaBundleDImage from '../assets/Gala Bundle D.png';
+// @ts-ignore
+import galaBundleEImage from '../assets/Gala Bundle E.png';
+// @ts-ignore
+import galaBundleFImage from '../assets/Gala Bundle F.png';
+// @ts-ignore
+import galaBundleGImage from '../assets/Gala Bundle G.png';
+// @ts-ignore
+import galaBundleHImage from '../assets/Gala Bundle H.png';
+// @ts-ignore
+import galaBundleIImage from '../assets/Gala Bundle I.png';
+
 
 const cartButtonStyles = `
   @keyframes cart-pulse {
@@ -23,25 +128,93 @@ const cartButtonStyles = `
   .cart-animate {
     animation: cart-pulse 0.4s ease-in-out;
   }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-30px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideUp {
+    from {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    to {
+      opacity: 0;
+      transform: translateY(-30px);
+    }
+  }
+
+  .animate-slide-down {
+    animation: slideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .animate-slide-up {
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 1, 1);
+  }
 `;
 
 export const MerchandisePage: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchFocused, setSearchFocused] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [showFilterPanel, setShowFilterPanel] = useState(false);
+  const [isFilterClosing, setIsFilterClosing] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [paymentType, setPaymentType] = useState<'full' | 'downpayment'>('full');
+  const [orderType, setOrderType] = useState<'regular' | 'preorder'>('regular');
   const [cartAnimating, setCartAnimating] = useState(false);
   const cartButtonRef = useRef<HTMLButtonElement>(null);
   const { products, addToCart } = useAppStore();
-  const { showNotification } = useUIStore();
+  const { showNotification, setSidebarOpen } = useUIStore();
+
+  // Check for product from navigation state (from GlobalSearch)
+  useEffect(() => {
+    if (location.state?.selectedProduct) {
+      setSelectedProduct(location.state.selectedProduct);
+      setSelectedOptions({});
+      setPaymentType('full');
+      // Clear the state so it doesn't reopen on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state]);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
+    // Load products from API
+    AppDataSync.loadProductsFromAPI();
+    
+    // Set up polling to reload products every 10 seconds for real-time stock updates
+    const interval = setInterval(() => {
+      AppDataSync.loadProductsFromAPI();
+    }, 10000);
+    
+    // Cleanup function to close modal when component unmounts
+    return () => {
+      setSelectedProduct(null);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      const mainElement = document.querySelector('main');
+      if (mainElement) {
+        mainElement.style.overflow = 'auto';
+      }
+    };
   }, []);
 
   const categories = [
@@ -59,18 +232,50 @@ export const MerchandisePage: React.FC = () => {
   });
 
   // Helper function to extract prices from choice text like "Yellow (₱150)" or "Bundle A (₱1,200 / ₱1,150 Member)"
-  const extractPrice = (choiceText: string): number | null => {
+  const extractPrice = (choiceText: string, isMember: boolean = false): number | null => {
+    // Check if there's a member price format: "₱X / ₱Y Member"
+    const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
+    
+    if (memberPriceMatch) {
+      // If member pricing exists, return appropriate price based on membership status
+      const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
+      const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
+      return isMember ? memberPrice : regularPrice;
+    }
+    
+    // Otherwise, extract the first price found
     const match = choiceText.match(/₱([\d,]+)/);
     return match ? parseInt(match[1].replace(/,/g, '')) : null;
+  };
+
+  // Helper function to extract both regular and member prices
+  const extractBothPrices = (choiceText: string): { regular: number; member: number | null } | null => {
+    const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
+    
+    if (memberPriceMatch) {
+      const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
+      const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
+      return { regular: regularPrice, member: memberPrice };
+    }
+    
+    // No member pricing, just regular price
+    const match = choiceText.match(/₱([\d,]+)/);
+    if (match) {
+      const price = parseInt(match[1].replace(/,/g, ''));
+      return { regular: price, member: null };
+    }
+    
+    return null;
   };
 
   // Function to get available prices from a product's options
   const getAvailablePrices = (product: Product): { min: number; max: number } | null => {
     if (!product.options || product.options.length === 0) return null;
     
+    const isMember = user?.membership_status === 'approved';
     const prices = product.options
       .flatMap(option => option.choices)
-      .map(choice => extractPrice(choice))
+      .map(choice => extractPrice(choice, isMember))
       .filter((price): price is number => price !== null);
     
     if (prices.length === 0) return null;
@@ -81,17 +286,150 @@ export const MerchandisePage: React.FC = () => {
   };
 
   // Function to get the current selected price based on the selected option
+  // Function to get the current selected price based on the selected option
   const getSelectedPrice = (product: Product, selectedOpts: Record<string, string>): number | null => {
     if (!product.options || product.options.length === 0) return null;
     
+    const isMember = user?.membership_status === 'approved';
     // Check all options for a selected value and extract its price
     for (const option of product.options) {
       if (selectedOpts[option.id]) {
-        const price = extractPrice(selectedOpts[option.id]);
+        const price = extractPrice(selectedOpts[option.id], isMember);
         if (price !== null) return price;
       }
     }
     return null;
+  };
+
+  // Function to get the appropriate image based on selected course
+  const getProductImage = (product: Product, selectedOpts: Record<string, string>) => {
+    // Products with variant images based on options
+    if (product.name === 'Type A & B Uniform') {
+      return typeABUniformImage;
+    }
+    
+    if (product.name === 'Gala') {
+      const bundleOption = selectedOpts['bundle'];
+      if (bundleOption) {
+        if (bundleOption.includes('Bundle A')) return galaBundleAImage;
+        if (bundleOption.includes('Bundle B')) return galaBundleBImage;
+        if (bundleOption.includes('Bundle C')) return galaBundleCImage;
+        if (bundleOption.includes('Bundle D')) return galaBundleDImage;
+        if (bundleOption.includes('Bundle E')) return galaBundleEImage;
+        if (bundleOption.includes('Bundle F')) return galaBundleFImage;
+        if (bundleOption.includes('Bundle G')) return galaBundleGImage;
+        if (bundleOption.includes('Bundle H')) return galaBundleHImage;
+        if (bundleOption.includes('Bundle I')) return galaBundleIImage;
+      }
+      return galaBundleAImage; // Default to Bundle A
+    }
+    
+    if (product.name === 'Type C Uniform') {
+      const courseOption = selectedOpts['course'];
+      if (courseOption) {
+        if (courseOption.includes('BSMT')) return typeCBSMTImage;
+        if (courseOption.includes('BSMARE')) return typeCBSMAREImage;
+        if (courseOption.includes('SHS')) return typeCSHSImage;
+      }
+      return typeCBSMTImage; // Default to BSMT
+    }
+    
+    if (product.name === 'Lanyard') {
+      const courseOption = selectedOpts['course'];
+      if (courseOption) {
+        if (courseOption.includes('BSMT')) return lanyardBSMTImage;
+        if (courseOption.includes('BSMARE')) return lanyardBSMAREImage;
+        if (courseOption.includes('SHS')) return lanyardSHSImage;
+        if (courseOption.includes('HM')) return lanyardHMImage;
+        if (courseOption.includes('TM') || courseOption.includes('TOURISM')) return lanyardTMImage;
+      }
+      return lanyardBSMTImage; // Default to BSMT
+    }
+    
+    if (product.name === 'Hard Hat') {
+      const colorOption = selectedOpts['color'];
+      if (colorOption) {
+        if (colorOption.includes('Yellow')) return hardhatYellowImage;
+        if (colorOption.includes('Blue')) return hardhatBlueImage;
+      }
+      return hardhatYellowImage; // Default to Yellow
+    }
+    
+    if (product.name === 'Pershing Cap') {
+      const courseOption = selectedOpts['course'];
+      if (courseOption) {
+        if (courseOption.includes('BSMARE')) return pershingCapBSMAREImage;
+        if (courseOption.includes('BSMT')) return pershingCapImage;
+      }
+      return pershingCapImage; // Default to BSMT
+    }
+    
+    if (product.name === 'Cover All') {
+      const colorOption = selectedOpts['color'];
+      if (colorOption) {
+        if (colorOption.includes('Blue')) return coverallBlueImage;
+        if (colorOption.includes('Orange')) return coverallImage;
+      }
+      return coverallImage; // Default to Orange
+    }
+    
+    if (product.name === 'Belt') {
+      const colorOption = selectedOpts['color'];
+      if (colorOption) {
+        if (colorOption.includes('Black')) return blackBeltImage;
+        if (colorOption.includes('White')) return whiteBeltImage;
+      }
+      return blackBeltImage; // Default to Black
+    }
+    
+    if (product.name === 'Shoulder Board') {
+      const courseOption = selectedOpts['course'];
+      if (courseOption) {
+        if (courseOption.includes('BSMT')) return shoulderBoard2Image;
+        if (courseOption.includes('BSMARE')) return shoulderBoard1Image;
+      }
+      return shoulderBoard2Image; // Default to BSMT (Shoulder board 2)
+    }
+    
+    if (product.name === 'ROTC Manual') {
+      const partOption = selectedOpts['part'];
+      if (partOption) {
+        if (partOption.includes('Part 1')) return rotcManualPart1Image;
+        if (partOption.includes('Part 2')) return rotcManualImage;
+      }
+      return rotcManualImage; // Default to Part 2 (original)
+    }
+    
+    // Products with single static images
+    if (product.name === 'BSNAME Uniform') return bsnameUniformImage;
+    if (product.name === 'ID Case') return idCaseImage;
+    if (product.name === 'Handbag') return handbagImage;
+    if (product.name === 'Hard Bound') return hardboundImage;
+    if (product.name === 'Safety Shoes') return safetyShoesImage;
+    if (product.name === 'Gloves') return glovesImage;
+    if (product.name === 'PE Tshirt') return peShirtImage;
+    if (product.name === 'PE Pants') return pePantsImage;
+    if (product.name === 'Plotting Sheet') return plottingSheetImage;
+    if (product.name === 'PE Short') return peShortsImage;
+    if (product.name === 'Buttons') return buttonsImage;
+    if (product.name === 'Anchor Pins') return anchorImage;
+    if (product.name === 'Propeller Pins') return propellerImage;
+    if (product.name === 'Swimming Set') return swimmingTrunksImage;
+    if (product.name === 'Swimming Cap') return swimmingCapImage;
+    if (product.name === 'CWTS Shirt') return cwtsShirtImage;
+    if (product.name === 'White Shoes') return whiteShoesImage;
+    if (product.name === 'Safety Goggles') return safetyGogglesImage;
+    if (product.name === 'Rope') return ropeImage;
+    
+    return null;
+  };
+
+  const handleCloseFilter = () => {
+    setIsFilterClosing(true);
+    setTimeout(() => {
+      setShowFilterPanel(false);
+      setIsFilterClosing(false);
+    }, 300); // Match animation duration
   };
 
   const handleAddToCart = (product: Product) => {
@@ -110,22 +448,48 @@ export const MerchandisePage: React.FC = () => {
       }
     }
     
-    // Generate a deterministic cart item ID based on product and selected options
+    // Determine if this is a tailored product
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(product.name);
+    
+    // Get the actual full price based on selected options (if any)
+    const fullPrice = getSelectedPrice(product, selectedOptions) || product.price;
+    
+    // Get the actual price (downpayment or full)
+    let actualPrice = fullPrice;
+    
+    // Apply downpayment pricing for tailored products
+    if (isTailoredProduct && paymentType === 'downpayment') {
+      if (product.name === 'Gala') {
+        actualPrice = 500; // Gala downpayment
+      } else if (product.name === 'Type A & B Uniform' || product.name === 'BSNAME Uniform') {
+        actualPrice = 1500; // Uniform downpayment
+      }
+    }
+    
+    // Generate a deterministic cart item ID based on product, selected options, payment type, and order type
     const optionsString = Object.entries(selectedOptions)
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
       .map(([key, value]) => `${key}:${value}`)
       .join('|');
-    const cartItemId = optionsString ? `${product.id}-${optionsString}` : product.id;
+    const paymentSuffix = isTailoredProduct ? `-${paymentType}` : '';
+    const orderSuffix = orderType === 'preorder' ? '-preorder' : '';
+    const cartItemId = `${product.id}${optionsString ? `-${optionsString}` : ''}${paymentSuffix}${orderSuffix}`;
+    
+    // Get the product image based on selected options
+    const productImage = getProductImage(product, selectedOptions);
     
     // Add to global cart store
     addToCart({
       id: cartItemId,
       productId: product.id,
       name: product.name,
-      price: product.price,
+      price: actualPrice,
       quantity: 1,
-      image: product.image || '📦',
+      image: productImage || product.image || '📦',
       selectedOptions: { ...selectedOptions },
+      paymentType: isTailoredProduct ? paymentType : undefined,
+      orderType: orderType,
+      fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
     });
     
     // Sync cart to API
@@ -137,11 +501,64 @@ export const MerchandisePage: React.FC = () => {
     setCartAnimating(true);
     setTimeout(() => setCartAnimating(false), 400);
     
+    // Build notification message with selected options
+    let notificationMessage: string = product.name;
+    
+    // For products with options, add the selected option details
+    if (selectedOptions && Object.keys(selectedOptions).length > 0) {
+      const optionDetails: string[] = [];
+      
+      // Add bundle info for Gala
+      if (selectedOptions['bundle']) {
+        const bundleName = selectedOptions['bundle'].split('(')[0].trim(); // Extract "Bundle A" from "Bundle A (₱1,200 / ₱1,150 Member)"
+        optionDetails.push(bundleName);
+      }
+      
+      // Add course info if not Gala (for Gala, course is less important than bundle)
+      if (selectedOptions['course'] && !selectedOptions['bundle']) {
+        optionDetails.push(selectedOptions['course']);
+      }
+      
+      // Add part info for ROTC Manual
+      if (selectedOptions['part']) {
+        const partName = selectedOptions['part'].split('(')[0].trim(); // Extract "Part 1" from "Part 1 (₱150)"
+        optionDetails.push(partName);
+      }
+      
+      // Add color info
+      if (selectedOptions['color']) {
+        const colorName = selectedOptions['color'].split('(')[0].trim();
+        optionDetails.push(colorName);
+      }
+      
+      // Add size info
+      if (selectedOptions['size']) {
+        const sizeName = selectedOptions['size'].split('(')[0].trim();
+        optionDetails.push(`Size ${sizeName}`);
+      }
+      
+      if (optionDetails.length > 0) {
+        notificationMessage = `${product.name} - ${optionDetails.join(', ')}`;
+      }
+    }
+    
+    // Add payment type info for tailored products
+    if (isTailoredProduct) {
+      notificationMessage += ` (${paymentType === 'downpayment' ? 'Downpayment' : 'Full Payment'})`;
+    }
+    
+    // Add pre-order info
+    if (orderType === 'preorder') {
+      notificationMessage += ' - Pre-Order';
+    }
+    
     // Show success notification
-    showNotification(`${product.name} added to cart`, 'success');
+    showNotification(`${notificationMessage} added to cart`, 'success');
     
     setSelectedProduct(null);
     setSelectedOptions({});
+    setPaymentType('full');
+    setOrderType('regular');
   };
 
   return (
@@ -149,21 +566,57 @@ export const MerchandisePage: React.FC = () => {
       <style>{cartButtonStyles}</style>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-slate-900">MERCHANDISE</h1>
-            <p className="text-slate-600 mt-1">Discover UC Coop's exclusive products</p>
+        <div className="mb-8">
+          {/* Desktop Header */}
+          <div className="hidden lg:flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-slate-900">MERCHANDISE</h1>
+              <p className="text-slate-600 mt-1">Discover UC Coop's exclusive products</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <button
+                ref={cartButtonRef}
+                onClick={() => {
+                  setSelectedProduct(null); // Close any open product modal
+                  navigate('/cart');
+                }}
+                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 hover:scale-110 transition-all duration-300 ${
+                  cartAnimating ? 'cart-animate' : ''
+                }`}
+              >
+                <ShoppingCart size={24} />
+              </button>
+            </div>
           </div>
-          <div className="flex items-center space-x-3">
-            <button
-              ref={cartButtonRef}
-              onClick={() => navigate('/cart')}
-              className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 hover:scale-110 transition-all duration-300 ${
-                cartAnimating ? 'cart-animate' : ''
-              }`}
-            >
-              <ShoppingCart size={24} />
-            </button>
+
+          {/* Mobile Header */}
+          <div className="lg:hidden">
+            <div className="flex items-center gap-2 mb-2">
+              <button 
+                onClick={() => setSidebarOpen(true)}
+                className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
+              >
+                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              </button>
+              <h1 className="text-xl font-bold text-slate-900">MERCHANDISE</h1>
+            </div>
+            <p className="text-slate-600 text-sm mb-3">Discover UC Coop's exclusive products</p>
+            <div className="flex justify-end">
+              <button
+                ref={cartButtonRef}
+                onClick={() => {
+                  setSelectedProduct(null);
+                  navigate('/cart');
+                }}
+                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 transition-all duration-300 ${
+                  cartAnimating ? 'cart-animate' : ''
+                }`}
+              >
+                <ShoppingCart size={20} />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -199,11 +652,11 @@ export const MerchandisePage: React.FC = () => {
 
         {/* Filter Panel */}
         {showFilterPanel && (
-          <div className="mb-8 bg-white border border-slate-200 rounded-lg shadow-lg p-6">
+          <div className={`mb-8 bg-white border border-slate-200 rounded-lg shadow-lg p-6 overflow-hidden ${isFilterClosing ? 'animate-slide-up' : 'animate-slide-down'}`}>
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-slate-900">Filter by Category</h3>
               <button
-                onClick={() => setShowFilterPanel(false)}
+                onClick={handleCloseFilter}
                 className="p-1 hover:bg-slate-100 rounded-lg transition-colors"
               >
                 <X size={20} className="text-slate-600" />
@@ -243,15 +696,191 @@ export const MerchandisePage: React.FC = () => {
             >
               {/* Product Image */}
               <div className="h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-6xl relative overflow-hidden group">
-                <span className="group-hover:scale-110 transition-transform duration-300">
-                  {product.image || '📦'}
-                </span>
+                {product.name === 'Type A & B Uniform' && typeABUniformImage ? (
+                  <img 
+                    src={typeABUniformImage} 
+                    alt="Type A & B Uniform" 
+                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Type C Uniform' && typeCBSMTImage ? (
+                  <img 
+                    src={typeCBSMTImage} 
+                    alt="Type C Uniform" 
+                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'BSNAME Uniform' && bsnameUniformImage ? (
+                  <img 
+                    src={bsnameUniformImage} 
+                    alt="BSNAME Uniform" 
+                    className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Lanyard' ? (
+                  <div className="w-full h-full grid grid-cols-3 gap-0.5 p-1 group-hover:scale-110 transition-transform duration-300">
+                    <img src={lanyardBSMTImage} alt="BSMT" className="w-full h-full object-cover" />
+                    <img src={lanyardBSMAREImage} alt="BSMARE" className="w-full h-full object-cover" />
+                    <img src={lanyardSHSImage} alt="SHS" className="w-full h-full object-cover" />
+                  </div>
+                ) : product.name === 'ID Case' && idCaseImage ? (
+                  <img 
+                    src={idCaseImage} 
+                    alt="ID Case" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Handbag' && handbagImage ? (
+                  <img 
+                    src={handbagImage} 
+                    alt="Handbag" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Hard Bound' && hardboundImage ? (
+                  <img 
+                    src={hardboundImage} 
+                    alt="Hard Bound" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Safety Shoes' && safetyShoesImage ? (
+                  <img 
+                    src={safetyShoesImage} 
+                    alt="Safety Shoes" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Cover All' && coverallImage ? (
+                  <img 
+                    src={coverallImage} 
+                    alt="Cover All" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Gloves' && glovesImage ? (
+                  <img 
+                    src={glovesImage} 
+                    alt="Gloves" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Hard Hat' && hardhatYellowImage ? (
+                  <img 
+                    src={hardhatYellowImage} 
+                    alt="Hard Hat" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'PE Tshirt' && peShirtImage ? (
+                  <img 
+                    src={peShirtImage} 
+                    alt="PE Tshirt" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'PE Pants' && pePantsImage ? (
+                  <img 
+                    src={pePantsImage} 
+                    alt="PE Pants" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Pershing Cap' && pershingCapImage ? (
+                  <img 
+                    src={pershingCapImage} 
+                    alt="Pershing Cap" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Plotting Sheet' && plottingSheetImage ? (
+                  <img 
+                    src={plottingSheetImage} 
+                    alt="Plotting Sheet" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'PE Short' && peShortsImage ? (
+                  <img 
+                    src={peShortsImage} 
+                    alt="PE Short" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Buttons' && buttonsImage ? (
+                  <img 
+                    src={buttonsImage} 
+                    alt="Buttons" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Anchor Pins' && anchorImage ? (
+                  <img 
+                    src={anchorImage} 
+                    alt="Anchor Pins" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Propeller Pins' && propellerImage ? (
+                  <img 
+                    src={propellerImage} 
+                    alt="Propeller Pins" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Shoulder Board' && shoulderBoard2Image ? (
+                  <img 
+                    src={shoulderBoard2Image} 
+                    alt="Shoulder Board" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Swimming Set' && swimmingTrunksImage ? (
+                  <img 
+                    src={swimmingTrunksImage} 
+                    alt="Swimming Set" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Swimming Cap' && swimmingCapImage ? (
+                  <img 
+                    src={swimmingCapImage} 
+                    alt="Swimming Cap" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'CWTS Shirt' && cwtsShirtImage ? (
+                  <img 
+                    src={cwtsShirtImage} 
+                    alt="CWTS Shirt" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'ROTC Manual' && rotcManualImage ? (
+                  <img 
+                    src={rotcManualImage} 
+                    alt="ROTC Manual" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'White Shoes' && whiteShoesImage ? (
+                  <img 
+                    src={whiteShoesImage} 
+                    alt="White Shoes" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Belt' && blackBeltImage ? (
+                  <img 
+                    src={blackBeltImage} 
+                    alt="Belt" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Safety Goggles' && safetyGogglesImage ? (
+                  <img 
+                    src={safetyGogglesImage} 
+                    alt="Safety Goggles" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Rope' && ropeImage ? (
+                  <img 
+                    src={ropeImage} 
+                    alt="Rope" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Gala' && galaBundleAImage ? (
+                  <img 
+                    src={galaBundleAImage} 
+                    alt="Gala" 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : (
+                  <span className="group-hover:scale-110 transition-transform duration-300">
+                    {product.image || '📦'}
+                  </span>
+                )}
                 {!product.available && (
                   <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
                     <span className="text-white font-bold text-lg">Unavailable</span>
                   </div>
                 )}
-                {product.stock <= 0 && product.available !== false && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && (
+                {product.stock <= 0 && product.available !== false && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
                   <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
                     <span className="text-white font-bold">Out of Stock</span>
                   </div>
@@ -267,7 +896,60 @@ export const MerchandisePage: React.FC = () => {
                 {/* Price */}
                 <div className="mb-3">
                   {(() => {
+                    const isMember = user?.membership_status === 'approved';
                     const availablePrices = getAvailablePrices(product);
+                    
+                    // Check if product has member pricing in any option
+                    let hasMemberPricing = false;
+                    let regularMin: number | null = null;
+                    let regularMax: number | null = null;
+                    let memberMin: number | null = null;
+                    let memberMax: number | null = null;
+                    
+                    if (product.options && product.options.length > 0) {
+                      for (const option of product.options) {
+                        for (const choice of option.choices) {
+                          const bothPrices = extractBothPrices(choice);
+                          if (bothPrices && bothPrices.member !== null) {
+                            hasMemberPricing = true;
+                            
+                            // Track min/max for both regular and member prices
+                            if (regularMin === null || bothPrices.regular < regularMin) {
+                              regularMin = bothPrices.regular;
+                            }
+                            if (regularMax === null || bothPrices.regular > regularMax) {
+                              regularMax = bothPrices.regular;
+                            }
+                            if (memberMin === null || bothPrices.member < memberMin) {
+                              memberMin = bothPrices.member;
+                            }
+                            if (memberMax === null || bothPrices.member > memberMax) {
+                              memberMax = bothPrices.member;
+                            }
+                          }
+                        }
+                      }
+                    }
+                    
+                    // If member and has member pricing, show both ranges
+                    if (isMember && hasMemberPricing && regularMin !== null && regularMax !== null && memberMin !== null && memberMax !== null) {
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-sm font-bold text-slate-400 line-through">
+                            ₱{regularMin.toLocaleString()}-{regularMax.toLocaleString()}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-lg font-bold text-green-600">
+                              ₱{memberMin.toLocaleString()}-{memberMax.toLocaleString()}
+                            </p>
+                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-semibold">
+                              ₱50 OFF
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
                     if (availablePrices) {
                       // If min and max are the same, display single price
                       if (availablePrices.min === availablePrices.max) {
@@ -287,6 +969,11 @@ export const MerchandisePage: React.FC = () => {
                         {product.stock}
                       </span>
                     </p>
+                    {product.stock <= 0 && (
+                      <p className="text-xs text-purple-600 font-semibold mt-1">
+                        ✓ Pre-Order Available
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -298,6 +985,11 @@ export const MerchandisePage: React.FC = () => {
                   onClick={() => {
                     setSelectedProduct(product);
                     setSelectedOptions({});
+                    setPaymentType('full');
+                    // Automatically set to pre-order if product is out of stock (excluding made-to-order products)
+                    const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
+                    const isOutOfStock = !isMadeToOrder && product.stock <= 0;
+                    setOrderType(isOutOfStock ? 'preorder' : 'regular');
                   }}
                   disabled={!product.available && product.available !== undefined}
                   className="w-full bg-purple-900 text-white py-2 rounded-lg font-semibold hover:bg-purple-950 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -319,136 +1011,434 @@ export const MerchandisePage: React.FC = () => {
         )}
       </div>
 
-      {/* Product Details Modal */}
-      {selectedProduct && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full animate-scale-in max-h-[90vh] overflow-y-auto">
+      {/* Modal Portal - Renders outside Layout to be truly fixed */}
+      {selectedProduct && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+          onClick={() => setSelectedProduct(null)}
+          style={{ 
+            zIndex: Z_INDEX.GENERAL_MODAL
+          }}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full animate-scale-in max-h-[90vh] flex flex-row relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close X Button */}
+            <button
+              onClick={() => setSelectedProduct(null)}
+              className="absolute top-4 right-4 z-10 p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 hover:scale-110"
+              aria-label="Close modal"
+            >
+              <X size={20} className="text-slate-700" />
+            </button>
+            
+            {/* Modal content - reuse the same content structure */}
+            <div className="w-2/5 bg-slate-200 flex items-center justify-center p-8">
+              {(selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'Type C Uniform' || selectedProduct.name === 'Lanyard' || selectedProduct.name === 'Hard Hat' || selectedProduct.name === 'Pershing Cap' || selectedProduct.name === 'Cover All' || selectedProduct.name === 'Belt' || selectedProduct.name === 'Shoulder Board' || selectedProduct.name === 'Gala' || selectedProduct.name === 'ROTC Manual') ? (
+                <img 
+                  key={getProductImage(selectedProduct, selectedOptions)}
+                  src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
+                  alt={selectedProduct.name} 
+                  className={`w-full h-auto rounded-xl shadow-2xl animate-slide-in-right ${
+                    selectedProduct.name === 'Gala' ? 'max-h-[600px] object-cover' : 'max-h-[500px] object-contain'
+                  }`}
+                />
+              ) : (
+                <img 
+                  src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
+                  alt={selectedProduct.name} 
+                  className="w-full h-auto max-h-[500px] object-contain rounded-xl shadow-2xl"
+                />
+              )}
+            </div>
 
-            <div className="flex flex-col gap-6">
-              {/* Product Image */}
-              <div className="w-full h-64 bg-gradient-to-br from-slate-100 to-slate-200 rounded-lg flex items-center justify-center text-8xl">
-                {selectedProduct.image || '📦'}
-              </div>
+            <div className="flex-1 overflow-y-auto p-6 bg-white flex flex-col">
+              <h2 className="text-2xl font-bold text-slate-900 mb-4 pr-8">
+                {selectedProduct.name}
+              </h2>
 
-              {/* Product Details */}
-              <div>
-                <h2 className="text-3xl font-bold text-slate-900 mb-4">
-                  {selectedProduct.name}
-                </h2>
+              <div className="space-y-3 mb-4 flex-1">
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">SKU</p>
+                  <p className="font-mono bg-slate-100 p-2 rounded text-slate-900">
+                    {selectedProduct.sku}
+                  </p>
+                </div>
 
-                <div className="space-y-4 mb-6">
-                  <div>
-                    <p className="text-sm text-slate-600 mb-1">SKU</p>
-                    <p className="font-mono bg-slate-100 p-2 rounded text-slate-900">
-                      {selectedProduct.sku}
-                    </p>
-                  </div>
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Category</p>
+                  <p className="text-slate-900 font-semibold capitalize">
+                    {selectedProduct.category}
+                  </p>
+                </div>
 
-                  <div>
-                    <p className="text-sm text-slate-600 mb-1">Category</p>
-                    <p className="text-slate-900 font-semibold capitalize">
-                      {selectedProduct.category}
-                    </p>
-                  </div>
-
-                  <div>
-                    <p className="text-sm text-slate-600 mb-1">Price</p>
-                    {(() => {
-                      const availablePrices = getAvailablePrices(selectedProduct);
-                      const selectedPrice = getSelectedPrice(selectedProduct, selectedOptions);
-                      
-                      if (availablePrices && selectedPrice) {
-                        // Show selected price when a size/color is chosen
-                        return <p className="text-3xl font-bold text-slate-900">₱{selectedPrice.toLocaleString()}</p>;
-                      } else if (availablePrices) {
-                        // Show price range when no size/color is selected
-                        // If min and max are the same, display single price
-                        if (availablePrices.min === availablePrices.max) {
-                          return <p className="text-3xl font-bold text-slate-900">₱{availablePrices.min}</p>;
-                        }
-                        return <p className="text-3xl font-bold text-slate-900">₱{availablePrices.min}-{availablePrices.max}</p>;
+                <div>
+                  <p className="text-sm text-slate-600 mb-1">Price</p>
+                  {(() => {
+                    const isMember = user?.membership_status === 'approved';
+                    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+                    const availablePrices = getAvailablePrices(selectedProduct);
+                    const selectedPrice = getSelectedPrice(selectedProduct, selectedOptions);
+                    
+                    // Calculate display price based on payment type for tailored products
+                    let displayPrice = selectedPrice;
+                    if (isTailoredProduct && paymentType === 'downpayment') {
+                      if (selectedProduct.name === 'Gala') {
+                        displayPrice = 500; // Gala downpayment
+                      } else if (selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'BSNAME Uniform') {
+                        displayPrice = 1500; // Uniform downpayment
+                      }
+                    }
+                    
+                    // Check if selected option has member pricing - prioritize bundle option for Gala
+                    let selectedOptionText = '';
+                    if (selectedProduct.options && selectedProduct.options.length > 0) {
+                      // For Gala, check bundle option first (which has pricing)
+                      const bundleOption = selectedProduct.options.find(opt => opt.id === 'bundle');
+                      if (bundleOption && selectedOptions['bundle']) {
+                        selectedOptionText = selectedOptions['bundle'];
                       } else {
-                        // Fallback to base price if no options
-                        return <p className="text-3xl font-bold text-slate-900">₱{selectedProduct.price.toLocaleString()}</p>;
+                        // For other products, check any selected option
+                        for (const option of selectedProduct.options) {
+                          if (selectedOptions[option.id]) {
+                            selectedOptionText = selectedOptions[option.id];
+                            break;
+                          }
+                        }
+                      }
+                    }
+                    
+                    const bothPrices = selectedOptionText ? extractBothPrices(selectedOptionText) : null;
+                    
+                    // If downpayment is selected for tailored products, show ONLY downpayment price in black
+                    if (isTailoredProduct && paymentType === 'downpayment' && displayPrice) {
+                      return (
+                        <div className="flex items-center gap-3">
+                          <p className="text-3xl font-bold text-slate-900">₱{displayPrice.toLocaleString()}</p>
+                          <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-semibold">
+                            Downpayment
+                          </span>
+                        </div>
+                      );
+                    }
+                    
+                    // If we have both prices and user is a member, show the discount
+                    if (bothPrices && bothPrices.member !== null && isMember && selectedPrice) {
+                      const discountAmount = bothPrices.regular - bothPrices.member;
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-2xl font-bold text-slate-400 line-through">₱{bothPrices.regular.toLocaleString()}</p>
+                          <div className="flex items-center gap-3">
+                            <p className="text-3xl font-bold text-green-600">₱{selectedPrice.toLocaleString()}</p>
+                            <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-semibold">
+                              ₱{discountAmount} OFF
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    // If bundle is selected but user is not a member, show regular price with strikethrough
+                    if (bothPrices && bothPrices.member !== null && !isMember && selectedPrice) {
+                      return (
+                        <div className="flex flex-col gap-1">
+                          <p className="text-3xl font-bold text-slate-900">₱{selectedPrice.toLocaleString()}</p>
+                        </div>
+                      );
+                    }
+                    
+                    // Check if product has member pricing (for default view before selection)
+                    if (isMember && selectedProduct.options && selectedProduct.options.length > 0) {
+                      let hasMemberPricing = false;
+                      let regularMin: number | null = null;
+                      let regularMax: number | null = null;
+                      let memberMin: number | null = null;
+                      let memberMax: number | null = null;
+                      
+                      for (const option of selectedProduct.options) {
+                        for (const choice of option.choices) {
+                          const prices = extractBothPrices(choice);
+                          if (prices && prices.member !== null) {
+                            hasMemberPricing = true;
+                            
+                            if (regularMin === null || prices.regular < regularMin) {
+                              regularMin = prices.regular;
+                            }
+                            if (regularMax === null || prices.regular > regularMax) {
+                              regularMax = prices.regular;
+                            }
+                            if (memberMin === null || prices.member < memberMin) {
+                              memberMin = prices.member;
+                            }
+                            if (memberMax === null || prices.member > memberMax) {
+                              memberMax = prices.member;
+                            }
+                          }
+                        }
+                      }
+                      
+                      // Show range with discount if member pricing exists
+                      if (hasMemberPricing && regularMin !== null && regularMax !== null && memberMin !== null && memberMax !== null) {
+                        return (
+                          <div className="flex flex-col gap-1">
+                            <p className="text-2xl font-bold text-slate-400 line-through">
+                              ₱{regularMin.toLocaleString()}-{regularMax.toLocaleString()}
+                            </p>
+                            <div className="flex items-center gap-3">
+                              <p className="text-3xl font-bold text-green-600">
+                                ₱{memberMin.toLocaleString()}-{memberMax.toLocaleString()}
+                              </p>
+                              <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-sm font-semibold">
+                                ₱50 OFF
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                    }
+                    
+                    if (availablePrices && displayPrice) {
+                      return <p className="text-3xl font-bold text-slate-900">₱{displayPrice.toLocaleString()}</p>;
+                    } else if (availablePrices) {
+                      if (availablePrices.min === availablePrices.max) {
+                        return <p className="text-3xl font-bold text-slate-900">₱{availablePrices.min}</p>;
+                      }
+                      return <p className="text-3xl font-bold text-slate-900">₱{availablePrices.min}-{availablePrices.max}</p>;
+                    } else {
+                      return <p className="text-3xl font-bold text-slate-900">₱{selectedProduct.price.toLocaleString()}</p>;
+                    }
+                  })()}
+                </div>
+
+                {selectedProduct.name !== 'Type A & B Uniform' && selectedProduct.name !== 'Hard Bound' && selectedProduct.name !== 'Gala' && selectedProduct.name !== 'BSNAME Uniform' && (
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">Stock Available</p>
+                    {(() => {
+                      // If product has variants data and options are defined, show variant-specific stock
+                      if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0 && selectedProduct.options && selectedProduct.options.length > 0) {
+                        // Check if all required options are selected
+                        const allOptionsSelected = selectedProduct.options.every(opt => selectedOptions[opt.id]);
+                        
+                        if (allOptionsSelected) {
+                          // Build variant key from selected options (must match backend format)
+                          const variantKey = Object.entries(selectedOptions)
+                            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                            .map(([key, value]) => `${key}:${value}`)
+                            .join('|');
+                          
+                          const variant = selectedProduct.variants[variantKey];
+                          const variantStock = variant ? variant.stock : 0;
+                          
+                          return (
+                            <p className={`text-lg font-bold ${variantStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {variantStock > 0 ? `${variantStock} units` : 'Out of Stock'}
+                            </p>
+                          );
+                        } else {
+                          // Show total stock if not all options selected
+                          const totalStock = Object.values(selectedProduct.variants).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                          return (
+                            <p className={`text-lg font-bold ${totalStock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {totalStock > 0 ? `${totalStock} units (total)` : 'Out of Stock'}
+                            </p>
+                          );
+                        }
+                      } else {
+                        // Product without variants OR variants not yet set up - show main stock
+                        return (
+                          <p className={`text-lg font-bold ${selectedProduct.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {selectedProduct.stock > 0 ? `${selectedProduct.stock} units` : 'Out of Stock'}
+                          </p>
+                        );
                       }
                     })()}
                   </div>
+                )}
 
-                  {selectedProduct.name !== 'Type A & B Uniform' && selectedProduct.name !== 'Hard Bound' && selectedProduct.name !== 'Gala' && selectedProduct.name !== 'BSNAME Uniform' && (
-                    <div>
-                      <p className="text-sm text-slate-600 mb-1">Stock Available</p>
-                      <p className={`text-lg font-bold ${selectedProduct.stock > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {selectedProduct.stock > 0 ? `${selectedProduct.stock} units` : 'Out of Stock'}
-                      </p>
-                    </div>
-                  )}
+                {selectedProduct.note && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <p className="text-sm text-blue-900">{selectedProduct.note}</p>
+                  </div>
+                )}
 
-                  {/* Note */}
-                  {selectedProduct.note && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                      <p className="text-sm text-blue-900">{selectedProduct.note}</p>
-                    </div>
-                  )}
-
-                  {/* Options */}
-                  {selectedProduct.options && selectedProduct.options.length > 0 && (
-                    <div className="pt-4 border-t border-slate-200">
-                      {selectedProduct.options.map((option) => (
-                        <div key={option.id} className="mb-4">
-                          <p className="text-sm text-slate-600 mb-3 font-semibold">{option.label}</p>
-                          <div className="flex flex-wrap gap-2">
-                            {option.choices.map((choice) => {
-                              // Extract just the label without the price info
-                              const label = choice.split('(')[0].trim();
-                              return (
-                                <button
-                                  key={choice}
-                                  onClick={() =>
-                                    setSelectedOptions({
-                                      ...selectedOptions,
-                                      [option.id]: choice,
-                                    })
-                                  }
-                                  className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
-                                    selectedOptions[option.id] === choice
-                                      ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
-                                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                                  }`}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
-                          </div>
+                {selectedProduct.options && selectedProduct.options.length > 0 && (
+                  <div className="pt-4 border-t border-slate-200">
+                    {selectedProduct.options.map((option) => (
+                      <div key={option.id} className="mb-4">
+                        <p className="text-sm text-slate-600 mb-3 font-semibold">{option.label}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {option.choices.map((choice) => {
+                            const label = choice.split('(')[0].trim();
+                            return (
+                              <button
+                                key={choice}
+                                onClick={() =>
+                                  setSelectedOptions({
+                                    ...selectedOptions,
+                                    [option.id]: choice,
+                                  })
+                                }
+                                className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                                  selectedOptions[option.id] === choice
+                                    ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
+                                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
                         </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => {
-                      handleAddToCart(selectedProduct);
-                    }}
-                    disabled={selectedProduct.stock <= 0 || !selectedProduct.available}
-                    className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 hover:scale-105"
-                  >
-                    <ShoppingCart size={20} />
-                    <span>Add to Cart</span>
-                  </button>
-                  <button
-                    onClick={() => setSelectedProduct(null)}
-                    className="flex-1 bg-slate-200 text-slate-900 py-3 rounded-lg font-semibold hover:bg-slate-300 transition-all"
-                  >
-                    Close
-                  </button>
-                </div>
+                {/* Payment Type Selection for Tailored Products */}
+                {['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name) && (
+                  <div className="pt-4 border-t border-slate-200">
+                    <p className="text-sm text-slate-600 mb-3 font-semibold">Payment Type</p>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => setPaymentType('full')}
+                        className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                          paymentType === 'full'
+                            ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Full Payment
+                      </button>
+                      <button
+                        onClick={() => setPaymentType('downpayment')}
+                        className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                          paymentType === 'downpayment'
+                            ? 'bg-gradient-to-r from-green-600 to-green-700 text-white shadow-lg'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        Downpayment (₱{selectedProduct.name === 'Gala' ? '500' : '1,500'})
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-2">
+                      {paymentType === 'downpayment' 
+                        ? 'Pay the remaining balance upon pickup' 
+                        : 'Full payment required for tailored items'}
+                    </p>
+                  </div>
+                )}
+
+                {/* Order Type Selection for Out-of-Stock Products */}
+                {(() => {
+                  // Check if product is out of stock
+                  const isOutOfStock = (() => {
+                    // Skip for made-to-order products
+                    if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name)) {
+                      return false;
+                    }
+                    
+                    // For products with variants
+                    if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0 && selectedProduct.options && selectedProduct.options.length > 0) {
+                      const allOptionsSelected = selectedProduct.options.every(opt => selectedOptions[opt.id]);
+                      if (allOptionsSelected) {
+                        const variantKey = Object.entries(selectedOptions)
+                          .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                          .map(([key, value]) => `${key}:${value}`)
+                          .join('|');
+                        const variant = selectedProduct.variants[variantKey];
+                        return !variant || variant.stock <= 0;
+                      }
+                      return false;
+                    }
+                    
+                    // For simple products
+                    return selectedProduct.stock <= 0;
+                  })();
+
+                  if (isOutOfStock) {
+                    return (
+                      <div className="pt-4 border-t border-slate-200">
+                        <p className="text-sm text-slate-600 mb-3 font-semibold">Order Type</p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => setOrderType('preorder')}
+                            className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
+                              orderType === 'preorder'
+                                ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            Pre-Order
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-500 mt-2">
+                          This item is currently out of stock. Place a pre-order and we'll notify you when it's available.
+                        </p>
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t mt-6">
+                <button
+                  onClick={() => handleAddToCart(selectedProduct)}
+                  disabled={(() => {
+                    // Made-to-order products are always available
+                    if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name)) {
+                      return false;
+                    }
+                    
+                    // Service-only products are always available
+                    if (selectedProduct.name === 'Hard Bound') {
+                      return false;
+                    }
+                    
+                    // Check if product is available
+                    if (!selectedProduct.available) return true;
+                    
+                    // If pre-order is selected, allow adding to cart even if out of stock
+                    if (orderType === 'preorder') {
+                      return false;
+                    }
+                    
+                    // For products with variants data
+                    if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0 && selectedProduct.options && selectedProduct.options.length > 0) {
+                      // Check if all options are selected
+                      const allOptionsSelected = selectedProduct.options.every(opt => selectedOptions[opt.id]);
+                      if (!allOptionsSelected) return false; // Let validation handle this
+                      
+                      // Build variant key (must match backend format)
+                      const variantKey = Object.entries(selectedOptions)
+                        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                        .map(([key, value]) => `${key}:${value}`)
+                        .join('|');
+                      
+                      const variant = selectedProduct.variants[variantKey];
+                      return !variant || variant.stock <= 0;
+                    }
+                    
+                    // For simple products OR products without variants set up yet
+                    return selectedProduct.stock <= 0;
+                  })()}
+                  className="flex-1 bg-green-600 text-white py-3 rounded-lg font-semibold hover:bg-green-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2 hover:scale-105"
+                >
+                  <ShoppingCart size={20} />
+                  <span>Add to Cart</span>
+                </button>
+                <button
+                  onClick={() => setSelectedProduct(null)}
+                  className="flex-1 bg-slate-200 text-slate-900 py-3 rounded-lg font-semibold hover:bg-slate-300 transition-all"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

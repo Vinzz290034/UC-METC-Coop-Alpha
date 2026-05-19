@@ -192,12 +192,14 @@ export const AccountSettingsPage: React.FC = () => {
               )}
             </div>
 
-            {/* Info Note */}
-            <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-700">
-                ℹ️ Your account information is managed by the administration. Please proceed to UC Coop Office if you need to make changes.
-              </p>
-            </div>
+            {/* Info Note - Only show for regular users */}
+            {user?.role === 'user' && (
+              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-700">
+                  ℹ️ Your account information is managed by the administration. Please proceed to UC Coop Office if you need to make changes.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>

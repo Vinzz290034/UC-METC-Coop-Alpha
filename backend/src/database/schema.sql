@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email VARCHAR(255) UNIQUE NOT NULL,
   password VARCHAR(255) NOT NULL,
-  id_number VARCHAR(20),
+  id_number VARCHAR(20) UNIQUE,
   first_name VARCHAR(100) NOT NULL,
   middle_name VARCHAR(100),
   last_name VARCHAR(100) NOT NULL,
@@ -142,8 +142,57 @@ CREATE TABLE IF NOT EXISTS messages (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Products table
+CREATE TABLE IF NOT EXISTS products (
+  id VARCHAR(100) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  price DECIMAL(10, 2) NOT NULL,
+  stock INTEGER NOT NULL DEFAULT 0,
+  sku VARCHAR(100) UNIQUE NOT NULL,
+  note TEXT,
+  options JSONB,
+  variants JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Announcements table
+CREATE TABLE IF NOT EXISTS announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title VARCHAR(255) NOT NULL,
+  content TEXT NOT NULL,
+  category VARCHAR(100) NOT NULL CHECK (category IN ('Maintenance', 'Services', 'Inventory', 'Registration', 'Events', 'General')),
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  author_name VARCHAR(255) NOT NULL,
+  author_role VARCHAR(50),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Notifications table
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type VARCHAR(50) NOT NULL CHECK (type IN (
+    'new_message',
+    'pending_order',
+    'pending_membership',
+    'order_completed',
+    'order_cancelled',
+    'membership_approved',
+    'membership_rejected'
+  )),
+  title VARCHAR(100) NOT NULL,
+  description VARCHAR(500),
+  link VARCHAR(255),
+  is_read BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Create indexes for better query performance
 CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_id_number ON users(id_number);
 CREATE INDEX idx_users_role ON users(role);
 CREATE INDEX idx_users_membership_status ON users(membership_status);
 CREATE INDEX idx_lockers_status ON lockers(status);
@@ -166,3 +215,12 @@ CREATE INDEX idx_messages_recipient_role ON messages(recipient_role);
 CREATE INDEX idx_messages_folder ON messages(folder);
 CREATE INDEX idx_messages_status ON messages(status);
 CREATE INDEX idx_billing_status ON billing(status);
+CREATE INDEX idx_products_category ON products(category);
+CREATE INDEX idx_products_sku ON products(sku);
+CREATE INDEX idx_announcements_category ON announcements(category);
+CREATE INDEX idx_announcements_author_id ON announcements(author_id);
+CREATE INDEX idx_announcements_created_at ON announcements(created_at);
+CREATE INDEX idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX idx_notifications_is_read ON notifications(is_read);
+CREATE INDEX idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, is_read) WHERE is_read = FALSE;

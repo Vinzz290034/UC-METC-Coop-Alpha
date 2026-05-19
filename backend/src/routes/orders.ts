@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../config/database.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -16,29 +17,58 @@ const verifyUser = (req: Request, res: Response, next: Function) => {
 // Create order from cart
 router.post('/create', verifyUser, async (req: Request, res: Response) => {
   try {
-    const { items, totalAmount, paymentMethod, receiptNo } = req.body;
+    console.log('[ORDER CREATE] Request received:', {
+      body: req.body,
+      userId: (req as any).userId,
+      headers: req.headers
+    });
+
+    const { items, totalAmount, paymentMethod, referenceNumber, receiptNo, orderType } = req.body;
     const userId = (req as any).userId;
+
+    // Validate payment method
+    if (!['cash', 'ewallet'].includes(paymentMethod)) {
+      console.log('[ORDER CREATE] Invalid payment method:', paymentMethod);
+      return res.status(400).json({ 
+        error: 'Invalid payment method. Must be "cash" or "ewallet".' 
+      });
+    }
+
+    // Validate reference number length if provided
+    if (referenceNumber && referenceNumber.length > 100) {
+      console.log('[ORDER CREATE] Reference number too long');
+      return res.status(400).json({ 
+        error: 'Reference number must be 100 characters or less.' 
+      });
+    }
+
+    // Determine order type (default to 'merchandise')
+    const finalOrderType = orderType || 'merchandise';
+    console.log('[ORDER CREATE] Order type:', finalOrderType);
 
     // Start transaction
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
 
-      // Insert order
+      // Insert order with reference_number and order_type
+      console.log('[ORDER CREATE] Inserting order...');
       const orderResult = await client.query(
-        `INSERT INTO orders (receipt_no, user_id, total_amount, payment_method, status)
-         VALUES ($1, $2, $3, $4, 'pending')
+        `INSERT INTO orders (receipt_no, user_id, total_amount, payment_method, reference_number, status, order_type, payment_status)
+         VALUES ($1, $2, $3, $4, $5, 'pending', $6, 'pending')
          RETURNING *`,
-        [receiptNo, userId, totalAmount, paymentMethod]
+        [receiptNo, userId, totalAmount, paymentMethod, referenceNumber || null, finalOrderType]
       );
 
       const orderId = orderResult.rows[0].id;
+      console.log('[ORDER CREATE] Order created with ID:', orderId);
 
       // Insert order items with product details
       for (const item of items) {
+        console.log('[ORDER CREATE] Inserting item:', item);
         await client.query(
-          `INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, selected_options)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          `INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, selected_options, payment_type, order_type, full_price)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             orderId,
             item.productId,
@@ -46,23 +76,52 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
             item.quantity,
             item.unitPrice,
             item.subtotal,
-            item.selectedOptions ? JSON.stringify(item.selectedOptions) : null
+            item.selectedOptions ? JSON.stringify(item.selectedOptions) : null,
+            item.paymentType || null,
+            item.orderType || 'regular',
+            item.fullPrice || null
           ]
         );
       }
 
-      // Clear cart
-      await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+      // Clear cart (only for merchandise orders, not insurance)
+      if (finalOrderType !== 'insurance') {
+        await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
+      }
 
       await client.query('COMMIT');
+      console.log('[ORDER CREATE] Transaction committed successfully');
+      
+      // Create notification for admin/staff about new pending order
+      const orderTypeLabel = finalOrderType === 'insurance' ? 'Insurance Request' : 'Order';
+      await notificationService.createNotificationsForRole(
+        'admin',
+        'pending_order',
+        `New ${orderTypeLabel} Received`,
+        `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
+        '/sales'
+      );
+      
+      // Also notify staff
+      await notificationService.createNotificationsForRole(
+        'staff',
+        'pending_order',
+        `New ${orderTypeLabel} Received`,
+        `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
+        '/sales'
+      );
+      
+      console.log('[ORDER CREATE] Success! Returning order:', orderResult.rows[0]);
       res.json(orderResult.rows[0]);
     } catch (error) {
       await client.query('ROLLBACK');
+      console.error('[ORDER CREATE] Transaction error:', error);
       throw error;
     } finally {
       client.release();
     }
   } catch (error) {
+    console.error('[ORDER CREATE] Error:', error);
     res.status(500).json({ error: 'Failed to create order' });
   }
 });
@@ -73,15 +132,31 @@ router.get('/', verifyUser, async (req: Request, res: Response) => {
     const userId = (req as any).userId;
 
     const result = await pool.query(
-      `SELECT o.*, json_agg(json_build_object(
-        'id', oi.id,
-        'productId', oi.product_id,
-        'productName', oi.product_name,
-        'quantity', oi.quantity,
-        'unitPrice', oi.unit_price,
-        'subtotal', oi.subtotal,
-        'selectedOptions', oi.selected_options
-      )) as items
+      `SELECT 
+        o.id,
+        o.receipt_no,
+        o.user_id,
+        o.total_amount,
+        o.payment_method,
+        o.reference_number,
+        o.status,
+        o.order_type,
+        o.payment_status,
+        o.completed_at,
+        o.created_at,
+        o.updated_at,
+        json_agg(json_build_object(
+          'id', oi.id,
+          'productId', oi.product_id,
+          'productName', oi.product_name,
+          'quantity', oi.quantity,
+          'unitPrice', oi.unit_price,
+          'subtotal', oi.subtotal,
+          'selectedOptions', oi.selected_options,
+          'paymentType', oi.payment_type,
+          'orderType', oi.order_type,
+          'fullPrice', oi.full_price
+        )) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
        WHERE o.user_id = $1
@@ -110,7 +185,10 @@ router.get('/:id', verifyUser, async (req: Request, res: Response) => {
         'quantity', oi.quantity,
         'unitPrice', oi.unit_price,
         'subtotal', oi.subtotal,
-        'selectedOptions', oi.selected_options
+        'selectedOptions', oi.selected_options,
+        'paymentType', oi.payment_type,
+        'orderType', oi.order_type,
+        'fullPrice', oi.full_price
       )) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -142,13 +220,160 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const result = await pool.query(
-      `UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
-      [status, id]
-    );
+    // Start transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    res.json(result.rows[0]);
+      // Get current order status
+      const orderResult = await client.query(
+        'SELECT status FROM orders WHERE id = $1',
+        [id]
+      );
+
+      if (orderResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      const previousStatus = orderResult.rows[0].status;
+
+      // Update order status and set completed_at if status is completed
+      let updateQuery;
+      let updateParams;
+      
+      if (status === 'completed') {
+        updateQuery = `UPDATE orders 
+                       SET status = $1, 
+                           updated_at = NOW(), 
+                           completed_at = NOW() 
+                       WHERE id = $2 
+                       RETURNING *`;
+        updateParams = [status, id];
+      } else {
+        updateQuery = `UPDATE orders 
+                       SET status = $1, 
+                           updated_at = NOW() 
+                       WHERE id = $2 
+                       RETURNING *`;
+        updateParams = [status, id];
+      }
+      
+      const updateResult = await client.query(updateQuery, updateParams);
+
+      // If order is being marked as completed and was previously pending, deduct inventory
+      if (status === 'completed' && previousStatus === 'pending') {
+        // Get all order items
+        const itemsResult = await client.query(
+          `SELECT product_id, product_name, quantity, selected_options FROM order_items WHERE order_id = $1`,
+          [id]
+        );
+
+        // Deduct stock for each item
+        for (const item of itemsResult.rows) {
+          const productId = item.product_id;
+          const quantity = item.quantity;
+          const selectedOptions = item.selected_options;
+
+          // Get product to check if it has variants
+          const productResult = await client.query(
+            'SELECT stock, variants FROM products WHERE id = $1',
+            [productId]
+          );
+
+          if (productResult.rows.length > 0) {
+            const product = productResult.rows[0];
+
+            // Check if product has variants and selected options
+            if (product.variants && selectedOptions && Object.keys(selectedOptions).length > 0) {
+              // Build variant key from selected options
+              const variantKey = Object.entries(selectedOptions)
+                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                .map(([key, value]) => `${key}:${value}`)
+                .join('|');
+
+              // Update variant stock
+              const variants = product.variants;
+              if (variants[variantKey] !== undefined) {
+                // Deduct from variant stock
+                variants[variantKey].stock = Math.max(0, (variants[variantKey].stock || 0) - quantity);
+                
+                // Also update the total product stock
+                const totalVariantStock = Object.values(variants).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                
+                await client.query(
+                  'UPDATE products SET variants = $1, stock = $2 WHERE id = $3',
+                  [JSON.stringify(variants), totalVariantStock, productId]
+                );
+              } else {
+                // Variant key not found, deduct from main stock as fallback
+                await client.query(
+                  'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+                  [quantity, productId]
+                );
+              }
+            } else {
+              // Simple product without variants - deduct from main stock
+              await client.query(
+                'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+                [quantity, productId]
+              );
+            }
+          }
+        }
+      }
+
+      await client.query('COMMIT');
+      
+      const updatedOrder = updateResult.rows[0];
+      
+      // Create notification for user when order status changes
+      if (status === 'completed') {
+        // Check if this is an insurance order
+        const orderTypeResult = await pool.query(
+          'SELECT order_type FROM orders WHERE id = $1',
+          [id]
+        );
+        const isInsurance = orderTypeResult.rows[0]?.order_type === 'insurance';
+        
+        if (isInsurance) {
+          // Congratulatory message for insurance payment
+          await notificationService.createNotification({
+            user_id: updatedOrder.user_id,
+            type: 'insurance_approved',
+            title: 'Congratulations! 🎉',
+            description: `Your I-CARD Insurance payment has been approved! You are now covered with ₱50,000 death/disability benefits. Stay safe!`,
+            link: '/transaction',
+          });
+        } else {
+          // Regular order completion message
+          await notificationService.createNotification({
+            user_id: updatedOrder.user_id,
+            type: 'order_completed',
+            title: 'Order Completed',
+            description: `Your order #${updatedOrder.receipt_no} has been completed`,
+            link: '/transaction',
+          });
+        }
+      } else if (status === 'cancelled') {
+        await notificationService.createNotification({
+          user_id: updatedOrder.user_id,
+          type: 'order_cancelled',
+          title: 'Order Cancelled',
+          description: `Your order #${updatedOrder.receipt_no} has been cancelled.`,
+          link: '/transaction',
+        });
+      }
+      
+      res.json(updatedOrder);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   } catch (error) {
+    console.error('Update order status error:', error);
     res.status(500).json({ error: 'Failed to update order status' });
   }
 });
@@ -195,7 +420,8 @@ router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
     }
 
     const result = await pool.query(
-      `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, o.status, o.created_at, o.updated_at,
+      `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, 
+              o.reference_number, o.status, o.created_at, o.updated_at,
               u.email, u.first_name, u.last_name, u.id_number,
               json_agg(json_build_object(
                 'id', oi.id,
@@ -204,7 +430,10 @@ router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
                 'quantity', oi.quantity,
                 'unitPrice', oi.unit_price,
                 'subtotal', oi.subtotal,
-                'selectedOptions', oi.selected_options
+                'selectedOptions', oi.selected_options,
+                'paymentType', oi.payment_type,
+                'orderType', oi.order_type,
+                'fullPrice', oi.full_price
               )) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -216,6 +445,7 @@ router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
 
     res.json(result.rows);
   } catch (error) {
+    console.error('Get pending orders error:', error);
     res.status(500).json({ error: 'Failed to fetch pending orders' });
   }
 });
@@ -271,8 +501,9 @@ router.get('/all/transactions', verifyUser, async (req: Request, res: Response) 
 
     if (userRole === 'admin' || userRole === 'staff') {
       // Staff/admin can see all orders
-      query = `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, o.status, o.created_at, o.updated_at,
-              u.email, u.first_name, u.last_name, u.id_number,
+      query = `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, 
+                      o.reference_number, o.status, o.order_type, o.created_at, o.updated_at, o.completed_at,
+              u.email, u.first_name, u.last_name, u.id_number, u.course, u.year,
               json_agg(json_build_object(
                 'id', oi.id,
                 'productId', oi.product_id,
@@ -280,7 +511,10 @@ router.get('/all/transactions', verifyUser, async (req: Request, res: Response) 
                 'quantity', oi.quantity,
                 'unitPrice', oi.unit_price,
                 'subtotal', oi.subtotal,
-                'selectedOptions', oi.selected_options
+                'selectedOptions', oi.selected_options,
+                'paymentType', oi.payment_type,
+                'orderType', oi.order_type,
+                'fullPrice', CAST(oi.full_price AS DECIMAL)
               )) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
@@ -297,7 +531,10 @@ router.get('/all/transactions', verifyUser, async (req: Request, res: Response) 
         'quantity', oi.quantity,
         'unitPrice', oi.unit_price,
         'subtotal', oi.subtotal,
-        'selectedOptions', oi.selected_options
+        'selectedOptions', oi.selected_options,
+        'paymentType', oi.payment_type,
+        'orderType', oi.order_type,
+        'fullPrice', CAST(oi.full_price AS DECIMAL)
       )) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id

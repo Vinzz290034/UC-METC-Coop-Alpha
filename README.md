@@ -1,176 +1,261 @@
-#  UC METC Coop System
+# UC METC SILMS - Sales, Inventory, Locker, and Membership System
 
-This is a comprehensive React application built for managing the University of Cebu - METC Multipurpose Cooperative services, tailored specifically for seaman cooperative operations.
+A comprehensive web-based management system for UC METC Cooperative, handling merchandise sales, inventory tracking, locker management, membership, billing, and notifications.
 
-## Project Status
+## 🎯 Features
 
-- **Project Type**: React + TypeScript Modern Web Application
-- **Entry Point**: `src/main.tsx` (React application entry)
-- **Build System**: Vite 7.0.0 (Fast development and build)
-- **Styling System**: Tailwind CSS 3.4.17 (Atomic CSS framework)
-- **State Management**: Zustand for lightweight state management
-- **Build Status**: ✅ Production build successful
+- **Merchandise Management** - Product catalog with variants, shopping cart, checkout
+- **Order Processing** - Transaction tracking, receipt generation, payment methods (Cash/GCash)
+- **Inventory System** - Stock tracking, low-stock alerts, product variants
+- **Locker Management** - Assignment, rental, renewal, key duplication requests
+- **Membership System** - Request submission, approval workflow, member profiles
+- **Billing & Payments** - Multiple billing types, payment status tracking
+- **Notifications** - Real-time WebSocket notifications with auto-cleanup
+- **Messaging** - User-to-user messaging system
+- **Announcements** - System-wide announcements with categories
+- **Reports & Analytics** - Sales, inventory, and member reports
+- **Password Reset** - Email-based password reset with SendGrid
 
-## System Overview
+## 🛠️ Technology Stack
 
-The system is designed to centralize and streamline operations for the METC Cooperative, providing a modern interface for managing:
+### Frontend
+- **React 18** - UI framework
+- **TypeScript** - Type safety
+- **Vite** - Build tool
+- **Tailwind CSS** - Styling
+- **Zustand** - State management
+- **React Router** - Navigation
+- **Socket.io Client** - Real-time updates
 
-### Core Modules Implemented
+### Backend
+- **Node.js** - Runtime
+- **Express** - Web framework
+- **TypeScript** - Type safety
+- **PostgreSQL** - Database
+- **JWT** - Authentication
+- **Socket.io** - WebSocket server
+- **Nodemailer** - Email service
+- **bcryptjs** - Password hashing
 
-1. **Landing Page** - Appealing public-facing page with navigation and quick login button
-2. **Dashboard** - Comprehensive overview with key metrics and alerts
-3. **Locker Management** - Complete locker registration, rental, and renewal workflows
-4. **Sales & Inventory** - POS system with uniform and accessory inventory tracking
-5. **Key Duplication Management** - Request tracking and approval workflow
-6. **Member Management** - Member profiles with linked services
-7. **Billing & Payments** - Unified billing, transaction history, and revenue tracking
-8. **Reports & Analytics** - Comprehensive reporting on sales, inventory, lockers, keys, and income
+## 📋 Prerequisites
 
-### Features
+- **Node.js** 18+ and npm
+- **PostgreSQL** 14+
+- **Git**
 
-- **Landing Page**: Modern, appealing design with quick login button directing to login page
-- **Role-Based Access Control**: Admin, Cashier, Locker Officer, Inventory Officer, Manager roles
-- **Authentication**: Secure login with demo accounts for testing
-- **Responsive Design**: Works seamlessly on desktop and tablet devices
-- **Modern UI/UX**: Contemporary design with smooth interactions and transitions
-- **Real-Time Updates**: Zustand state management for instant data synchronization
-- **Data Validation**: TypeScript for type-safe development
-- **Functional Buttons**: All action buttons now properly functional with data persistence
+## 🚀 Quick Start
 
-### Recent Improvements
-
-- ✅ Added appealing landing page with feature showcase
-- ✅ Implemented login navigation from landing page
-- ✅ Fixed Key Duplication approval/rejection buttons with functional handlers
-- ✅ Fixed Locker Management view/edit buttons with working functionality
-- ✅ Fixed Locker rental form to properly reset and update locker status
-- ✅ All buttons now have proper event handlers and provide user feedback
-
-## Architecture
-
-### Directory Structure
-
-```
-project-root/
-├── src/
-│   ├── components/          # Reusable components (Sidebar, Header, ProtectedRoute)
-│   ├── pages/               # Page components for each module
-│   │   ├── LandingPage.tsx  # Public landing page
-│   │   ├── LoginPage.tsx    # Authentication
-│   │   ├── DashboardPage.tsx
-│   │   ├── LockerManagementPage.tsx
-│   │   ├── SalesInventoryPage.tsx
-│   │   ├── KeyDuplicationPage.tsx
-│   │   ├── MembersPage.tsx
-│   │   ├── BillingPage.tsx
-│   │   └── ReportsPage.tsx
-│   ├── store/               # Zustand state management stores
-│   ├── types/               # TypeScript type definitions
-│   ├── App.tsx              # Main application component
-│   ├── main.tsx             # Application entry point
-│   └── index.css            # Global styles
-├── dist/                    # Build output directory
-├── package.json             # Dependencies
-├── vite.config.ts           # Vite configuration
-├── tsconfig.json            # TypeScript configuration
-└── tailwind.config.js       # Tailwind CSS configuration
-```
-
-## Getting Started
-
-### Installation
+### 1. Clone Repository
 
 ```bash
+git clone <your-repo-url>
+cd uc-metc-silms
+```
+
+### 2. Install Dependencies
+
+```bash
+# Install frontend dependencies
 npm install
+
+# Install backend dependencies
+cd backend
+npm install
+cd ..
 ```
 
-### Development
+### 3. Database Setup
 
 ```bash
+# Create PostgreSQL database
+createdb uc_coop
+
+# Run schema
+psql uc_coop < backend/src/database/schema.sql
+```
+
+### 4. Environment Configuration
+
+**Frontend (.env):**
+```env
+VITE_API_URL=http://localhost:5000/api
+```
+
+**Backend (backend/.env):**
+```env
+PORT=5000
+NODE_ENV=development
+
+# Database
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=uc_coop
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# JWT
+JWT_SECRET=your-super-secret-jwt-key-change-in-production
+JWT_EXPIRES_IN=30d
+
+# CORS
+CORS_ORIGIN=http://localhost:5173
+
+# Email (SendGrid)
+EMAIL_SERVICE=SendGrid
+EMAIL_USER=apikey
+EMAIL_PASSWORD=your-sendgrid-api-key
+EMAIL_FROM=your-email@gmail.com
+```
+
+### 5. Run Development Servers
+
+```bash
+# Terminal 1 - Backend
+cd backend
+npm run dev
+
+# Terminal 2 - Frontend
 npm run dev
 ```
 
-### Production Build
+Visit: **http://localhost:5173**
 
-```bash
-npm run build
+## 📧 Email Setup (SendGrid)
+
+1. Create account at https://signup.sendgrid.com/
+2. Generate API key (Settings → API Keys)
+3. Verify sender email (Settings → Sender Authentication)
+4. Update `backend/.env` with credentials
+
+See `SENDGRID_SETUP_GUIDE.md` for detailed instructions.
+
+## 🚢 Production Deployment
+
+### Recommended: Railway
+
+1. **Sign up:** https://railway.app/
+2. **Install CLI:** `npm install -g @railway/cli`
+3. **Deploy:**
+   ```bash
+   railway init
+   railway add postgresql
+   railway up
+   ```
+4. **Set environment variables** in Railway dashboard
+5. **Update CORS_ORIGIN** to your frontend URL
+
+See `PRODUCTION_DEPLOYMENT_PLAN.md` for complete guide.
+
+### Cost Estimate
+- **Free Tier:** $0/month (₱0) - Good for 100-300 users
+- **Pro Tier:** $30-40/month (₱1,740-2,320) - Good for 1000-2000 users
+- **SendGrid:** FREE (100 emails/day)
+
+## 📁 Project Structure
+
+```
+uc-metc-silms/
+├── src/                    # Frontend source
+│   ├── pages/             # Page components
+│   ├── components/        # Reusable components
+│   ├── store/             # Zustand stores
+│   ├── services/          # API client
+│   ├── types/             # TypeScript types
+│   └── assets/            # Images, fonts
+├── backend/               # Backend source
+│   └── src/
+│       ├── routes/        # API endpoints
+│       ├── middleware/    # Auth, error handling
+│       ├── services/      # Business logic
+│       ├── database/      # Schema, migrations
+│       ├── websocket/     # Socket.io server
+│       └── config/        # Configuration
+├── .env                   # Frontend environment
+├── backend/.env           # Backend environment
+└── README.md             # This file
 ```
 
-## Authentication
+## 🔐 Default Credentials
 
-The system uses JWT-based authentication with secure password hashing. Users can register through the application or be added directly via the database.
+**Admin Account:**
+- Email: `admin@ucmetc.edu`
+- Password: `admin123`
 
-## Role-Based Access
+**Test User:**
+- Email: `test@example.com`
+- Password: `password123`
 
-- **Admin**: Full system access
-- **Cashier**: Sales, inventory, and billing access
-- **Locker Officer**: Locker management and key duplication access
-- **Inventory Officer**: Inventory management access
-- **Manager**: Members, reports, and approvals access
+⚠️ **Change these in production!**
 
-## Technology Stack
+## 🧪 Testing
 
-- **React 18.3.1** - UI framework
-- **TypeScript 5.8.3** - Type-safe development
-- **Vite 7.0.0** - Build tool and dev server
-- **Tailwind CSS 3.4.17** - Utility-first CSS
-- **Zustand 4.4.7** - State management
-- **React Router 6.30.1** - Client-side routing
-- **Lucide React 0.533.0** - Icon library
-- **Framer Motion 11.0.8** - Animation library
-- **Headless UI 1.7.18** - Unstyled accessible components
+```bash
+# Frontend
+npm run build
+npm run preview
 
-## Key Implementation Details
+# Backend
+cd backend
+npm run build
+npm start
+```
 
-### State Management
+## 📊 User Roles
 
-Three Zustand stores handle different concerns:
+- **admin** - Full system access
+- **staff** - Staff operations (cashier, locker officer, inventory)
+- **member** - Approved members with limited access
+- **user** - Regular students/users
 
-1. **authStore** - Authentication and user roles
-2. **appStore** - Application data (products, members, lockers, etc.)
-3. **uiStore** - UI state (sidebar, modals, notifications)
+## 🔧 Common Commands
 
-### Type Definitions
+```bash
+# Development
+npm run dev                 # Start frontend dev server
+cd backend && npm run dev   # Start backend dev server
 
-Comprehensive TypeScript interfaces for:
-- User and authentication
-- Products and inventory
-- Lockers and rentals
-- Transactions and billing
-- Members and services
+# Build
+npm run build              # Build frontend
+cd backend && npm run build # Build backend
 
-### Routing
+# Production
+npm run preview            # Preview frontend build
+cd backend && npm start    # Start backend production
+```
 
-- Landing page displayed to unauthenticated users
-- Protected routes ensure proper role-based access
-- Automatic redirection based on authentication status
+## 🐛 Troubleshooting
 
-## Functional Buttons
+### Database Connection Failed
+- Check PostgreSQL is running
+- Verify database credentials in `backend/.env`
+- Ensure database exists: `createdb uc_coop`
 
-All interactive buttons are fully functional:
-- **Key Duplication**: Approve/Reject buttons update status
-- **Locker Management**: View details and edit buttons provide feedback
-- **POS System**: Add to cart, checkout, and clear cart functions
-- **Forms**: All form submissions and cancellations work properly
-- **Navigation**: All navigation links and buttons are functional
+### Email Not Sending
+- Verify SendGrid API key is correct
+- Check sender email is verified
+- Review backend logs for errors
 
-## Design Principles
+### Frontend Can't Reach Backend
+- Check `VITE_API_URL` in `.env`
+- Verify backend is running on port 5000
+- Check CORS settings in `backend/.env`
 
-- **Modern Aesthetics**: Contemporary design with gradients and smooth transitions
-- **Accessibility**: Semantic HTML and ARIA labels for screen readers
-- **Responsive**: Mobile-first design that adapts to all screen sizes
-- **Performance**: Optimized builds with lazy loading and code splitting
-- **User Experience**: Intuitive navigation and clear visual hierarchy
+## 📞 Support
 
-## Notes for Future Development
+For issues or questions:
+1. Check documentation files
+2. Review backend logs
+3. Check browser console for frontend errors
 
-- Backend integration points are prepared for API calls
-- Demo data uses Zustand for state management
-- All data is currently stored in browser memory (session-based)
-- Ready for backend API integration via RESTful endpoints
-- Authentication can be upgraded to JWT-based system
-- Database operations can be implemented on the backend
+## 📄 License
 
-## Support
+This project is for UC METC internal use only.
 
-For backend integration or additional features, refer to the TypeScript types and API structure defined in `src/types/index.ts` and the store implementations in `src/store/`.
+## 👥 Contributors
+
+Developed for UC METC Cooperative
+
+---
+
+**Version:** 1.0.0  
+**Last Updated:** 2024

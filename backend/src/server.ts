@@ -1,8 +1,11 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import { createServer } from 'http';
 import { config } from './config/config.js';
 import { testConnection } from './config/database.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
+import { initializeWebSocketServer } from './websocket/server.js';
+import { initializeNotificationCleanupJob } from './jobs/notificationCleanup.js';
 
 // Routes
 import authRoutes from './routes/auth.js';
@@ -15,8 +18,14 @@ import reportsRoutes from './routes/reports.js';
 import cartRoutes from './routes/cart.js';
 import ordersRoutes from './routes/orders.js';
 import messagesRoutes from './routes/messages.js';
+import publicRoutes from './routes/public.js';
+import productsRoutes from './routes/products.js';
+import announcementsRoutes from './routes/announcements.js';
+import stockIntakeRoutes from './routes/stockIntake.js';
+import notificationsRoutes from './routes/notifications.js';
 
 const app = express();
+const httpServer = createServer(app);
 
 // Middleware
 app.use(express.json());
@@ -33,6 +42,11 @@ app.use('/api/reports', reportsRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/messages', messagesRoutes);
+app.use('/api/products', productsRoutes);
+app.use('/api/announcements', announcementsRoutes);
+app.use('/api/stock-intake', stockIntakeRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/public', publicRoutes); // Public endpoints (no auth required)
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
@@ -57,8 +71,15 @@ async function startServer() {
       process.exit(1);
     }
 
-    app.listen(PORT, () => {
+    // Initialize WebSocket server
+    initializeWebSocketServer(httpServer);
+
+    // Initialize notification cleanup job
+    initializeNotificationCleanupJob();
+
+    httpServer.listen(PORT, () => {
       console.log(`✓ Server running on http://localhost:${PORT}`);
+      console.log(`✓ WebSocket server initialized`);
       console.log(`✓ Environment: ${config.nodeEnv}`);
     });
   } catch (err) {

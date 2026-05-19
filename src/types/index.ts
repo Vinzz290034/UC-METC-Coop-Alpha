@@ -15,19 +15,6 @@ export interface User {
   membership_status?: 'approved' | 'pending' | 'rejected'; // Membership status
 }
 
-// Daily Time Record (DTR) Types
-export interface DTRRecord {
-  id: string;
-  staffId: string;
-  staffName: string;
-  date: string; // YYYY-MM-DD format
-  timeIn: string; // HH:MM:SS format
-  timeOut?: string; // HH:MM:SS format
-  duration?: number; // in minutes
-  status: 'present' | 'absent' | 'late' | 'on_time';
-  createdAt: string;
-}
-
 // Member Types
 export interface Member {
   id: string;
@@ -48,7 +35,7 @@ export const ITEM_INVENTORY = [
   'Handbag',
   'Hard Bound',
   'Safety Shoes',
-  'Goggles',
+  'Safety Goggles',
   'Cover All',
   'Gloves',
   'Hard Hat',
@@ -61,8 +48,8 @@ export const ITEM_INVENTORY = [
   'PE Pants',
   'Pershing Cap',
   'Buttons',
-  'Anchor Pin',
-  'Bars',
+  'Anchor Pins',
+  'Propeller Pins',
   'Patch',
   'Swimming Set',
   'Swimming Cap',
@@ -70,6 +57,9 @@ export const ITEM_INVENTORY = [
   'Cloth',
   'Shoulder Board',
   'PE Short',
+  'CWTS Shirt',
+  'White Shoes',
+  'Rope',
 ] as const;
 
 export type ItemType = typeof ITEM_INVENTORY[number];
@@ -90,6 +80,12 @@ export interface Product {
     label: string;
     choices: string[];
   }>;
+  variants?: {
+    [variantKey: string]: {
+      stock: number;
+      options: Record<string, string>;
+    };
+  };
 }
 
 // Transaction Types
@@ -187,6 +183,9 @@ export interface CartItem {
   quantity: number;
   image: string;
   selectedOptions?: Record<string, string>;
+  paymentType?: 'full' | 'downpayment';
+  orderType?: 'regular' | 'preorder';
+  fullPrice?: number; // The full price of the item (for downpayment items to calculate balance)
 }
 
 // Sale Item Types
@@ -200,11 +199,38 @@ export interface SaleItem {
 
 export interface Sale {
   id: string;
-  receiptNo: string;
+  receiptNo?: string;
+  receipt_no?: string; // snake_case from API
   memberId?: string;
   items: SaleItem[];
-  totalAmount: number;
-  paymentMethod: 'cash' | 'ewallet';
-  status: 'completed' | 'pending' | 'cancelled';
-  createdAt: string;
+  totalAmount?: number;
+  total_amount?: number; // snake_case from API
+  paymentMethod?: 'cash' | 'ewallet';
+  payment_method?: 'cash' | 'ewallet'; // snake_case from API
+  status: 'completed' | 'pending' | 'cancelled' | 'released';
+  createdAt?: string;
+  created_at?: string; // snake_case from API
+  order_type?: 'merchandise' | 'insurance'; // Order type for insurance vs merchandise
+}
+
+// Notification Types
+export type NotificationType =
+  | 'new_message'
+  | 'pending_order'
+  | 'pending_membership'
+  | 'order_completed'
+  | 'order_cancelled'
+  | 'membership_approved'
+  | 'membership_rejected'
+  | 'insurance_approved';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  type: NotificationType;
+  title: string;
+  description?: string;
+  link?: string;
+  is_read: boolean;
+  created_at: string;
 }

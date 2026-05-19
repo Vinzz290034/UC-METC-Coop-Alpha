@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, LogOut, XCircle } from 'lucide-react';
+import { CheckCircle2, LogOut, XCircle, X } from 'lucide-react';
 import { useUIStore } from '../store/uiStore';
+import { Z_INDEX } from '../constants/zIndex';
 
 interface ToastProps {
   message: string;
@@ -13,7 +14,7 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose?.();
-    }, 3000);
+    }, 2000); // Reduced from 3000ms to 2000ms (2 seconds)
     return () => clearTimeout(timer);
   }, [onClose]);
 
@@ -45,7 +46,9 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.9 }}
       transition={{ duration: 0.3 }}
-      className={`fixed top-6 left-6 flex items-center space-x-3 ${styles.bgColor} text-white px-6 py-4 rounded-lg shadow-2xl z-[9999]`}
+      className={`fixed top-6 left-6 flex items-center space-x-3 ${styles.bgColor} text-white px-6 py-4 rounded-lg shadow-2xl cursor-pointer hover:opacity-90 transition-opacity`}
+      style={{ zIndex: Z_INDEX.TOAST }}
+      onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0, rotate: -180 }}
@@ -64,9 +67,23 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
         initial={{ opacity: 0, x: -10 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: 0.2, duration: 0.3 }}
+        className="flex-1"
       >
         <p className="font-semibold text-sm">{message}</p>
       </motion.div>
+      <motion.button
+        initial={{ opacity: 0, scale: 0 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 0.3, duration: 0.2 }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onClose?.();
+        }}
+        className="ml-2 p-1 hover:bg-white/20 rounded-full transition-colors"
+        aria-label="Close notification"
+      >
+        <X size={16} className="text-white" />
+      </motion.button>
     </motion.div>
   );
 };

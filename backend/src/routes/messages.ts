@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../config/database.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = express.Router();
 
@@ -32,23 +33,78 @@ router.post('/send', verifyUser, async (req: Request, res: Response) => {
     const sender = senderResult.rows[0];
     const senderName = `${sender.first_name} ${sender.last_name}`;
 
-    // Insert message for recipient
-    await pool.query(
-      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread')`,
-      [userId, senderName, sender.role, recipientId || null, recipientRole || null, subject, content, preview]
-    );
+    // If sending to a specific person (recipientId provided)
+    if (recipientId) {
+      // Insert message for specific recipient
+      await pool.query(
+        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
+        [userId, senderName, sender.role, recipientId, recipientRole || null, subject, content, preview]
+      );
+
+      // Create notification for recipient
+      await notificationService.createNotification({
+        user_id: recipientId,
+        type: 'new_message',
+        title: 'New Message',
+        description: `${senderName} sent you a message: ${subject}`,
+        link: '/inbox',
+      });
+    } 
+    // If sending to a role (admin, staff, user, etc.)
+    else if (recipientRole) {
+      // Get all users with that role
+      let targetUsers = [];
+      
+      if (recipientRole === 'all_users') {
+        const usersResult = await pool.query('SELECT id FROM users WHERE role = $1', ['user']);
+        targetUsers = usersResult.rows;
+      } else if (recipientRole === 'all_members') {
+        const membersResult = await pool.query('SELECT id FROM users WHERE membership_status = $1', ['approved']);
+        targetUsers = membersResult.rows;
+      } else if (recipientRole === 'all_both') {
+        const bothResult = await pool.query('SELECT id FROM users WHERE role = $1 OR membership_status = $2', ['user', 'approved']);
+        targetUsers = bothResult.rows;
+      } else {
+        // For specific roles like 'admin', 'staff'
+        const roleResult = await pool.query('SELECT id FROM users WHERE role = $1', [recipientRole]);
+        targetUsers = roleResult.rows;
+      }
+
+      // Create inbox message for each target user
+      const targetUserIds: string[] = [];
+      for (const targetUser of targetUsers) {
+        await pool.query(
+          `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
+          [userId, senderName, sender.role, targetUser.id, recipientRole, subject, content, preview]
+        );
+        targetUserIds.push(targetUser.id);
+      }
+
+      // Create notifications for all recipients
+      if (targetUserIds.length > 0) {
+        await notificationService.createNotificationsForUsers(
+          targetUserIds,
+          'new_message',
+          'New Message',
+          `${senderName} sent you a message: ${subject}`,
+          '/inbox'
+        );
+      }
+    }
 
     // Insert message in sender's sent folder
     const sentResult = await pool.query(
-      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read')
+      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read', true)
        RETURNING *`,
       [userId, senderName, sender.role, recipientId || null, recipientRole || null, subject, content, preview]
     );
 
     res.json(sentResult.rows[0]);
   } catch (error) {
+    console.error('Error sending message:', error);
     res.status(500).json({ error: 'Failed to send message' });
   }
 });

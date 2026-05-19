@@ -47,43 +47,43 @@ export const LearnMorePage: React.FC = () => {
   const features = [
     {
       icon: ShoppingCart,
-      title: 'Easy Ordering',
-      description: 'Browse and purchase products from the cooperative store with a user-friendly interface designed for quick and convenient shopping.',
+      title: 'Shop School Essentials',
+      description: 'Browse and buy uniforms, equipment, and supplies online. Order now, pick up at the Coop office quick and hassle-free!',
     },
     {
       icon: Bell,
-      title: 'Stay Informed',
-      description: 'Receive real-time announcements and important updates directly from UC METC to keep you informed about events and opportunities.',
+      title: 'Stay in the Loop',
+      description: 'Get instant notifications about new products, restocks, campus announcements, and exclusive deals to never miss out!',
     },
     {
       icon: Lock,
-      title: 'Secure Lockers',
-      description: 'Manage your locker rentals with ease - rent, renew, and track your locker status all in one place.',
+      title: 'Manage Your Locker',
+      description: 'Rent a locker, renew your rental, and track everything from your phone. Keep your belongings safe and organized.',
     },
     {
       icon: Users,
-      title: 'Cooperative Membership',
-      description: 'Join our cooperative community to access exclusive benefits, member-only pricing, and special privileges.',
+      title: 'Join the Coop Community',
+      description: 'Become a member and enjoy exclusive discounts, priority access to new products, and special member-only perks!',
     },
     {
       icon: BarChart3,
-      title: 'Transaction History',
-      description: 'Keep track of all your purchases, payments, and locker rentals with detailed billing information.',
+      title: 'Track Your Orders',
+      description: 'View your purchase history, check order status, and manage your billing and all your transactions in one place.',
     },
     {
       icon: Zap,
-      title: 'Fast & Reliable',
-      description: 'Experience lightning-fast performance and 99.9% uptime to ensure you never miss out on important updates or services.',
+      title: 'Always Available',
+      description: 'Shop anytime, anywhere! Our platform is fast, reliable, and works perfectly on your phone, tablet, or computer.',
     },
   ];
 
   const highlights = [
-    'Secure Ordering System',
-    '500+ Active Users',
-    '99.9% Uptime',
-    'Real-time Announcements',
-    'Easy Membership',
-    'Mobile Responsive',
+    'Member Discounts',
+    'Open to All Students',
+    'Fast & Reliable',
+    'Real-time Updates',
+    'Mobile Friendly',
+    'Secure Platform',
   ];
 
   return (
@@ -135,15 +135,15 @@ export const LearnMorePage: React.FC = () => {
       <div className="max-w-6xl mx-auto px-6 py-20">
         <div className="grid md:grid-cols-2 gap-12 items-center">
           <div>
-            <h2 className="text-4xl font-bold text-slate-800 mb-6">Our Mission</h2>
+            <h2 className="text-4xl font-bold text-slate-800 mb-6">What We Do</h2>
             <p className="text-lg text-slate-600 mb-4 text-justify">
-              UC METC SILMS (Sales, Inventory, Locker, and Membership System) is a comprehensive digital platform designed specifically for the University of Cebu Maritime Education and Training Center community.
+              UC METC SILMS is your one-stop digital platform for everything you need as a UC METC student. We make it easy for you to shop for school essentials, manage your locker, and stay connected with the campus community.
             </p>
             <p className="text-lg text-slate-600 mb-4 text-justify">
-              Our platform empowers students to order products, manage locker rentals, stay updated with important announcements, and explore membership opportunities in our cooperative community.
+              Whether you need uniforms, equipment, or supplies, you can browse and order online, then pick up at the Coop office. Plus, become a member to unlock exclusive discounts and special perks!
             </p>
             <p className="text-lg text-slate-600 text-justify">
-              We're committed to providing a seamless, integrated experience that streamlines cooperative services and enhances the student experience at UC METC.
+              We're here to make your student life easier by bringing all cooperative services together in one convenient platform. Shop smart, save time, and focus on what matters most, your education.
             </p>
           </div>
           <div className="bg-gradient-to-br from-purple-100 to-green-100 rounded-2xl p-12 flex items-center justify-center">
@@ -160,7 +160,7 @@ export const LearnMorePage: React.FC = () => {
       {/* Highlights Section */}
       <div className="bg-slate-100 py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">Why Choose UC METC SILMS?</h2>
+          <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">Why Students Love UC METC SILMS</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
             {highlights.map((highlight, idx) => (
               <div key={idx} className="bg-white p-6 rounded-lg shadow flex items-center space-x-4">
@@ -174,7 +174,7 @@ export const LearnMorePage: React.FC = () => {
 
       {/* Core Features Section */}
       <div className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">Core Features</h2>
+        <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">What You Can Do</h2>
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {features.map((feature, idx) => {
             const Icon = feature.icon;
@@ -201,60 +201,32 @@ export const LearnMorePage: React.FC = () => {
       {/* Footer */}
       <footer className="border-t border-white/20 py-12 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
         <div className="max-w-6xl mx-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-            <div>
-              <h4 className="font-semibold text-white mb-4">Resources</h4>
-              <ul className="space-y-2 text-white/80 text-sm">
-                <li className="hover:text-green-400 cursor-pointer transition-colors">Documentation</li>
-                <li className="hover:text-green-400 cursor-pointer transition-colors">Support</li>
-                <li className="hover:text-green-400 cursor-pointer transition-colors">FAQ</li>
-              </ul>
+          <div className="flex flex-col items-center justify-center space-y-6">
+            <div className="flex items-center gap-6 sm:gap-8">
+              <a 
+                href="https://www.facebook.com/profile.php?id=61573124552924" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+              >
+                <Facebook size={24} />
+              </a>
+              <a 
+                href="mailto:ucmetc.ecc@gmail.com" 
+                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+              >
+                <Mail size={24} />
+              </a>
+              <a 
+                href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+              >
+                <Github size={24} />
+              </a>
             </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Company</h4>
-              <ul className="space-y-2 text-white/80 text-sm">
-                <li className="hover:text-green-400 cursor-pointer transition-colors">About</li>
-                <li className="hover:text-green-400 cursor-pointer transition-colors">Blog</li>
-                <li className="hover:text-green-400 cursor-pointer transition-colors">Contact</li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Legal</h4>
-              <ul className="space-y-2 text-white/80 text-sm">
-                <li onClick={() => navigate('/privacy-policy')} className="hover:text-green-400 cursor-pointer transition-colors">Privacy</li>
-                <li onClick={() => navigate('/terms-of-use')} className="hover:text-green-400 cursor-pointer transition-colors">Terms</li>
-                <li className="hover:text-green-400 cursor-pointer transition-colors">Compliance</li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-white/30 pt-8">
-            <div className="flex flex-col items-center justify-center space-y-6">
-              <div className="flex items-center space-x-6">
-                <a 
-                  href="https://www.facebook.com/profile.php?id=61573124552924" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                >
-                  <Facebook size={24} />
-                </a>
-                <a 
-                  href="mailto:ucmetc.ecc@gmail.com" 
-                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                >
-                  <Mail size={24} />
-                </a>
-                <a 
-                  href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                >
-                  <Github size={24} />
-                </a>
-              </div>
-              <p className="text-white text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
-            </div>
+            <p className="text-white text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
           </div>
         </div>
       </footer>

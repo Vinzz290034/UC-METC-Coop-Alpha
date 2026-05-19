@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { apiClient } from '../services/api';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
+/** Landing hero video — file lives in public/videos/ (gitignored; copy locally for dev). */
+const LANDING_VIDEO_SRC =
+  import.meta.env.VITE_LANDING_VIDEO_URL || '/videos/FINAL-COOP.mp4';
+// @ts-ignore
+import benefitsImage from '../assets/90.jpeg';
 import {
   ArrowRight,
   Box,
   Key,
   Users,
   DollarSign,
-  BarChart3,
   CheckCircle2,
   Bell,
   MessageCircle,
@@ -17,6 +22,8 @@ import {
   Mail,
   Facebook,
   Github,
+  Lock,
+  X,
 } from 'lucide-react';
 import { TypingEffect } from '../components/TypingEffect';
 
@@ -183,10 +190,42 @@ export const LandingPage: React.FC = () => {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [visibleElements, setVisibleElements] = useState<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Real-time stats state
+  const [stats, setStats] = useState({
+    products: 0,
+    students: 0,
+    members: 0,
+  });
+  const [statsLoading, setStatsLoading] = useState(true);
+  const [showVideoModal, setShowVideoModal] = useState(false);
 
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  // Fetch real-time stats
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setStatsLoading(true);
+        const data = await apiClient.getLandingStats() as { products: number; students: number; members: number };
+        setStats({
+          products: data.products || 0,
+          students: data.students || 0,
+          members: data.members || 0,
+        });
+      } catch (error) {
+        console.error('Failed to fetch landing stats:', error);
+        // Keep default values on error
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchStats();
   }, []);
 
   // Intersection Observer for scroll-triggered animations
@@ -244,44 +283,44 @@ export const LandingPage: React.FC = () => {
 
   const features = [
     {
-      icon: <Box className="w-6 h-6" />,
-      title: 'Locker Management',
-      description: 'Complete locker registration, rental renewals, and tracking',
-    },
-    {
       icon: <Package className="w-6 h-6" />,
-      title: 'Sales & Inventory',
-      description: 'Real-time POS system with inventory optimization',
-    },
-    {
-      icon: <Key className="w-6 h-6" />,
-      title: 'Key Services',
-      description: 'Streamlined key duplication with approval workflows',
+      title: 'Shop School Essentials',
+      description: 'Browse uniforms, equipment, and supplies. Order online and pick up at the UC Coop office quick and convenient!',
     },
     {
       icon: <Users className="w-6 h-6" />,
-      title: 'Member Management',
-      description: 'Comprehensive profiles with linked services',
+      title: 'Exclusive Member Benefits',
+      description: 'Join the cooperative and unlock special discounts, priority access, and member-only perks!',
+    },
+    {
+      icon: <Lock className="w-6 h-6" />,
+      title: 'Secure Locker Rentals',
+      description: 'Rent a locker for your belongings. Manage renewals and track your locker status all from your phone.',
     },
     {
       icon: <DollarSign className="w-6 h-6" />,
-      title: 'Billing & Payments',
-      description: 'Unified billing for all cooperative services',
+      title: 'Easy Payments',
+      description: 'Pay with cash or GCash. Track your orders and billing history in one convenient place.',
     },
     {
-      icon: <BarChart3 className="w-6 h-6" />,
-      title: 'Analytics',
-      description: 'Detailed insights and cooperative performance',
+      icon: <Bell className="w-6 h-6" />,
+      title: 'Stay Updated',
+      description: 'Get instant notifications about new products, restocks, announcements, and exclusive deals.',
+    },
+    {
+      icon: <Key className="w-6 h-6" />,
+      title: 'Key Duplication Service',
+      description: 'Need an extra key? Request key duplication services directly through the app with easy approval.',
     },
   ];
 
   const benefits = [
-    'Centralized platform for all services',
-    'Real-time tracking and automation',
-    'Role-based security control',
-    'Mobile-responsive design',
-    'Intuitive interface',
-    'Comprehensive audit trails',
+    'Member-exclusive discounts on products',
+    'Order online, pick up on UC Coop Office',
+    'Secure locker rentals with easy management',
+    'Mobile-friendly shopping experience',
+    'Real-time updates on new arrivals & restocks',
+    'Fast checkout and payment options',
   ];
 
   return (
@@ -310,20 +349,22 @@ export const LandingPage: React.FC = () => {
                 UC METC SILMS
               </h1>
             </div>
-            <div className="flex items-center space-x-4">
+            
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center space-x-4">
               <button
                 onClick={() => navigate('/announcements')}
                 className="flex items-center space-x-2 text-slate-600 hover:text-green-600 transition-colors font-medium group"
               >
                 <Bell size={18} className="group-hover:scale-110 transition-transform" />
-                <span className="hidden sm:inline">Announcements</span>
+                <span>Announcements</span>
               </button>
               <button
                 onClick={() => navigate('/community')}
                 className="flex items-center space-x-2 text-slate-600 hover:text-purple-600 transition-colors font-medium group"
               >
                 <MessageCircle size={18} className="group-hover:scale-110 transition-transform" />
-                <span className="hidden sm:inline">Community</span>
+                <span>Community</span>
               </button>
               <button
                 onClick={() => navigate('/login')}
@@ -333,8 +374,79 @@ export const LandingPage: React.FC = () => {
                 <span>Login</span>
               </button>
             </div>
+
+            {/* Mobile Menu Button */}
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="lg:hidden p-2 text-slate-700 hover:text-green-600 transition-colors"
+            >
+              {mobileMenuOpen ? <X size={28} /> : (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
+            </button>
           </div>
         </nav>
+
+        {/* Mobile Menu Overlay */}
+        {mobileMenuOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+        )}
+
+        {/* Mobile Menu Slide-in */}
+        <div
+          className={`fixed top-0 right-0 h-full w-64 bg-gradient-to-t from-green-500 to-green-600 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${
+            mobileMenuOpen ? 'translate-x-0' : 'translate-x-full'
+          }`}
+        >
+          {/* Close Button */}
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            className="absolute top-6 right-6 text-white hover:text-gray-200 transition-all hover:rotate-90 duration-300"
+          >
+            <X size={28} />
+          </button>
+
+          {/* Menu Items */}
+          <div className="flex flex-col items-end space-y-8 pt-24 pr-8 text-white">
+            <button
+              onClick={() => {
+                navigate('/announcements');
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center space-x-3 text-xl font-medium hover:text-gray-200 transition-all hover:scale-110 hover:translate-x-[-8px] duration-300 group"
+            >
+              <Bell size={24} className="group-hover:scale-110 transition-transform" />
+              <span>Event</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                navigate('/community');
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center space-x-3 text-xl font-medium hover:text-gray-200 transition-all hover:scale-110 hover:translate-x-[-8px] duration-300 group"
+            >
+              <MessageCircle size={24} className="group-hover:scale-110 transition-transform" />
+              <span>Community</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                navigate('/login');
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center space-x-3 text-xl font-medium hover:text-gray-200 transition-all hover:scale-110 hover:translate-x-[-8px] duration-300 group"
+            >
+              <LogIn size={24} className="group-hover:scale-110 transition-transform" />
+              <span>Login</span>
+            </button>
+          </div>
+        </div>
 
         {/* Hero Section */}
         <section className="relative pt-40 pb-32 px-6">
@@ -342,15 +454,15 @@ export const LandingPage: React.FC = () => {
             <div className="text-center">
               <div className="mb-6 inline-block">
                 <span className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
-                  Welcome to the Future of Cooperative Management
+                  Your One-Stop Shop for UC METC School Essentials
                 </span>
               </div>
 
               <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight">
-                <span className="block">Streamline Your</span>
+                <span className="block">Shop Smart,</span>
                 <span className="block bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
                   <TypingEffect
-                    words={['Operations', 'Services', 'Management', 'Success']}
+                    words={['Study Better', 'Save More', 'Live Easier', 'Succeed Together']}
                     className="font-bold inline-block"
                     speed={80}
                     deleteSpeed={40}
@@ -360,16 +472,18 @@ export const LandingPage: React.FC = () => {
               </h1>
 
               <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-                Modern, intuitive platform for managing UC METC Coop services. Lockers, inventory, billing, and analytics. All in one place.
+                Get your uniforms, equipment, and school supplies in UC Coop Office. Exclusive member discounts, secure lockers, and hassle-free ordering all in one website.
               </p>
 
               <div className="flex justify-center gap-6 flex-wrap">
                 <button
-                  onClick={() => navigate('/login')}
+                  onClick={() => setShowVideoModal(true)}
                   className="inline-flex items-center justify-center space-x-3 bg-gradient-to-r from-green-600 to-green-500 text-white px-8 py-4 rounded-lg font-semibold text-lg group btn-hover-effect btn-glow-green btn-scale-in"
                 >
-                  <span>Get Started</span>
-                  <ArrowRight size={20} className="group-hover:translate-x-1 group-hover:scale-110 transition-all duration-300" />
+                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z"/>
+                  </svg>
+                  <span>Watch Video</span>
                 </button>
 
                 <button
@@ -388,9 +502,9 @@ export const LandingPage: React.FC = () => {
             {/* Feature Quick Stats */}
             <div className="grid grid-cols-3 gap-4 mt-20">
               {[
-                { label: 'Services', value: '6+' },
-                { label: 'Members', value: '200+' },
-                { label: 'Uptime', value: '99.9%' },
+                { label: 'Products Available', value: statsLoading ? '...' : `${stats.products}+` },
+                { label: 'Registered Students', value: statsLoading ? '...' : `${stats.students}+` },
+                { label: 'Approved Members', value: statsLoading ? '...' : `${stats.members}+` },
               ].map((stat, idx) => (
                 <div
                   key={idx}
@@ -422,7 +536,7 @@ export const LandingPage: React.FC = () => {
                   visibleElements.has('features-title') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                 }`}
               >
-                Essential Features
+                Everything You Need for School
               </h2>
               <p 
                 id="features-desc"
@@ -431,7 +545,7 @@ export const LandingPage: React.FC = () => {
                   visibleElements.has('features-desc') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                 }`}
               >
-                Everything needed to manage your cooperative efficiently and effectively
+                From uniforms to lockers, we've got you covered with convenient services designed for UC METC students
               </p>
             </div>
 
@@ -503,19 +617,15 @@ export const LandingPage: React.FC = () => {
                 className={`relative transition-all duration-700 ${
                   visibleElements.has('benefits-image') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                 }`}
+                style={{ animationDelay: '0.2s' }}
               >
-                <div className="absolute inset-0 bg-gradient-to-br from-green-400/20 to-purple-400/20 rounded-2xl blur-2xl"></div>
-                <div className="relative bg-white/80 border-2 border-white/40 rounded-2xl p-8 shadow-lg">
-                  <div className="space-y-4">
-                    <div className="h-3 bg-gradient-to-r from-green-400 to-green-300 rounded-full w-3/4"></div>
-                    <div className="h-3 bg-slate-200 rounded-full w-full"></div>
-                    <div className="h-3 bg-slate-200 rounded-full w-5/6"></div>
-                    <div className="mt-6 space-y-2">
-                      <div className="h-2 bg-green-200 rounded w-1/2"></div>
-                      <div className="h-2 bg-slate-200 rounded w-full"></div>
-                      <div className="h-2 bg-slate-200 rounded w-3/4"></div>
-                    </div>
-                  </div>
+                <div className="absolute inset-0 bg-gradient-to-br from-green-400/30 to-purple-400/30 rounded-3xl blur-2xl"></div>
+                <div className="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-white/50 bg-gradient-to-br from-white/20 to-white/10 p-2">
+                  <img 
+                    src={benefitsImage} 
+                    alt="UC METC SILMS Benefits" 
+                    className="w-full h-auto object-cover rounded-2xl"
+                  />
                 </div>
               </div>
             </div>
@@ -525,63 +635,68 @@ export const LandingPage: React.FC = () => {
         {/* Footer */}
         <footer className="border-t border-white/20 py-12 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
           <div className="max-w-7xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-              <div>
-                <h4 className="font-semibold text-white mb-4">Resources</h4>
-                <ul className="space-y-2 text-white/80 text-sm">
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">Documentation</li>
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">Support</li>
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">FAQ</li>
-                </ul>
+            <div className="flex flex-col items-center justify-center space-y-6">
+              <div className="flex items-center gap-6 sm:gap-8">
+                <a 
+                  href="https://www.facebook.com/profile.php?id=61573124552924" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+                >
+                  <Facebook size={24} />
+                </a>
+                <a 
+                  href="mailto:ucmetc.ecc@gmail.com" 
+                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+                >
+                  <Mail size={24} />
+                </a>
+                <a 
+                  href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
+                >
+                  <Github size={24} />
+                </a>
               </div>
-              <div>
-                <h4 className="font-semibold text-white mb-4">Company</h4>
-                <ul className="space-y-2 text-white/80 text-sm">
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">About</li>
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">Blog</li>
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">Contact</li>
-                </ul>
-              </div>
-              <div>
-                <h4 className="font-semibold text-white mb-4">Legal</h4>
-                <ul className="space-y-2 text-white/80 text-sm">
-                  <li onClick={() => navigate('/privacy-policy')} className="hover:text-green-400 cursor-pointer transition-colors">Privacy</li>
-                  <li onClick={() => navigate('/terms-of-use')} className="hover:text-green-400 cursor-pointer transition-colors">Terms</li>
-                  <li className="hover:text-green-400 cursor-pointer transition-colors">Compliance</li>
-                </ul>
-              </div>
-            </div>
-            <div className="border-t border-white/30 pt-8">
-              <div className="flex flex-col items-center justify-center space-y-6">
-                <div className="flex items-center space-x-6">
-                  <a 
-                    href="https://www.facebook.com/profile.php?id=61573124552924" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                  >
-                    <Facebook size={24} />
-                  </a>
-                  <a 
-                    href="mailto:ucmetc.ecc@gmail.com" 
-                    className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                  >
-                    <Mail size={24} />
-                  </a>
-                  <a 
-                    href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git" 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-                  >
-                    <Github size={24} />
-                  </a>
-                </div>
-                <p className="text-white text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
-              </div>
+              <p className="text-white text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
             </div>
           </div>
         </footer>
+
+        {/* Video Modal */}
+        {showVideoModal && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+            <div className="relative bg-black rounded-2xl shadow-2xl max-w-3xl w-full animate-scale-in">
+              {/* Close Button */}
+              <button
+                onClick={() => setShowVideoModal(false)}
+                className="absolute -top-4 -right-4 bg-white text-slate-900 rounded-full p-3 hover:bg-slate-100 transition-all hover:scale-110 shadow-lg z-10"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              {/* Video Player */}
+              <div className="relative pt-[56.25%]">
+                <video
+                  className="absolute inset-0 w-full h-full rounded-2xl"
+                  controls
+                  autoPlay
+                  controlsList="nodownload noremoteplayback"
+                  disablePictureInPicture
+                  onContextMenu={(e) => e.preventDefault()}
+                  src={LANDING_VIDEO_SRC}
+                >
+                  <source src={LANDING_VIDEO_SRC} type="video/mp4" />
+                  Your browser does not support the video tag.
+                </video>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </>
   );

@@ -35,6 +35,9 @@ export class AppDataSync {
           price: item.price,
           quantity: item.quantity,
           selectedOptions: item.selectedOptions,
+          paymentType: item.paymentType,
+          orderType: item.orderType,
+          fullPrice: item.fullPrice,
         }, userId);
       }
       return true;
@@ -59,11 +62,16 @@ export class AppDataSync {
           unitPrice: item.unit_price || item.unitPrice,
           subtotal: item.subtotal,
           selectedOptions: item.selected_options || item.selectedOptions || {},
+          paymentType: item.payment_type || item.paymentType,
+          orderType: item.order_type || item.orderType,
+          fullPrice: item.full_price || item.fullPrice,
         })),
         totalAmount: order.total_amount,
         paymentMethod: order.payment_method as 'cash' | 'ewallet',
-        status: order.status as 'completed' | 'pending' | 'cancelled',
+        status: order.status as 'completed' | 'pending' | 'cancelled' | 'released',
         createdAt: order.created_at,
+        completedAt: order.completed_at,
+        order_type: order.order_type, // Add order_type field
       }));
       useAppStore.setState({ sales: transformedSales });
       return transformedSales;
@@ -73,24 +81,43 @@ export class AppDataSync {
     }
   }
 
-  static async createOrderFromCart(userId: string) {
+  static async createOrderFromCart(
+    userId: string, 
+    paymentMethod: 'cash' | 'ewallet' = 'cash',
+    referenceNumber: string | null = null
+  ) {
     try {
       const cart = useAppStore.getState().cart;
       const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
       
-      const items = cart.map(item => ({
-        productId: item.productId,
-        productName: item.name,
-        quantity: item.quantity,
-        unitPrice: item.price,
-        subtotal: item.price * item.quantity,
-        selectedOptions: item.selectedOptions || {},
-      }));
+      const items = cart.map(item => {
+        const orderItem: any = {
+          productId: item.productId,
+          productName: item.name,
+          quantity: item.quantity,
+          unitPrice: item.price,
+          subtotal: item.price * item.quantity,
+          selectedOptions: item.selectedOptions || {},
+        };
+        
+        // Only include optional fields if they exist
+        if (item.paymentType) orderItem.paymentType = item.paymentType;
+        if (item.orderType) orderItem.orderType = item.orderType;
+        if (item.fullPrice) orderItem.fullPrice = item.fullPrice;
+        
+        return orderItem;
+      });
+
+      // Validate payment method
+      if (!['cash', 'ewallet'].includes(paymentMethod)) {
+        throw new Error('Invalid payment method. Must be "cash" or "ewallet".');
+      }
 
       const orderData = {
         items,
         totalAmount: total,
-        paymentMethod: 'cash',
+        paymentMethod: paymentMethod,
+        referenceNumber: referenceNumber,
         receiptNo: `RCP-${Date.now()}`,
       };
 
@@ -112,7 +139,8 @@ export class AppDataSync {
         })),
         totalAmount: newOrder.total_amount,
         paymentMethod: newOrder.payment_method as 'cash' | 'ewallet',
-        status: newOrder.status as 'completed' | 'pending' | 'cancelled',
+        referenceNumber: newOrder.reference_number,
+        status: newOrder.status as 'completed' | 'pending' | 'cancelled' | 'released',
         createdAt: newOrder.created_at,
       };
 
@@ -128,7 +156,46 @@ export class AppDataSync {
     }
   }
 
-  static async updateOrderStatus(orderId: string, status: 'completed' | 'pending' | 'cancelled', userId: string) {
+  static async createOrderFromBalancePayment(orderData: any, userId: string) {
+    try {
+      const newOrder = await apiClient.createOrder(orderData, userId);
+      
+      // Add order to local store
+      const sale = {
+        id: newOrder.id,
+        receiptNo: newOrder.receipt_no,
+        memberId: newOrder.user_id,
+        items: orderData.items.map((item: any) => ({
+          id: `item-${Date.now()}`,
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+          selectedOptions: item.selectedOptions,
+          paymentType: item.paymentType,
+          orderType: item.orderType,
+          fullPrice: item.fullPrice,
+        })),
+        totalAmount: newOrder.total_amount,
+        paymentMethod: newOrder.payment_method as 'cash' | 'ewallet',
+        referenceNumber: newOrder.reference_number,
+        status: newOrder.status as 'completed' | 'pending' | 'cancelled' | 'released',
+        createdAt: newOrder.created_at,
+      };
+
+      useAppStore.setState(state => ({
+        sales: [...state.sales, sale],
+      }));
+
+      return newOrder;
+    } catch (error) {
+      console.error('Failed to create balance payment order:', error);
+      throw error;
+    }
+  }
+
+  static async updateOrderStatus(orderId: string, status: 'completed' | 'pending' | 'cancelled' | 'released', userId: string) {
     try {
       await apiClient.updateOrderStatus(orderId, status, userId);
       useAppStore.setState(state => ({
@@ -242,6 +309,7 @@ export class AppDataSync {
     try {
       // Load all data in parallel
       await Promise.all([
+        AppDataSync.loadProductsFromAPI(),
         AppDataSync.loadCartFromAPI(userId),
         AppDataSync.loadOrdersFromAPI(userId),
         AppDataSync.loadMessagesFromAPI(userId, 'inbox'),
@@ -249,6 +317,60 @@ export class AppDataSync {
       return true;
     } catch (error) {
       console.error('Failed to initialize app data:', error);
+      return false;
+    }
+  }
+
+  static async loadProductsFromAPI() {
+    try {
+      const products: any[] = await apiClient.getProducts();
+      const transformedProducts = products.map(p => ({
+        id: p.id,
+        name: p.name,
+        category: p.category,
+        price: p.price,
+        stock: p.stock,
+        sku: p.sku,
+        image: p.image,
+        available: p.available,
+        note: p.note,
+        options: p.options,
+        variants: p.variants,
+        createdAt: p.created_at,
+      }));
+      useAppStore.setState({ products: transformedProducts });
+      return transformedProducts;
+    } catch (error) {
+      console.error('Failed to load products from API:', error);
+      // Return default products if API fails
+      return useAppStore.getState().products;
+    }
+  }
+
+  static async syncProductToAPI(product: any) {
+    try {
+      // Check if product exists in database
+      const existingProducts = await apiClient.getProducts();
+      const exists = existingProducts.some((p: any) => p.id === product.id);
+
+      if (exists) {
+        await apiClient.updateProduct(product.id, product);
+      } else {
+        await apiClient.createProduct(product);
+      }
+      return true;
+    } catch (error) {
+      console.error('Failed to sync product to API:', error);
+      return false;
+    }
+  }
+
+  static async deleteProductFromAPI(productId: string) {
+    try {
+      await apiClient.deleteProduct(productId);
+      return true;
+    } catch (error) {
+      console.error('Failed to delete product from API:', error);
       return false;
     }
   }

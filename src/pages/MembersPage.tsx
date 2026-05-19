@@ -10,7 +10,8 @@ interface PendingRequest {
   name: string;
   email: string;
   phone: string;
-  requestedAt: string;
+  requestedAt?: string;
+  created_at?: string;
   status: 'pending';
 }
 
@@ -23,11 +24,13 @@ interface ApiUser {
   membership_status: string;
   status: string;
   created_at: string;
+  membership_approved_at?: string;
 }
 
 interface EmailState {
   isOpen: boolean;
   to: string;
+  recipientName: string;
   subject: string;
   body: string;
   isSending: boolean;
@@ -42,8 +45,6 @@ interface EditState {
   email: string;
   isSaving: boolean;
   isDeleting: boolean;
-  isDemoting: boolean;
-  isFreezing: boolean;
   animatingIcon: boolean;
 }
 
@@ -53,7 +54,7 @@ interface ConfirmationModal {
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
-  actionType?: 'delete' | 'demote' | 'freeze';
+  actionType?: 'delete';
 }
 
 interface MessageModal {
@@ -81,6 +82,7 @@ export const MembersPage: React.FC = () => {
   const [emailState, setEmailState] = useState<EmailState>({
     isOpen: false,
     to: '',
+    recipientName: '',
     subject: '',
     body: '',
     isSending: false,
@@ -96,8 +98,6 @@ export const MembersPage: React.FC = () => {
     email: '',
     isSaving: false,
     isDeleting: false,
-    isDemoting: false,
-    isFreezing: false,
     animatingIcon: false
   });
 
@@ -241,6 +241,7 @@ export const MembersPage: React.FC = () => {
     setEmailState({
       isOpen: true,
       to: memberEmail,
+      recipientName: memberName,
       subject: `Message to ${memberName}`,
       body: '',
       isSending: false,
@@ -252,6 +253,7 @@ export const MembersPage: React.FC = () => {
     setEmailState({
       isOpen: false,
       to: '',
+      recipientName: '',
       subject: '',
       body: '',
       isSending: false,
@@ -280,11 +282,11 @@ export const MembersPage: React.FC = () => {
         body: emailState.body
       });
       
-      showNotification(`Email sent successfully to ${emailState.to}`, 'success');
+      showNotification(`Email sent successfully to ${emailState.recipientName}`, 'success');
       closeEmailModal();
     } catch (error: any) {
       console.error('Failed to send email:', error);
-      showNotification(`Failed to send email: ${error?.message || 'Unknown error'}`, 'error');
+      showNotification(`  send email: ${error?.message || 'Unknown error'}`, 'error');
     } finally {
       setEmailState(prev => ({ ...prev, isSending: false }));
     }
@@ -301,8 +303,8 @@ export const MembersPage: React.FC = () => {
       email: member.email,
       isSaving: false,
       isDeleting: false,
-      isDemoting: false,
-      isFreezing: false,
+      
+      
       animatingIcon: false
     });
   };
@@ -316,8 +318,8 @@ export const MembersPage: React.FC = () => {
       email: '',
       isSaving: false,
       isDeleting: false,
-      isDemoting: false,
-      isFreezing: false,
+      
+      
       animatingIcon: false
     });
   };
@@ -379,7 +381,7 @@ export const MembersPage: React.FC = () => {
 
     setConfirmationModal({
       isOpen: true,
-      title: `Are you sure you want to delete ${editState.member.first_name} ${editState.member.last_name} from the active members list?`,
+      title: `Are you sure you want to remove ${editState.member.first_name} ${editState.member.last_name} from the members list? They will be demoted to a regular user.`,
       onConfirm: async () => {
         await confirmDeleteMember();
       },
@@ -397,88 +399,10 @@ export const MembersPage: React.FC = () => {
       setConfirmationModal(prev => ({ ...prev, isLoading: true }));
       setEditState(prev => ({ ...prev, isDeleting: true }));
       
-      // Log debug information
-      const token = localStorage.getItem('token');
-      console.log('Delete member request:', {
-        memberId: editState.member.id,
-        memberName: `${editState.member.first_name} ${editState.member.last_name}`,
-        hasToken: !!token,
-        tokenLength: token?.length || 0,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Call API to delete user
-      await apiClient.deleteUser(editState.member.id);
-
-      // Remove from local state
-      setDatabaseMembers(members =>
-        members.filter(m => m.id !== editState.member!.id)
-      );
-
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: 'Member deleted successfully',
-        type: 'success',
-        onClose: () => {
-          setMessageModal(prev => ({ ...prev, isOpen: false }));
-          closeEditModal();
-        }
-      });
-    } catch (error: any) {
-      console.error('Failed to delete member - Full error:', error);
-      console.error('Error message:', error?.message);
-      console.error('Error status:', error?.status);
-      
-      // Provide helpful guidance based on error type
-      let helpfulMessage = error?.message || 'Unknown error';
-      if (error?.message?.includes('Invalid or expired token')) {
-        helpfulMessage = 'Your session has expired. Please logout and login again to continue.';
-      } else if (error?.message?.includes('Access denied')) {
-        helpfulMessage = 'You do not have permission to delete members. Only admin and staff can delete members.';
-      }
-      
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: `Failed to delete member: ${helpfulMessage}`,
-        type: 'error',
-        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
-      });
-    } finally {
-      setEditState(prev => ({ ...prev, isDeleting: false }));
-      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
-    }
-  }
-
-  const demoteMember = async () => {
-    if (!editState.member) return;
-
-    setConfirmationModal({
-      isOpen: true,
-      title: `Are you sure you want to demote ${editState.member.first_name} ${editState.member.last_name} back to a regular user? They will lose member privileges.`,
-      onConfirm: async () => {
-        await confirmDemoteMember();
-      },
-      onCancel: () => {
-        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      },
-      actionType: 'demote',
-      isLoading: false
-    });
-  };
-
-  const confirmDemoteMember = async () => {
-    if (!editState.member) return;
-
-    try {
-      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
-      setEditState(prev => ({ ...prev, isDemoting: true }));
-      
-      // Call API to demote user
+      // Call API to demote member to user
       await apiClient.demoteMember(editState.member.id);
 
-      // Update local state
+      // Update local state - change role to 'user' and membership_status to 'pending'
       setDatabaseMembers(members =>
         members.map(m =>
           m.id === editState.member!.id
@@ -490,7 +414,7 @@ export const MembersPage: React.FC = () => {
       setConfirmationModal(prev => ({ ...prev, isOpen: false }));
       setMessageModal({
         isOpen: true,
-        message: `${editState.member.first_name} ${editState.member.last_name} has been demoted to user`,
+        message: `${editState.member.first_name} ${editState.member.last_name} has been demoted to a regular user`,
         type: 'success',
         onClose: () => {
           setMessageModal(prev => ({ ...prev, isOpen: false }));
@@ -499,6 +423,7 @@ export const MembersPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Failed to demote member:', error);
+      
       setConfirmationModal(prev => ({ ...prev, isOpen: false }));
       setMessageModal({
         isOpen: true,
@@ -507,71 +432,11 @@ export const MembersPage: React.FC = () => {
         onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
       });
     } finally {
-      setEditState(prev => ({ ...prev, isDemoting: false }));
+      setEditState(prev => ({ ...prev, isDeleting: false }));
       setConfirmationModal(prev => ({ ...prev, isLoading: false }));
     }
   }
 
-  const freezeMember = async () => {
-    if (!editState.member) return;
-
-    setConfirmationModal({
-      isOpen: true,
-      title: `Are you sure you want to freeze ${editState.member.first_name} ${editState.member.last_name}'s account? They will not be able to access benefits temporarily.`,
-      onConfirm: async () => {
-        await confirmFreezeMember();
-      },
-      onCancel: () => {
-        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      },
-      actionType: 'freeze',
-      isLoading: false
-    });
-  };
-
-  const confirmFreezeMember = async () => {
-    if (!editState.member) return;
-
-    try {
-      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
-      setEditState(prev => ({ ...prev, isFreezing: true }));
-      
-      // Call API to freeze user
-      await apiClient.freezeMember(editState.member.id);
-
-      // Update local state
-      setDatabaseMembers(members =>
-        members.map(m =>
-          m.id === editState.member!.id
-            ? { ...m, status: 'frozen' }
-            : m
-        )
-      );
-
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: `${editState.member.first_name} ${editState.member.last_name}'s account has been frozen`,
-        type: 'success',
-        onClose: () => {
-          setMessageModal(prev => ({ ...prev, isOpen: false }));
-          closeEditModal();
-        }
-      });
-    } catch (error: any) {
-      console.error('Failed to freeze member:', error);
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: `Failed to freeze account: ${error?.message || 'Unknown error'}`,
-        type: 'error',
-        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
-      });
-    } finally {
-      setEditState(prev => ({ ...prev, isFreezing: false }));
-      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
-    }
-  }
 
   const filteredMembers = databaseMembers.filter(
     (m) =>
@@ -611,9 +476,6 @@ export const MembersPage: React.FC = () => {
                       Email
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
-                      Phone
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                       Requested
                     </th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
@@ -634,10 +496,11 @@ export const MembersPage: React.FC = () => {
                         {request.email}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {request.phone}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
-                        {new Date(request.requestedAt).toLocaleDateString()}
+                        {request.created_at && !isNaN(new Date(request.created_at).getTime()) 
+                          ? new Date(request.created_at).toLocaleDateString()
+                          : request.requestedAt && !isNaN(new Date(request.requestedAt).getTime())
+                            ? new Date(request.requestedAt).toLocaleDateString()
+                            : 'N/A'}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center space-x-2">
@@ -678,7 +541,10 @@ export const MembersPage: React.FC = () => {
             placeholder="Search by name, email, or membership number..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-6 py-3 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            onFocus={(e) => {
+              e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+            }}
+            className="w-full px-6 py-3 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
           />
         </div>
 
@@ -729,7 +595,9 @@ export const MembersPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
-                        {new Date(member.created_at).toLocaleDateString()}
+                        {member.membership_approved_at 
+                          ? new Date(member.membership_approved_at).toLocaleDateString()
+                          : new Date(member.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center space-x-2">
@@ -781,7 +649,7 @@ export const MembersPage: React.FC = () => {
 
       {/* Email Compose Modal */}
       {emailState.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998] p-4 modal-fade-in">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col modal-content-in">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -801,8 +669,8 @@ export const MembersPage: React.FC = () => {
                   To
                 </label>
                 <input
-                  type="email"
-                  value={emailState.to}
+                  type="text"
+                  value={emailState.recipientName}
                   readOnly
                   className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg bg-slate-50 text-slate-600"
                 />
@@ -869,7 +737,7 @@ export const MembersPage: React.FC = () => {
 
       {/* Edit Member Modal */}
       {editState.isOpen && editState.member && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 modal-fade-in">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998] p-4 modal-fade-in">
           <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col modal-content-in">
             {/* Modal Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
@@ -948,38 +816,20 @@ export const MembersPage: React.FC = () => {
                   <span className="font-medium text-slate-900">Status:</span> {editState.member.status}
                 </p>
                 <p className="text-sm text-slate-600">
-                  <span className="font-medium text-slate-900">Joined:</span> {new Date(editState.member.created_at).toLocaleDateString()}
+                  <span className="font-medium text-slate-900">Joined:</span> {editState.member.membership_approved_at 
+                    ? new Date(editState.member.membership_approved_at).toLocaleDateString()
+                    : new Date(editState.member.created_at).toLocaleDateString()}
                 </p>
               </div>
             </div>
 
             {/* Modal Footer */}
             <div className="space-y-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-              {/* Action Buttons for Approved Members */}
-              {editState.member.membership_status === 'approved' && (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={demoteMember}
-                    disabled={editState.isSaving || editState.isDemoting || editState.isDeleting || editState.isFreezing}
-                    className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                  >
-                    {editState.isDemoting ? 'Demoting...' : 'Demote to User'}
-                  </button>
-                  <button
-                    onClick={freezeMember}
-                    disabled={editState.isSaving || editState.isFreezing || editState.isDeleting || editState.isDemoting}
-                    className="px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium"
-                  >
-                    {editState.isFreezing ? 'Freezing...' : 'Freeze Account'}
-                  </button>
-                </div>
-              )}
-
               {/* Delete and Main Actions */}
               <div className="flex justify-between gap-3">
                 <button
                   onClick={deleteMember}
-                  disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                  disabled={editState.isSaving || editState.isDeleting}
                   className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                 >
                   <Trash2 size={16} />
@@ -988,14 +838,14 @@ export const MembersPage: React.FC = () => {
                 <div className="flex gap-3">
                   <button
                     onClick={closeEditModal}
-                    disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                    disabled={editState.isSaving || editState.isDeleting}
                     className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={saveChanges}
-                    disabled={editState.isSaving || editState.isDeleting || editState.isDemoting || editState.isFreezing}
+                    disabled={editState.isSaving || editState.isDeleting}
                     className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {editState.isSaving ? 'Saving...' : 'Save Changes'}
@@ -1009,7 +859,7 @@ export const MembersPage: React.FC = () => {
 
       {/* Confirmation Modal */}
       {confirmationModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
             <p className="text-slate-900 text-center mb-6">{confirmationModal.title}</p>
             <div className="flex justify-end gap-3">
@@ -1042,7 +892,7 @@ export const MembersPage: React.FC = () => {
 
       {/* Message Modal */}
       {messageModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
           <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
             <p className={`text-center mb-6 ${messageModal.type === 'success' ? 'text-slate-900' : 'text-red-600'}`}>
               {messageModal.message}

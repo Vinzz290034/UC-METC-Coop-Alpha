@@ -1,14 +1,17 @@
 // @refresh reset
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { flushSync } from 'react-dom';
 import type { User, UserRole } from '../types';
 import { apiClient } from '../services/api';
 import { AppDataSync } from './appDataSync';
+import { useNotificationStore } from './notificationStore';
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   token: string | null;
   isLoading: boolean;
+  isValidating: boolean;
   error: string | null;
   login: (email: string | null, password: string, id_number?: string | null) => Promise<void>;
   register: (data: any) => Promise<void>;
@@ -23,33 +26,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(true); // Start as true to prevent flash
   const [error, setError] = useState<string | null>(null);
 
-  // Restore user from localStorage on mount
+  // Validate token with backend on mount (production-ready approach)
   useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    const storedUser = localStorage.getItem('user');
-    
-    console.log('[AUTH CONTEXT] Restoring session from localStorage:', {
-      hasToken: !!storedToken,
-      tokenLength: storedToken?.length || 0,
-      tokenPrefix: storedToken ? storedToken.substring(0, 30) + '...' : 'NO_TOKEN',
-      hasUser: !!storedUser,
-      timestamp: new Date().toISOString()
-    });
-    
-    if (storedToken && storedUser) {
+    const validateSession = async () => {
       try {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        const storedToken = localStorage.getItem('token');
+        const storedUser = localStorage.getItem('user');
         
-        console.log('[AUTH CONTEXT] Session restored successfully');
-      } catch (err) {
-        console.error('Failed to restore session:', err);
+        if (!storedToken || !storedUser) {
+          console.log('[AUTH CONTEXT] No stored session found');
+          setIsValidating(false);
+          return;
+        }
+
+        console.log('[AUTH CONTEXT] Validating session with backend...');
+        
+        // Set token temporarily for the API request
+        const headers = new Headers();
+        headers.set('Authorization', `Bearer ${storedToken}`);
+        
+        // Verify token by calling getCurrentUser (requires valid token)
+        const response = await apiClient.getCurrentUser() as any;
+        
+        // If backend confirms user is valid, restore session
+        setToken(storedToken);
+        setUser(response);
+        console.log('[AUTH CONTEXT] Session validated successfully from backend');
+
+        // Initialize notification system
+        useNotificationStore.getState().initialize(storedToken, response.id);
+      } catch (err: any) {
+        // Token is invalid, expired, or backend rejected it
+        console.warn('[AUTH CONTEXT] Session validation failed, clearing localStorage:', err?.message);
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        setToken(null);
+        setUser(null);
+      } finally {
+        setIsValidating(false); // Session validation complete
       }
-    }
+    };
+
+    validateSession();
   }, []);
 
   const login = useCallback(async (email: string | null, password: string, id_number?: string | null) => {
@@ -76,6 +97,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       // Initialize app data from backend
       await AppDataSync.initializeAppData(user.id);
+
+      // Initialize notification system
+      useNotificationStore.getState().initialize(token, user.id);
     } catch (err: any) {
       const errorMessage = err.message || 'Login failed';
       setError(errorMessage);
@@ -90,16 +114,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setError(null);
     try {
       const response = await apiClient.register(data) as any;
-      const { token, user } = response;
-
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
-
-      setToken(token);
-      setUser(user);
-
-      // Initialize app data from backend
-      await AppDataSync.initializeAppData(user.id);
+      
+      // Registration no longer returns a token - user must login separately
+      // Just return the response message
+      console.log('[AUTH CONTEXT] Registration successful:', response.message);
+      
+      return response;
     } catch (err: any) {
       const errorMessage = err.message || 'Registration failed';
       setError(errorMessage);
@@ -126,11 +146,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user]);
 
   const logout = useCallback(() => {
-    setUser(null);
-    setToken(null);
-    setError(null);
+    console.log('[AUTH CONTEXT] Logging out user');
+    
+    // Cleanup notification system
+    useNotificationStore.getState().cleanup();
+    
+    // Clear localStorage first
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    sessionStorage.clear();
+    
+    // Use flushSync to force immediate state updates (not batched)
+    flushSync(() => {
+      setUser(null);
+      setToken(null);
+      setError(null);
+    });
+    
+    console.log('[AUTH CONTEXT] Logout complete - state cleared');
   }, []);
 
   const hasRole = useCallback((role: UserRole | UserRole[]): boolean => {
@@ -144,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isAuthenticated: !!user,
     token,
     isLoading,
+    isValidating,
     error,
     login,
     register,

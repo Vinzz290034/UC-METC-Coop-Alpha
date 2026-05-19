@@ -4,20 +4,20 @@ import {
   Menu,
   X,
   LayoutDashboard,
-  Box,
-  Key,
   Users,
   DollarSign,
   BarChart3,
   Package,
   LogOut,
-  Clock,
   User,
   ShoppingBag,
   ShoppingCart,
   Receipt,
   Calendar,
   Mail,
+  Megaphone,
+  Lock,
+  Settings,
 } from 'lucide-react';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
@@ -84,7 +84,7 @@ export const Sidebar: React.FC = () => {
       roles: ['admin', 'staff', 'user'],
     },
     {
-      icon: <Box size={20} />,
+      icon: <Lock size={20} />,
       label: 'Locker',
       id: 'locker',
       roles: ['user'],
@@ -96,28 +96,21 @@ export const Sidebar: React.FC = () => {
       roles: ['user'],
     },
     {
-      icon: <Calendar size={20} />,
-      label: 'Events',
-      id: 'events',
-      roles: ['user'],
-      requiresMembership: true,
-    },
-    {
-      icon: <Box size={20} />,
+      icon: <Lock size={20} />,
       label: 'Locker Management',
       id: 'lockers',
       roles: ['admin', 'staff'],
     },
     {
       icon: <Package size={20} />,
-      label: 'Sales & Inventory',
-      id: 'sales',
+      label: 'Inventory',
+      id: 'inventory',
       roles: ['admin', 'staff'],
     },
     {
-      icon: <Key size={20} />,
-      label: 'Key Duplication',
-      id: 'keys',
+      icon: <DollarSign size={20} />,
+      label: 'Sales',
+      id: 'sales',
       roles: ['admin', 'staff'],
     },
     {
@@ -127,10 +120,10 @@ export const Sidebar: React.FC = () => {
       roles: ['admin', 'staff'],
     },
     {
-      icon: <DollarSign size={20} />,
-      label: 'Billing & Payments',
-      id: 'billing',
-      roles: ['admin', 'staff'],
+      icon: <Settings size={20} />,
+      label: 'User Management',
+      id: 'user-management',
+      roles: ['admin'],
     },
     {
       icon: <BarChart3 size={20} />,
@@ -139,10 +132,10 @@ export const Sidebar: React.FC = () => {
       roles: ['admin', 'staff'],
     },
     {
-      icon: <Clock size={20} />,
-      label: 'DTR Management',
-      id: 'dtr',
-      roles: ['admin'],
+      icon: <Megaphone size={20} />,
+      label: 'Announcements',
+      id: 'announcements-management',
+      roles: ['admin', 'staff'],
     },
   ];
 
@@ -171,11 +164,15 @@ export const Sidebar: React.FC = () => {
 
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
+    
+    // Perform logout
     logout();
+    
+    // Show notification
     showNotification('Signed out successfully', 'logout');
-    setTimeout(() => {
-      navigate('/');
-    }, 1500);
+    
+    // No need to navigate manually - App.tsx will automatically redirect
+    // to landing page when isAuthenticated becomes false
   };
 
   const cancelLogout = () => {
@@ -185,10 +182,10 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <style>{sidebarStyles}</style>
-      {/* Mobile toggle button */}
+      {/* Mobile toggle button - Hidden, pages handle their own hamburger menus */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        className="lg:hidden fixed top-4 left-4 z-40 p-2 bg-slate-800 text-white rounded-lg"
+        className="hidden"
       >
         {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
       </button>
@@ -283,8 +280,8 @@ export const Sidebar: React.FC = () => {
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 animate-scale-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 animate-scale-in max-h-[90vh] overflow-y-auto">
             <h2 className="text-2xl font-bold text-slate-900 mb-3">Confirm Logout</h2>
             <p className="text-slate-600 mb-6">
               Are you sure you want to log out? 

@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
-import { Bell, Calendar, User, ChevronLeft } from 'lucide-react';
+import { Calendar, User, ChevronLeft } from 'lucide-react';
+import { apiClient } from '../services/api';
 
 const styles = `
   @keyframes float {
@@ -23,6 +24,40 @@ const styles = `
   .float-animation { animation: float 6s ease-in-out infinite; }
   .fade-in-up-animation { animation: fade-in-up 0.7s ease-out forwards; opacity: 0; }
   .zoom-in-animation { animation: zoom-in 0.6s ease-out forwards; opacity: 0; }
+  
+  /* Remove any pseudo-elements from announcement cards */
+  .announcement-card,
+  .announcement-card *,
+  .announcement-card::before,
+  .announcement-card::after,
+  .announcement-card *::before,
+  .announcement-card *::after {
+    cursor: default !important;
+  }
+  
+  .announcement-card::before,
+  .announcement-card::after,
+  .announcement-card *::before,
+  .announcement-card *::after {
+    display: none !important;
+    content: none !important;
+    visibility: hidden !important;
+  }
+  
+  .announcement-card:hover::before,
+  .announcement-card:hover::after,
+  .announcement-card:hover *::before,
+  .announcement-card:hover *::after {
+    display: none !important;
+    content: none !important;
+    visibility: hidden !important;
+  }
+  
+  /* Remove any SVG or icon elements that might appear on hover */
+  .announcement-card svg[class*="lucide"],
+  .announcement-card:hover svg[class*="lucide"] {
+    display: none !important;
+  }
   
   /* Custom Scrollbar Styling */
   ::-webkit-scrollbar {
@@ -62,6 +97,28 @@ export const AnnouncementsPage: React.FC = () => {
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const [announcements, setAnnouncements] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch announcements from API
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        setLoading(true);
+        console.log('[AnnouncementsPage] Fetching announcements from API...');
+        const data = await apiClient.getPublicAnnouncements() as any[];
+        console.log('[AnnouncementsPage] Received data:', data);
+        console.log('[AnnouncementsPage] Number of announcements:', data?.length || 0);
+        setAnnouncements(data);
+      } catch (error) {
+        console.error('[AnnouncementsPage] Failed to fetch announcements:', error);
+      } finally {
+        setLoading(false);
+        console.log('[AnnouncementsPage] Loading complete');
+      }
+    };
+    fetchAnnouncements();
+  }, []);
 
   // Intersection Observer for scroll-triggered animations
   useEffect(() => {
@@ -91,7 +148,7 @@ export const AnnouncementsPage: React.FC = () => {
         observerRef.current.disconnect();
       }
     };
-  }, []);
+  }, [announcements]); // Re-run when announcements change
 
   useEffect(() => {
     const handleScroll = () => {
@@ -113,44 +170,7 @@ export const AnnouncementsPage: React.FC = () => {
     };
   }, [lastScrollY]);
 
-  const announcements = [
-    {
-      id: 1,
-      title: 'System Maintenance Scheduled',
-      date: '2026-02-15',
-      author: 'Admin',
-      content:
-        'The UC METC SILMS system will undergo scheduled maintenance on February 15th from 10:00 PM to 12:00 AM. Please plan accordingly.',
-      category: 'Maintenance',
-    },
-    {
-      id: 2,
-      title: 'New Locker Units Available',
-      date: '2026-02-10',
-      author: 'Locker Officer',
-      content:
-        'We are pleased to announce the addition of 50 new locker units to our facility. Members can now request lockers online through the system.',
-      category: 'Services',
-    },
-    {
-      id: 3,
-      title: 'Updated Uniform Inventory',
-      date: '2026-02-05',
-      author: 'Inventory Officer',
-      content:
-        'New maritime uniforms have been added to our inventory. Check out the latest designs in the Sales & Inventory section.',
-      category: 'Inventory',
-    },
-    {
-      id: 4,
-      title: 'Member Registration Now Open',
-      date: '2026-01-28',
-      author: 'Admin',
-      content:
-        'We are now accepting new member registrations. Visit the Members section to learn more about membership benefits.',
-      category: 'Registration',
-    },
-  ];
+  // Remove the static announcements array - now fetched from API
 
   return (
     <>
@@ -214,12 +234,7 @@ export const AnnouncementsPage: React.FC = () => {
               visibleElements.has('page-header') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
             }`}
           >
-            <div className="flex items-center space-x-4 mb-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-green-500 to-purple-500 rounded-lg flex items-center justify-center text-white">
-                <Bell size={28} />
-              </div>
-              <h2 className="text-4xl md:text-5xl font-bold text-slate-900">Announcements</h2>
-            </div>
+            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Announcements</h2>
             <p className="text-slate-600 text-lg">
               Stay updated with the latest news and updates from UC METC SILMS
             </p>
@@ -227,54 +242,73 @@ export const AnnouncementsPage: React.FC = () => {
 
           {/* Announcements List */}
           <div className="space-y-6">
-            {announcements.map((announcement, idx) => (
-              <div
-                key={announcement.id}
-                id={`announcement-${announcement.id}`}
-                data-animate="true"
-                className={`bg-white/70 border border-white/40 rounded-xl p-8 backdrop-blur-sm hover:bg-white/80 hover:border-green-400 transition-all group ${
-                  visibleElements.has(`announcement-${announcement.id}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
-                }`}
-                style={{ animationDelay: `${idx * 0.1}s` }}
-              >
-                {/* Header */}
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
-                        {announcement.category}
+            {loading ? (
+              <div className="text-center py-12 bg-white/70 rounded-xl">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
+                <p className="text-slate-600">Loading announcements...</p>
+              </div>
+            ) : announcements.length === 0 ? (
+              <div className="text-center py-12 bg-white/70 rounded-xl">
+                <p className="text-slate-600 text-lg">No announcements available.</p>
+                <p className="text-slate-500 text-sm mt-2">Check back soon for updates!</p>
+              </div>
+            ) : (
+              announcements.map((announcement, idx) => (
+                <div
+                  key={announcement.id}
+                  id={`announcement-${announcement.id}`}
+                  data-animate="true"
+                  className={`announcement-card bg-white/70 border border-white/40 rounded-xl p-8 backdrop-blur-sm hover:bg-white/80 hover:border-green-400 transition-all ${
+                    visibleElements.has(`announcement-${announcement.id}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
+                  }`}
+                  style={{ animationDelay: `${idx * 0.1}s` }}
+                >
+                  {/* Header */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3 mb-2">
+                        <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                          {announcement.category}
+                        </span>
+                      </div>
+                      <h3 className="text-2xl font-bold mb-2 text-slate-900 transition-colors">
+                        {announcement.title}
+                      </h3>
+                    </div>
+                  </div>
+
+                  {/* Metadata */}
+                  <div className="flex items-center space-x-6 text-slate-500 text-sm mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Calendar size={16} />
+                      <span>{new Date(announcement.date).toLocaleDateString()}</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <User size={16} />
+                      <span>
+                        {announcement.author_role && (
+                          <span className="capitalize font-semibold">{announcement.author_role} - </span>
+                        )}
+                        {announcement.author_name}
                       </span>
                     </div>
-                    <h3 className="text-2xl font-bold mb-2 text-slate-900 group-hover:text-green-600 transition-colors">
-                      {announcement.title}
-                    </h3>
                   </div>
-                </div>
 
-                {/* Metadata */}
-                <div className="flex items-center space-x-6 text-slate-500 text-sm mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Calendar size={16} />
-                    <span>{new Date(announcement.date).toLocaleDateString()}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <User size={16} />
-                    <span>{announcement.author}</span>
-                  </div>
+                  {/* Content */}
+                  <p className="text-slate-700 leading-relaxed">{announcement.content}</p>
                 </div>
-
-                {/* Content */}
-                <p className="text-slate-700 leading-relaxed">{announcement.content}</p>
-              </div>
-            ))}
+              ))
+            )}
           </div>
 
           {/* No More Announcements */}
-          <div className="text-center mt-12">
-            <p className="text-slate-500">
-              No more announcements to display. Check back soon!
-            </p>
-          </div>
+          {!loading && announcements.length > 0 && (
+            <div className="text-center mt-12">
+              <p className="text-slate-800 font-medium">
+                No more announcements to display. Check back soon!
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

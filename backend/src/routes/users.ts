@@ -1,13 +1,14 @@
 import { Router, Request, Response } from 'express';
-import { query } from '../config/database.js';
-import { authMiddleware, adminMiddleware } from '../middleware/auth.js';
+import { query, pool } from '../config/database.js';
+import { authMiddleware, adminMiddleware, invalidateUserCache } from '../middleware/auth.js';
 import { User } from '../types/index.js';
+import { notificationService } from '../services/notificationService.js';
 
 const router = Router();
 
 // Helper function to check if a user has admin or staff permissions
 const isAdminOrStaff = (role?: string) => {
-  return role === 'admin' || role === 'manager' || role === 'cashier' || role === 'locker_officer' || role === 'inventory_officer';
+  return role === 'admin' || role === 'staff' || role === 'manager' || role === 'cashier' || role === 'locker_officer' || role === 'inventory_officer';
 };
 
 // Test endpoint - get all users WITHOUT auth (for debugging)
@@ -44,7 +45,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at FROM users WHERE id = $1',
+      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_approved_at, membership_status, status, created_at FROM users WHERE id = $1',
       [userId]
     );
 
@@ -81,10 +82,40 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     
-    const result = await query('SELECT id, email, first_name, last_name, role, membership_status, status, created_at FROM users ORDER BY created_at DESC');
-    res.json({ users: result.rows });
+    const result = await query(
+      `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_approved_at, 
+              membership_status, status, created_at 
+       FROM users 
+       ORDER BY created_at DESC`
+    );
+    
+    // Map status to is_active for frontend compatibility
+    const users = result.rows.map(user => ({
+      ...user,
+      is_active: user.status === 'active'
+    }));
+    
+    res.json({ users });
   } catch (err) {
     console.error('Error fetching users:', err);
+    res.status(500).json({ message: 'Failed to fetch users' });
+  }
+});
+
+// Get users for messaging (all authenticated users can access)
+router.get('/for-messaging/list', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    // All authenticated users can see the list for messaging purposes
+    const result = await query(
+      `SELECT id, email, first_name, last_name, role, membership_status, status
+       FROM users 
+       WHERE status = 'active'
+       ORDER BY first_name, last_name`
+    );
+    
+    res.json({ users: result.rows });
+  } catch (err) {
+    console.error('Error fetching users for messaging:', err);
     res.status(500).json({ message: 'Failed to fetch users' });
   }
 });
@@ -214,6 +245,29 @@ router.get('/membership-requests/pending', authMiddleware, async (req: Request, 
   }
 });
 
+// Check if current user has a pending membership request
+router.get('/membership-requests/my-status', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    const result = await query(
+      'SELECT id, status, created_at FROM membership_requests WHERE user_id = $1 AND status = $2 LIMIT 1',
+      [userId, 'pending']
+    );
+
+    res.json({ 
+      hasPendingRequest: result.rows.length > 0,
+      request: result.rows[0] || null
+    });
+  } catch (err) {
+    console.error('Error checking membership request status:', err);
+    res.status(500).json({ message: 'Failed to check membership request status' });
+  }
+});
+
 // Create a new membership request
 router.post('/membership-requests', async (req: Request, res: Response) => {
   try {
@@ -223,6 +277,34 @@ router.post('/membership-requests', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Name and email are required' });
     }
 
+    // Check if user already has a pending or approved membership request
+    if (user_id) {
+      const existingRequest = await query(
+        `SELECT id, status FROM membership_requests WHERE user_id = $1 AND status = 'pending' LIMIT 1`,
+        [user_id]
+      );
+
+      if (existingRequest.rows.length > 0) {
+        return res.status(400).json({ 
+          message: 'You already have a pending membership request',
+          hasPendingRequest: true
+        });
+      }
+
+      // Also check if user is already approved
+      const userCheck = await query(
+        `SELECT membership_status FROM users WHERE id = $1`,
+        [user_id]
+      );
+
+      if (userCheck.rows.length > 0 && userCheck.rows[0].membership_status === 'approved') {
+        return res.status(400).json({ 
+          message: 'You are already a member',
+          isAlreadyMember: true
+        });
+      }
+    }
+
     const result = await query(
       `INSERT INTO membership_requests (user_id, name, email, phone, status, created_at) 
        VALUES ($1, $2, $3, $4, 'pending', NOW()) 
@@ -230,9 +312,28 @@ router.post('/membership-requests', async (req: Request, res: Response) => {
       [user_id || null, name, email, phone || null]
     );
 
+    const newRequest = result.rows[0];
+
+    // Notify admin and staff about new membership request
+    await notificationService.createNotificationsForRole(
+      'admin',
+      'pending_membership',
+      'New Membership Request',
+      `${name} has submitted a membership application`,
+      '/members'
+    );
+
+    await notificationService.createNotificationsForRole(
+      'staff',
+      'pending_membership',
+      'New Membership Request',
+      `${name} has submitted a membership application`,
+      '/members'
+    );
+
     res.status(201).json({ 
       message: 'Membership request created successfully', 
-      request: result.rows[0] 
+      request: newRequest
     });
   } catch (err) {
     console.error('Error creating membership request:', err);
@@ -272,8 +373,8 @@ router.put('/membership-requests/:requestId/approve-test', async (req: Request, 
 
       // Create user with a temporary password (hash would be better in production)
       const createUserResult = await query(
-        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, status)
-         VALUES ($1, $2, $3, $4, 'user', 'approved', 'active')
+        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, membership_approved_at, status)
+         VALUES ($1, $2, $3, $4, 'user', 'approved', NOW(), 'active')
          RETURNING id, email, first_name, last_name, role, membership_status`,
         [memberRequest.email, 'temp_password_change_required', firstName, lastName]
       );
@@ -281,9 +382,9 @@ router.put('/membership-requests/:requestId/approve-test', async (req: Request, 
       userId = createUserResult.rows[0].id;
       console.log('Created new user for membership request:', createUserResult.rows[0]);
     } else {
-      // If user exists, update their membership_status to 'approved'
+      // If user exists, update their membership_status to 'approved' and set membership_approved_at to NOW
       await query(
-        'UPDATE users SET membership_status = $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE users SET membership_status = $1, membership_approved_at = NOW(), updated_at = NOW() WHERE id = $2',
         ['approved', userId]
       );
     }
@@ -379,8 +480,8 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
 
       // Create user with a temporary password (hash would be better in production)
       const createUserResult = await query(
-        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, status)
-         VALUES ($1, $2, $3, $4, 'user', 'approved', 'active')
+        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, membership_approved_at, status)
+         VALUES ($1, $2, $3, $4, 'user', 'approved', NOW(), 'active')
          RETURNING id, email, first_name, last_name, role, membership_status`,
         [memberRequest.email, 'temp_password_change_required', firstName, lastName]
       );
@@ -388,9 +489,9 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
       userId = createUserResult.rows[0].id;
       console.log('Created new user for membership request:', createUserResult.rows[0]);
     } else {
-      // If user exists, update their membership_status to 'approved'
+      // If user exists, update their membership_status to 'approved' and set membership_approved_at to NOW
       await query(
-        'UPDATE users SET membership_status = $1, updated_at = NOW() WHERE id = $2',
+        'UPDATE users SET membership_status = $1, membership_approved_at = NOW(), updated_at = NOW() WHERE id = $2',
         ['approved', userId]
       );
     }
@@ -400,6 +501,15 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
       'UPDATE membership_requests SET status = $1, user_id = $2, updated_at = NOW() WHERE id = $3',
       ['approved', userId, requestId]
     );
+
+    // Create notification for user about membership approval
+    await notificationService.createNotification({
+      user_id: userId,
+      type: 'membership_approved',
+      title: 'Membership Approved!',
+      description: 'Congratulations! Your membership application has been approved. Welcome to UC METC Coop!',
+      link: '/dashboard',
+    });
 
     res.json({ 
       message: 'Membership request approved successfully',
@@ -446,6 +556,22 @@ router.put('/membership-requests/:requestId/reject', authMiddleware, async (req:
       'UPDATE membership_requests SET status = $1, updated_at = NOW() WHERE id = $2',
       ['rejected', requestId]
     );
+
+    // Create notification for user about membership rejection (if user_id exists)
+    const rejectedRequest = await query(
+      'SELECT user_id FROM membership_requests WHERE id = $1',
+      [requestId]
+    );
+    
+    if (rejectedRequest.rows.length > 0 && rejectedRequest.rows[0].user_id) {
+      await notificationService.createNotification({
+        user_id: rejectedRequest.rows[0].user_id,
+        type: 'membership_rejected',
+        title: 'Membership Application Update',
+        description: 'Your membership application was not approved at this time. Please contact admin for more information.',
+        link: '/dashboard',
+      });
+    }
 
     res.json({ message: 'Membership request rejected successfully' });
   } catch (err) {
@@ -551,15 +677,18 @@ router.post('/:id/freeze', authMiddleware, async (req: Request, res: Response) =
       });
     }
 
-    // Update user status to 'frozen'
+    // Update user status to 'inactive'
     const result = await query(
       'UPDATE users SET status = $1 WHERE id = $2 RETURNING id, first_name, last_name, status, membership_status',
-      ['frozen', id]
+      ['inactive', id]
     );
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+
+    // Invalidate cache to force immediate effect
+    invalidateUserCache(id);
 
     console.log('Account frozen successfully:', result.rows[0]);
     res.json({ 
@@ -572,6 +701,49 @@ router.post('/:id/freeze', authMiddleware, async (req: Request, res: Response) =
   }
 });
 
+// Reactivate user account endpoint
+router.post('/:id/reactivate', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    console.log('POST /users/:id/reactivate request:', {
+      targetUserId: id,
+      requestingUser: { id: req.user?.id, role: req.user?.role },
+      timestamp: new Date().toISOString()
+    });
+
+    // Only admin and staff can reactivate accounts
+    if (!isAdminOrStaff(req.user?.role)) {
+      return res.status(403).json({ 
+        message: 'Access denied. Only admin and staff can reactivate accounts.',
+        userRole: req.user?.role 
+      });
+    }
+
+    // Update user status to 'active'
+    const result = await query(
+      'UPDATE users SET status = $1 WHERE id = $2 RETURNING id, first_name, last_name, status, membership_status',
+      ['active', id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Invalidate cache to allow immediate access
+    invalidateUserCache(id);
+
+    console.log('Account reactivated successfully:', result.rows[0]);
+    res.json({ 
+      message: 'Account reactivated successfully',
+      user: result.rows[0]
+    });
+  } catch (err) {
+    console.error('Error reactivating account:', err);
+    res.status(500).json({ message: 'Failed to reactivate account', error: (err as any).message });
+  }
+});
+
 // Send email endpoint
 router.post('/send-email', authMiddleware, async (req: Request, res: Response) => {
   try {
@@ -581,16 +753,56 @@ router.post('/send-email', authMiddleware, async (req: Request, res: Response) =
       return res.status(400).json({ message: 'Email, subject, and body are required' });
     }
 
+    // Get sender info
+    const senderId = req.user?.id;
+    const senderResult = await pool.query(
+      'SELECT first_name, last_name, role, email FROM users WHERE id = $1',
+      [senderId]
+    );
+
+    if (senderResult.rows.length === 0) {
+      return res.status(401).json({ message: 'Sender not found' });
+    }
+
+    const sender = senderResult.rows[0];
+    const senderName = `${sender.first_name} ${sender.last_name}`;
+
+    // Find recipient by email
+    const recipientResult = await pool.query(
+      'SELECT id, first_name, last_name, role FROM users WHERE email = $1',
+      [to]
+    );
+
+    if (recipientResult.rows.length === 0) {
+      return res.status(404).json({ message: 'Recipient not found' });
+    }
+
+    const recipient = recipientResult.rows[0];
+    const preview = body.substring(0, 100);
+
+    // Create inbox message for recipient
+    await pool.query(
+      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
+      [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
+    );
+
+    // Create sent message for sender
+    await pool.query(
+      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read', true)`,
+      [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
+    );
+
     // Log the email (in production, integrate with nodemailer, SendGrid, etc.)
-    console.log('📧 Email sent:', {
-      from: req.user?.email,
+    console.log('📧 Email sent and inbox message created:', {
+      from: sender.email,
       to,
       subject,
-      body,
       timestamp: new Date().toISOString()
     });
 
-    // TODO: Integration with email service
+    // TODO: Integration with email service for actual email delivery
     // Example with nodemailer:
     // const transporter = nodemailer.createTransport({ ... });
     // await transporter.sendMail({
@@ -601,12 +813,11 @@ router.post('/send-email', authMiddleware, async (req: Request, res: Response) =
     // });
 
     res.json({ 
-      message: 'Email sent successfully',
+      message: 'Email sent successfully and inbox message created',
       email: {
         to,
         subject,
-        sentAt: new Date().toISOString(),
-        note: 'Email functionality is in demo mode. Integrate with a real email service for full functionality.'
+        sentAt: new Date().toISOString()
       }
     });
   } catch (err) {

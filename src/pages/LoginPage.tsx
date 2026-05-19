@@ -47,6 +47,20 @@ export const LoginPage: React.FC = () => {
   const [year, setYear] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
+  // Auto-select student login on mobile
+  useEffect(() => {
+    const checkMobile = () => {
+      const isMobile = window.innerWidth < 768; // md breakpoint
+      if (isMobile && loginMode === 'selection') {
+        setLoginMode('student');
+      }
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, [loginMode]);
+
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -56,6 +70,7 @@ export const LoginPage: React.FC = () => {
   useEffect(() => {
     const mode = searchParams.get('mode') as 'student' | 'admin_staff' | null;
     const form = searchParams.get('form') as 'login' | 'signup' | null;
+    const deactivated = searchParams.get('deactivated');
     
     if (mode) {
       setLoginMode(mode);
@@ -63,7 +78,10 @@ export const LoginPage: React.FC = () => {
     if (form && (form === 'login' || form === 'signup')) {
       setFormType(form);
     }
-  }, [searchParams]);
+    if (deactivated === 'true') {
+      showNotification('Your account has been deactivated. Please contact an administrator for assistance.', 'error');
+    }
+  }, [searchParams, showNotification]);
 
   // Handle form type changes
   const handleFormTypeChange = (newFormType: 'login' | 'signup' | 'membership') => {
@@ -110,21 +128,6 @@ export const LoginPage: React.FC = () => {
         await login(null, password, email); // email contains ID number for students
       } else {
         await login(email, password); // use email normally for members
-      }
-      
-      // Check user role from localStorage (which was just set by login)
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const userData = JSON.parse(storedUser);
-        const expectedRole = 'user';
-        const roleName = 'Students';
-        
-        if (userData.role !== expectedRole) {
-          setError(`Only ${roleName} can login here. Please use the correct login form.`);
-          logout();
-          setLoading(false);
-          return;
-        }
       }
       
       setEmail('');
@@ -183,9 +186,6 @@ export const LoginPage: React.FC = () => {
 
       await register(signupData);
       
-      // Logout immediately after signup (register auto-logs in)
-      logout();
-      
       // Clear form
       setIdNumber('');
       setFirstName('');
@@ -197,19 +197,11 @@ export const LoginPage: React.FC = () => {
       setPassword('');
       setConfirmPassword('');
       
-      // Show success notification and redirect to student login
-      showNotification('Signed up successfully! Please log in with your credentials.', 'success');
+      // Show success notification
+      showNotification('Account created successfully! Please log in with your credentials.', 'success');
       
-      // Navigate directly to login form without transition
-      setLoginMode('student');
-      setFormType('login');
-      setIsTransitioning(false);
-      
-      // Small delay to ensure state updates
-      setTimeout(() => {
-        // Clear URL params by navigating to clean login page
-        navigate('/login', { replace: true });
-      }, 500);
+      // Simply switch to login form - no page reload needed!
+      handleFormTypeChange('login');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
@@ -306,7 +298,11 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-start pt-8 p-4 relative"
+      className={`min-h-screen flex flex-col items-center p-4 relative ${
+        loginMode === 'student' && formType === 'signup'
+          ? 'justify-center pt-14 md:pt-6'
+          : 'justify-start pt-16 md:pt-8'
+      }`}
       style={{
         backgroundImage: 'url(/src/assets/Background2.jpeg)',
         backgroundSize: 'cover',
@@ -319,6 +315,9 @@ export const LoginPage: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => {
+          // Check if mobile (below md breakpoint)
+          const isMobile = window.innerWidth < 768;
+          
           if (loginMode === 'selection') {
             navigate('/');
           } else if (loginMode === 'admin_staff') {
@@ -328,14 +327,19 @@ export const LoginPage: React.FC = () => {
             setAdminStaffPassword('');
           } else if (loginMode === 'student') {
             if (formType === 'login') {
-              setLoginMode('selection');
+              // On mobile, go directly to landing page
+              if (isMobile) {
+                navigate('/');
+              } else {
+                setLoginMode('selection');
+              }
             } else {
               handleFormTypeChange('login');
             }
             setError('');
           }
         }}
-        className={`absolute top-6 left-6 flex items-center space-x-2 text-white transition-all group z-20 p-2 rounded-lg shadow-lg ${
+        className={`fixed md:absolute top-4 md:top-6 left-4 md:left-6 flex items-center space-x-2 text-white transition-all group z-50 p-2 rounded-lg shadow-lg ${
           loginMode === 'admin_staff'
             ? 'bg-slate-700 hover:bg-slate-800'
             : 'bg-purple-600 hover:bg-purple-700'
@@ -345,14 +349,20 @@ export const LoginPage: React.FC = () => {
         <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
       </button>
 
-      <div className={`w-full flex items-center justify-center ${loginMode === 'selection' ? 'min-h-[500px]' : ''} ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-4xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
+      <div className={`w-full flex items-center justify-center ${
+        loginMode === 'selection'
+          ? 'min-h-[500px]'
+          : loginMode === 'student' && formType === 'signup'
+            ? 'min-h-0'
+            : 'mt-4 md:mt-0 min-h-[calc(100vh-8rem)]'
+      } ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-5xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
         {/* Selection Screen */}
         {loginMode === 'selection' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto px-6">
-            {/* Admin/Staff Login Box */}
+            {/* Admin/Staff Login Box - Hidden on Mobile */}
             <button
               onClick={() => setLoginMode('admin_staff')}
-              className="bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm"
+              className="hidden md:block bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm"
             >
               <div className="flex flex-col items-center text-center space-y-6">
                 <div className="w-24 h-24 bg-gradient-to-br from-slate-600 to-slate-800 rounded-full flex items-center justify-center">
@@ -369,7 +379,7 @@ export const LoginPage: React.FC = () => {
             {/* Student Login Box */}
             <button
               onClick={() => setLoginMode('student')}
-              className="bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm"
+              className="bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm mx-auto"
             >
               <div className="flex flex-col items-center text-center space-y-6">
                 <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-full flex items-center justify-center">
@@ -470,10 +480,10 @@ export const LoginPage: React.FC = () => {
 
         {/* Student Form */}
         {loginMode === 'student' && (
-          <div key={formType} className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex' : ''} form-transition-in animate-scale-in`}>
+          <div key={formType} className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex w-full' : 'w-full max-w-md'} form-transition-in animate-scale-in`}>
             {/* Sidebar for Sign Up and Membership */}
             {formType !== 'login' && (
-            <div className={`hidden sm:flex w-1/3 bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600 flex-col items-center justify-center p-8 relative overflow-hidden sidebar-slide-in animate-slide-in-left`}>
+            <div className={`hidden md:flex w-2/5 bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600 flex-col items-center justify-center p-10 relative overflow-hidden sidebar-slide-in animate-slide-in-left`}>
               <div className="absolute inset-0 opacity-20">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
                 <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -493,10 +503,10 @@ export const LoginPage: React.FC = () => {
           )}
 
           {/* Main Content */}
-          <div className={`${formType !== 'login' ? 'w-full sm:w-2/3' : 'w-full'} ${formType !== 'login' ? 'content-slide-in animate-slide-in-right' : 'animate-fade-in'}`}>
+          <div className={`${formType !== 'login' ? 'w-full md:w-3/5' : 'w-full'} ${formType !== 'login' ? 'content-slide-in animate-slide-in-right' : 'animate-fade-in'}`}>
             {/* Header Banner for Login */}
             {formType === 'login' && (
-              <div className="h-24 bg-gradient-to-r from-purple-300 via-purple-400 to-purple-600 flex items-center justify-center relative overflow-hidden animate-slide-down">
+              <div className="h-20 md:h-24 bg-gradient-to-r from-purple-300 via-purple-400 to-purple-600 flex items-center justify-center relative overflow-hidden animate-slide-down">
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
                   <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
@@ -505,7 +515,7 @@ export const LoginPage: React.FC = () => {
                   <img 
                     src={coopLogo}
                     alt="UC METC Logo" 
-                    className="w-16 h-16 rounded-full mb-1"
+                    className="w-12 h-12 md:w-16 md:h-16 rounded-full mb-1"
                   />
                   <h2 className="text-xs font-bold text-slate-100">UC METC SILMS</h2>
                 </div>
@@ -513,14 +523,14 @@ export const LoginPage: React.FC = () => {
             )}
 
             {/* Form Content */}
-            <div className={`${formType === 'login' ? 'p-7' : 'p-5'} ${formType !== 'login' ? 'animate-fadeIn' : ''}`}>
+            <div className={`${formType === 'login' ? 'p-4 md:p-7' : formType === 'signup' ? 'p-5 md:p-6' : 'p-5 md:p-8'} ${formType !== 'login' ? 'animate-fadeIn' : ''}`}>
             {formType === 'login' ? (
               <>
-                <h2 className="text-xl font-bold text-center text-slate-800 mb-5">
+                <h2 className="text-lg md:text-xl font-bold text-center text-slate-800 mb-4 md:mb-5">
                   Welcome Back!
                 </h2>
 
-                <form onSubmit={handleLogin} className="space-y-3.5">
+                <form onSubmit={handleLogin} className="space-y-3 md:space-y-3.5">
                   {/* Email/ID Input */}
                   <FloatingInput
                     label="ID Number"
@@ -565,7 +575,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse bg-purple-600 hover:bg-purple-700"
+                    className="w-full text-white font-semibold py-2.5 md:py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse bg-purple-600 hover:bg-purple-700"
                   >
                     {loading ? 'Logging in...' : 'Login'}
                   </button>
@@ -573,7 +583,7 @@ export const LoginPage: React.FC = () => {
 
                 {/* Sign Up Link */}
                 {loginMode === 'student' && (
-                  <div className="mt-4 text-center text-xs text-slate-600">
+                  <div className="mt-3 md:mt-4 text-center text-xs text-slate-600">
                     Don't have an account?{' '}
                     <button
                       onClick={() => handleFormTypeChange('signup')}
@@ -588,13 +598,33 @@ export const LoginPage: React.FC = () => {
               </>
             ) : (
               <>
-                <h2 className="text-lg font-bold text-center text-slate-800 mb-3">
+                {/* Header Banner for Sign Up - Mobile Only */}
+                <div className="md:hidden h-24 bg-gradient-to-r from-purple-500 via-purple-600 to-purple-700 flex items-center px-6 relative overflow-hidden -mx-5 -mt-5 mb-4">
+                  <div className="absolute inset-0 opacity-20">
+                    <div className="absolute top-0 right-0 w-40 h-40 bg-white rounded-full transform -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-white rounded-full transform translate-y-1/2 -translate-x-1/2"></div>
+                  </div>
+                  <div className="relative z-10 flex items-center gap-4">
+                    <img 
+                      src={coopLogo}
+                      alt="UC METC Logo" 
+                      className="w-16 h-16 rounded-full border-2 border-white"
+                    />
+                    <div className="border-l-2 border-white/50 pl-4">
+                      <h2 className="text-xl font-bold text-white">REGISTER</h2>
+                      <p className="text-xs text-white/90 mt-0.5">Join UC METC SILMS community</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Desktop Title */}
+                <h2 className="hidden md:block text-xl font-bold text-center text-slate-800 mb-3">
                   Create Student Account
                 </h2>
 
-                <form onSubmit={handleSignUp} className="space-y-2.5">
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* ID Number */}
+                <form onSubmit={handleSignUp} className="space-y-3">
+                  {/* ID Number - Full width on mobile, half on desktop */}
+                  <div className="md:grid md:grid-cols-2 md:gap-2 space-y-3 md:space-y-0">
                     <div>
                       <FloatingInput
                         label="ID Number"
@@ -615,41 +645,33 @@ export const LoginPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Middle Name */}
-                    <div>
-                      <FloatingInput
-                        label="Middle Name"
-                        value={middleName}
-                        onChange={(e) => setMiddleName(e.target.value)}
-                      />
-                    </div>
-
-                    {/* Last Name */}
-                  <div>
-                      <FloatingInput
-                        label="Last Name"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  {/* Email Address */}
-                  <div>
+                  {/* Middle & Last Name — side by side on desktop */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 md:gap-2 space-y-3 md:space-y-0">
                     <FloatingInput
-                      label="Email Address"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      type="email"
+                      label="Middle Name"
+                      value={middleName}
+                      onChange={(e) => setMiddleName(e.target.value)}
+                    />
+                    <FloatingInput
+                      label="Last Name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
                       required
                     />
                   </div>
 
-                  {/* Course and Year - Only for Student Signup */}
+                  {/* Email Address - Full width */}
+                  <FloatingInput
+                    label="Email Address"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    required
+                  />
+
+                  {/* Course and Year - Side by side on all screens */}
                   {loginMode === 'student' && (
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2 md:gap-3">
                       {/* Course Dropdown */}
                       <div>
                         <FloatingSelect
@@ -678,8 +700,8 @@ export const LoginPage: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Password */}
+                  {/* Password - Full width on mobile, half on desktop */}
+                  <div className="md:grid md:grid-cols-2 md:gap-3 space-y-3 md:space-y-0">
                     <div>
                       <FloatingInput
                         label="Password"
@@ -718,7 +740,7 @@ export const LoginPage: React.FC = () => {
                   {/* Register Button */}
                   <button
                     type="submit"
-                    className="w-full text-white font-semibold py-3 rounded-lg active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse bg-purple-600 hover:bg-purple-700"
+                    className="w-full text-white font-semibold py-2.5 md:py-3 rounded-lg active:scale-95 transition-all duration-200 flex items-center justify-center space-x-2 button-pulse bg-purple-600 hover:bg-purple-700"
                   >
                     <UserPlus size={20} />
                     <span>Register</span>
@@ -730,19 +752,18 @@ export const LoginPage: React.FC = () => {
                   Already have an account?{' '}
                   <button
                     onClick={() => handleFormTypeChange('login')}
-                    className="font-semibold hover:underline transition-all text-purple-600 hover:text-purple-700"
+                    className="text-purple-600 hover:text-purple-700 font-semibold hover:underline transition-all"
                   >
-                    Sign In
+                    Sign in
                   </button>
                 </div>
-
 
               </>
             )}
             
             {/* Terms and Privacy Disclaimer - Only on Login Form */}
             {formType === 'login' && (
-              <div className="mt-6 pt-4 border-t border-slate-200 text-center text-xs text-slate-500">
+              <div className="mt-4 md:mt-6 pt-3 md:pt-4 border-t border-slate-200 text-center text-xs text-slate-500">
                 By signing up or logging in, you consent to UC METC SILMS'{' '}
                 <button
                   onClick={() => setShowTermsModal(true)}
@@ -768,7 +789,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Terms of Use Modal */}
       {showTermsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 modal-fade-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998] p-4 modal-fade-in">
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl max-h-[90vh] overflow-y-auto modal-content-in">
             <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-purple-600">Terms of Use</h2>
@@ -820,7 +841,7 @@ export const LoginPage: React.FC = () => {
 
       {/* Privacy Policy Modal */}
       {showPrivacyModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 modal-fade-in">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998] p-4 modal-fade-in">
           <div className="bg-white rounded-lg shadow-2xl max-w-2xl max-h-[90vh] overflow-y-auto modal-content-in">
             <div className="sticky top-0 bg-white border-b border-slate-200 p-6 flex justify-between items-center">
               <h2 className="text-2xl font-bold text-purple-600">Privacy Policy</h2>

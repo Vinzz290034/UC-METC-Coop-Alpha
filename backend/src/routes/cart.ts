@@ -16,20 +16,21 @@ const verifyUser = (req: Request, res: Response, next: Function) => {
 // Add item to cart
 router.post('/add', verifyUser, async (req: Request, res: Response) => {
   try {
-    const { productId, productName, price, quantity, selectedOptions } = req.body;
+    const { productId, productName, price, quantity, selectedOptions, paymentType, orderType, fullPrice } = req.body;
     const userId = (req as any).userId;
 
     const result = await pool.query(
-      `INSERT INTO cart_items (user_id, product_id, product_name, price, quantity, selected_options)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO cart_items (user_id, product_id, product_name, price, quantity, selected_options, payment_type, order_type, full_price)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        ON CONFLICT (user_id, product_id, selected_options) 
-       DO UPDATE SET quantity = cart_items.quantity + $5, updated_at = NOW()
+       DO UPDATE SET quantity = cart_items.quantity + $5, payment_type = $7, order_type = $8, full_price = $9, updated_at = NOW()
        RETURNING *`,
-      [userId, productId, productName, price, quantity, selectedOptions ? JSON.stringify(selectedOptions) : null]
+      [userId, productId, productName, price, quantity, selectedOptions ? JSON.stringify(selectedOptions) : null, paymentType || null, orderType || 'regular', fullPrice || null]
     );
 
     res.json(result.rows[0]);
   } catch (error) {
+    console.error('Error adding to cart:', error);
     res.status(500).json({ error: 'Failed to add item to cart' });
   }
 });
