@@ -1,6 +1,6 @@
 import express from 'express';
-import { pool } from '../config/database';
-import { authMiddleware } from '../middleware/auth';
+import { pool } from '../config/database.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
