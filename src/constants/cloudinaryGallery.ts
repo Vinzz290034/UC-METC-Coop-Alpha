@@ -2,6 +2,11 @@
  * General Assembly / event photos on Cloudinary (f_auto,q_auto,w_1920).
  * Single source of truth for dashboard + public Community page.
  */
+
+/** Landing page coop intro video (hosted on Cloudinary — not in git). */
+export const LANDING_VIDEO_URL =
+  'https://res.cloudinary.com/doas4qcdo/video/upload/v1779174578/FINAL_COOP_w4uxr2.mp4';
+
 export const GALLERY_IMAGE_URLS: readonly string[] = [
   'https://res.cloudinary.com/doas4qcdo/image/upload/f_auto,q_auto,w_1920/v1779084645/2_pjbzf9.png',
   'https://res.cloudinary.com/doas4qcdo/image/upload/f_auto,q_auto,w_1920/v1779085494/4_zculus.png',

@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/api';
+import { LANDING_VIDEO_URL } from '../constants/cloudinaryGallery';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
-/** Landing hero video — file lives in public/videos/ (gitignored; copy locally for dev). */
+
 const LANDING_VIDEO_SRC =
-  import.meta.env.VITE_LANDING_VIDEO_URL || '/videos/FINAL-COOP.mp4';
+  import.meta.env.VITE_LANDING_VIDEO_URL || LANDING_VIDEO_URL;
 // @ts-ignore
 import benefitsImage from '../assets/90.jpeg';
 import {
