@@ -15,7 +15,7 @@ interface AuthenticatedSocket extends Socket {
 export function initializeWebSocketServer(httpServer: HTTPServer): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+      origin: process.env.CORS_ORIGIN || process.env.FRONTEND_URL || 'http://localhost:5173',
       methods: ['GET', 'POST'],
       credentials: true,
     },
@@ -33,9 +33,13 @@ export function initializeWebSocketServer(httpServer: HTTPServer): Server {
     }
 
     try {
-      const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
-      socket.userId = decoded.userId;
-      console.log(`[WebSocket] Authentication successful for user: ${decoded.userId}`);
+      const decoded = jwt.verify(token, JWT_SECRET) as { id?: string; userId?: string };
+      const userId = decoded.id ?? decoded.userId;
+      if (!userId) {
+        return next(new Error('Authentication error: Invalid token payload'));
+      }
+      socket.userId = userId;
+      console.log(`[WebSocket] Authentication successful for user: ${userId}`);
       next();
     } catch (err) {
       console.log('[WebSocket] Connection rejected: Invalid token');

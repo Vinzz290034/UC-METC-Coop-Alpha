@@ -3,8 +3,9 @@
 
 import { io, Socket } from 'socket.io-client';
 import type { Notification } from '../types';
+import { getWebSocketUrl } from '../utils/apiBaseUrl';
 
-const BACKEND_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const BACKEND_URL = getWebSocketUrl();
 
 class WebSocketClient {
   private socket: Socket | null = null;

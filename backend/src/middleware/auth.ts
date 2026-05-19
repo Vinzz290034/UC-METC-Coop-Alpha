@@ -35,16 +35,9 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    console.log('[AUTH DEBUG] Token verification attempt:', {
-      tokenLength: token.length,
-      tokenPrefix: token.substring(0, 20) + '...',
-      secretLength: config.jwt.secret.length,
-      secretPrefix: config.jwt.secret.substring(0, 20) + '...',
-      secretValue: config.jwt.secret,
-      method: req.method,
-      path: req.path,
-      timestamp: new Date().toISOString()
-    });
+    if (config.nodeEnv === 'development') {
+      console.log('[AUTH DEBUG] Token verification:', { method: req.method, path: req.path });
+    }
 
     const decoded = jwt.verify(token, config.jwt.secret as string) as AuthPayload;
     
@@ -117,27 +110,17 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     req.user = decoded;
     next();
   } catch (err: any) {
-    console.error('[AUTH ERROR] Token verification failed:', {
-      errorName: err.name,
-      errorMessage: err.message,
-      errorCode: (err as any).code,
-      secretLength: config.jwt.secret.length,
-      secretValue: config.jwt.secret,
-      timestamp: new Date().toISOString()
-    });
-    
-    // Return more detailed error message for debugging
-    const errorDetail = err.name === 'TokenExpiredError' 
+    console.error('[AUTH ERROR] Token verification failed:', err.name, err.message);
+
+    const errorDetail = err.name === 'TokenExpiredError'
       ? 'Token has expired'
       : err.name === 'JsonWebTokenError'
-      ? 'Invalid token'
-      : 'Token verification failed';
-    
-    res.status(401).json({ 
+        ? 'Invalid token'
+        : 'Token verification failed';
+
+    res.status(401).json({
       message: 'Invalid or expired token',
-      detail: errorDetail,
-      errorName: err.name,
-      secret: config.jwt.secret.substring(0, 20)
+      ...(config.nodeEnv === 'development' && { detail: errorDetail, errorName: err.name }),
     });
   }
 };

@@ -8,6 +8,7 @@ declare module "*.css" {
 
 interface ImportMetaEnv {
   readonly VITE_API_URL: string;
+  readonly VITE_WS_URL?: string;
   readonly VITE_LANDING_VIDEO_URL?: string;
 }
 

@@ -74,33 +74,13 @@ router.post('/login', async (req: Request, res: Response) => {
       role: user.role,
     };
 
-    console.log('[LOGIN] Before signing token:', {
-      secretLength: config.jwt.secret.length,
-      secretValue: config.jwt.secret,
-      secretPrefix: config.jwt.secret.substring(0, 20) + '...',
-      payload
-    });
+    if (config.nodeEnv === 'development') {
+      console.log('[LOGIN] Signing token for user:', user.id, user.role);
+    }
 
     const token = jwt.sign(payload, config.jwt.secret as string, {
       expiresIn: config.jwt.expiresIn,
     } as any);
-
-    // Decode token to verify expiration was set correctly
-    const decoded = jwt.decode(token) as any;
-    const expiresAt = new Date(decoded.exp * 1000);
-    const now = new Date();
-    const expiresIn = Math.floor((expiresAt.getTime() - now.getTime()) / 1000 / 60 / 60 / 24); // days
-
-    console.log('[LOGIN] Token generated successfully:', {
-      userId: user.id,
-      userEmail: user.email,
-      userRole: user.role,
-      expiresIn: `${expiresIn} days`,
-      expiresAt: expiresAt.toISOString(),
-      configExpiry: config.jwt.expiresIn,
-      secretLength: config.jwt.secret.length,
-      secretValue: config.jwt.secret
-    });
 
     res.json({
       message: 'Login successful',

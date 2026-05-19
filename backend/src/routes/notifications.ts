@@ -3,16 +3,11 @@
 import express, { Request, Response } from 'express';
 import { authMiddleware } from '../middleware/auth.js';
 import { notificationService } from '../services/notificationService.js';
+import type { AuthPayload } from '../types/index.js';
 
 const router = express.Router();
 
-interface AuthRequest extends Request {
-  user?: {
-    id: string;
-    email: string;
-    role: string;
-  };
-}
+type AuthRequest = Request & { user?: AuthPayload };
 
 /**
  * GET /api/notifications
