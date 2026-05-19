@@ -30,7 +30,9 @@ router.get('/stats', async (req: Request, res: Response) => {
       members: membersCount,
     });
   } catch (error) {
-    console.error('Error fetching landing stats:', error);
+    const msg = error instanceof Error ? error.message : String(error);
+    const code = error && typeof error === 'object' && 'code' in error ? String((error as { code?: string }).code) : '';
+    console.error('[public/stats] Database error:', msg, code ? `(pg ${code})` : '');
     res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });

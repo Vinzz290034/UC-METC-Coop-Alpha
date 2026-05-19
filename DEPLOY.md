@@ -51,13 +51,18 @@ psql "YOUR_DATABASE_URL" -f backend/src/database/migrations/add-notifications-ta
    - **Build Command:** `npm install && npm run build`
    - **Start Command:** `npm start`
 3. **Networking** → **Generate Domain** → note URL, e.g. `https://uc-metc-api-production.up.railway.app`
-4. **Variables** (paste and edit):
+4. **Variables** — on the **backend service** (not Postgres), add these:
+
+> **Important:** Variables in `backend/.env` on your laptop are **not** sent to Railway. You must add them in the Railway dashboard.
+
+**Link Postgres (recommended):** Variables → **+ New Variable** → **Add Reference** → choose your Postgres service → `DATABASE_URL`
+
+Or paste manually:
 
 ```env
 NODE_ENV=production
-PORT=5000
 
-DATABASE_URL=<from Step 2>
+DATABASE_URL=<copy from Postgres service → Variables tab>
 
 JWT_SECRET=<run: openssl rand -base64 48>
 JWT_EXPIRES_IN=30d
