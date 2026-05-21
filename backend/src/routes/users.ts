@@ -22,7 +22,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_approved_at, membership_status, status, created_at FROM users WHERE id = $1',
+      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at FROM users WHERE id = $1',
       [userId]
     );
 
@@ -360,8 +360,8 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
 
       // Create user with a temporary password (hash would be better in production)
       const createUserResult = await query(
-        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, membership_approved_at, status)
-         VALUES ($1, $2, $3, $4, 'user', 'approved', NOW(), 'active')
+        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, status)
+         VALUES ($1, $2, $3, $4, 'user', 'approved', 'active')
          RETURNING id, email, first_name, last_name, role, membership_status`,
         [memberRequest.email, 'temp_password_change_required', firstName, lastName]
       );

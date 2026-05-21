@@ -62,10 +62,10 @@ export const DashboardPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [user?.id, user?.role]);
 
-  // Fetch approved members from API
+  // Fetch approved members from API (only for admins/staff)
   useEffect(() => {
-    // Don't fetch if user is not authenticated
-    if (!user) return;
+    // Don't fetch if user is not authenticated or not admin/staff
+    if (!user || user.role === 'user') return;
 
     const fetchMembers = async () => {
       try {
