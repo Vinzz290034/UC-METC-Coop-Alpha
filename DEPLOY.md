@@ -2,6 +2,8 @@
 
 Follow these steps in order. Repo: **Vinzz290034/UC-METC-Coop-Alpha**
 
+> **Recommended (Railway down / alternative):** use **[DEPLOY_RENDER.md](./DEPLOY_RENDER.md)** for API + Postgres on Render, frontend on Vercel.
+
 ---
 
 ## Step 1 — Push code to GitHub
@@ -26,20 +28,13 @@ git push origin main
 
 1. [neon.tech](https://neon.tech) → create project → copy connection string
 
-### Run schema
+### Run schema (one file only)
 
 ```bash
 psql "YOUR_DATABASE_URL" -f backend/src/database/schema.sql
 ```
 
-Optional migrations (if not already applied):
-
-```bash
-psql "YOUR_DATABASE_URL" -f backend/src/database/add_reference_number_migration.sql
-psql "YOUR_DATABASE_URL" -f backend/src/database/add_unique_id_number_constraint.sql
-psql "YOUR_DATABASE_URL" -f backend/src/database/create_stock_intake_table.sql
-psql "YOUR_DATABASE_URL" -f backend/src/database/migrations/add-notifications-table.sql
-```
+See `backend/src/database/README.md` — older migration files are archived history, not needed for a new database.
 
 ---
 

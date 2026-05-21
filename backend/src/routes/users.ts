@@ -11,30 +11,7 @@ const isAdminOrStaff = (role?: string) => {
   return role === 'admin' || role === 'staff' || role === 'manager' || role === 'cashier' || role === 'locker_officer' || role === 'inventory_officer';
 };
 
-// Test endpoint - get all users WITHOUT auth (for debugging)
-router.get('/test-get-all', async (req: Request, res: Response) => {
-  try {
-    const result = await query('SELECT id, email, first_name, last_name, role, membership_status, status, created_at FROM users ORDER BY created_at DESC');
-    res.json({ users: result.rows });
-  } catch (err) {
-    console.error('Error fetching users:', err);
-    res.status(500).json({ message: 'Failed to fetch users' });
-  }
-});
 
-// Test endpoint - check current user auth status
-router.get('/me/test', authMiddleware, async (req: Request, res: Response) => {
-  try {
-    res.json({
-      message: 'Auth token is valid',
-      user: req.user,
-      timestamp: new Date().toISOString()
-    });
-  } catch (err) {
-    console.error('Error:', err);
-    res.status(500).json({ message: 'Failed to verify auth' });
-  }
-});
 
 // Get current user profile
 router.get('/me', authMiddleware, async (req: Request, res: Response) => {
@@ -149,15 +126,8 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     const { id } = req.params;
     const { first_name, last_name, role } = req.body;
 
-    console.log('PUT /users/:id request:', {
-      targetUserId: id,
-      requestingUser: { id: req.user?.id, role: req.user?.role },
-      updateData: { first_name, last_name, role }
-    });
-
     // Users can only update their own profile unless admin/staff
     if (req.user?.id !== id && !isAdminOrStaff(req.user?.role)) {
-      console.log('Access denied: User cannot update this profile');
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -190,15 +160,11 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     values.push(id);
     const query_str = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, email, first_name, last_name, role, membership_status`;
 
-    console.log('Executing query:', query_str, 'with values:', values);
-
     const result = await query(query_str, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    console.log('User updated successfully:', result.rows[0]);
     res.json({ message: 'User updated successfully', user: result.rows[0] });
   } catch (err) {
     console.error('Error updating user:', err);
@@ -208,21 +174,7 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
 
 // ===== MEMBERSHIP REQUESTS ROUTES (must be before :id routes) =====
 
-// Test endpoint - get all pending requests WITHOUT auth (for debugging)
-router.get('/membership-requests/pending-test', async (req: Request, res: Response) => {
-  try {
-    const result = await query(
-      `SELECT id, user_id, name, email, phone, status, created_at, updated_at 
-       FROM membership_requests 
-       WHERE status = 'pending' 
-       ORDER BY created_at DESC`
-    );
-    res.json({ requests: result.rows, debug: `Found ${result.rows.length} pending requests` });
-  } catch (err) {
-    console.error('Error fetching membership requests:', err);
-    res.status(500).json({ message: 'Failed to fetch membership requests' });
-  }
-});
+
 
 // Get all pending membership requests (admin and staff only)
 router.get('/membership-requests/pending', authMiddleware, async (req: Request, res: Response) => {
@@ -341,107 +293,7 @@ router.post('/membership-requests', async (req: Request, res: Response) => {
   }
 });
 
-// Approve a membership request - TEST VERSION (no auth)
-router.put('/membership-requests/:requestId/approve-test', async (req: Request, res: Response) => {
-  try {
-    const { requestId } = req.params;
 
-    // Get the membership request
-    const requestResult = await query(
-      'SELECT id, user_id, name, email, phone, status FROM membership_requests WHERE id = $1',
-      [requestId]
-    );
-
-    if (requestResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Membership request not found' });
-    }
-
-    const memberRequest = requestResult.rows[0];
-
-    if (memberRequest.status !== 'pending') {
-      return res.status(400).json({ message: `Request is already ${memberRequest.status}` });
-    }
-
-    let userId = memberRequest.user_id;
-
-    // If no user_id, create a new user account
-    if (!userId) {
-      // Extract first and last name from the full name
-      const nameParts = memberRequest.name.split(' ');
-      const firstName = nameParts[0] || 'User';
-      const lastName = nameParts.slice(1).join(' ') || '';
-
-      // Create user with a temporary password (hash would be better in production)
-      const createUserResult = await query(
-        `INSERT INTO users (email, password, first_name, last_name, role, membership_status, membership_approved_at, status)
-         VALUES ($1, $2, $3, $4, 'user', 'approved', NOW(), 'active')
-         RETURNING id, email, first_name, last_name, role, membership_status`,
-        [memberRequest.email, 'temp_password_change_required', firstName, lastName]
-      );
-
-      userId = createUserResult.rows[0].id;
-      console.log('Created new user for membership request:', createUserResult.rows[0]);
-    } else {
-      // If user exists, update their membership_status to 'approved' and set membership_approved_at to NOW
-      await query(
-        'UPDATE users SET membership_status = $1, membership_approved_at = NOW(), updated_at = NOW() WHERE id = $2',
-        ['approved', userId]
-      );
-    }
-
-    // Update the membership request status to approved and link the user
-    await query(
-      'UPDATE membership_requests SET status = $1, user_id = $2, updated_at = NOW() WHERE id = $3',
-      ['approved', userId, requestId]
-    );
-
-    res.json({ 
-      message: 'Membership request approved successfully',
-      user: {
-        id: userId,
-        email: memberRequest.email,
-        name: memberRequest.name
-      }
-    });
-  } catch (err) {
-    console.error('Error approving membership request:', err);
-    res.status(500).json({ message: 'Failed to approve membership request' });
-  }
-});
-
-// Reject a membership request - TEST VERSION (no auth)
-router.put('/membership-requests/:requestId/reject-test', async (req: Request, res: Response) => {
-  try {
-    const { requestId } = req.params;
-
-    // Get the membership request
-    const requestResult = await query(
-      'SELECT id, status FROM membership_requests WHERE id = $1',
-      [requestId]
-    );
-
-    if (requestResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Membership request not found' });
-    }
-
-    const memberRequest = requestResult.rows[0];
-
-    if (memberRequest.status !== 'pending') {
-      return res.status(400).json({ message: `Request is already ${memberRequest.status}` });
-    }
-
-    // Update the membership request status to rejected
-    await query(
-      'UPDATE membership_requests SET status = $1, updated_at = NOW() WHERE id = $2',
-      ['rejected', requestId]
-    );
-
-    res.json({ message: 'Membership request rejected successfully' });
-  } catch (err) {
-    console.error('Error rejecting membership request:', err);
-    res.status(500).json({ message: 'Failed to reject membership request' });
-  }
-});
 
 // Approve a membership request (admin and staff only)
 router.put('/membership-requests/:requestId/approve', authMiddleware, async (req: Request, res: Response) => {
@@ -585,18 +437,8 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    console.log('DELETE /users/:id request:', {
-      targetUserId: id,
-      requestingUser: { id: req.user?.id, role: req.user?.role },
-      timestamp: new Date().toISOString()
-    });
-
     // Only admin and staff can delete users
     if (!isAdminOrStaff(req.user?.role)) {
-      console.error('Authorization failed: User role not authorized for deletion', {
-        userRole: req.user?.role,
-        isAdminOrStaff: isAdminOrStaff(req.user?.role)
-      });
       return res.status(403).json({ 
         message: 'Access denied. Only admin and staff can delete members.',
         userRole: req.user?.role 
@@ -606,11 +448,8 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
     const result = await query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
 
     if (result.rows.length === 0) {
-      console.error('Delete failed: User not found', { id });
       return res.status(404).json({ message: 'User not found' });
     }
-
-    console.log('User deleted successfully:', { id });
     res.json({ message: 'User deleted successfully' });
   } catch (err) {
     console.error('Error deleting user:', err);
@@ -622,12 +461,6 @@ router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
 router.post('/:id/demote', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    console.log('POST /users/:id/demote request:', {
-      targetUserId: id,
-      requestingUser: { id: req.user?.id, role: req.user?.role },
-      timestamp: new Date().toISOString()
-    });
 
     // Only admin and staff can demote members
     if (!isAdminOrStaff(req.user?.role)) {
@@ -647,7 +480,6 @@ router.post('/:id/demote', authMiddleware, async (req: Request, res: Response) =
       return res.status(404).json({ message: 'User not found' });
     }
 
-    console.log('Member demoted successfully:', result.rows[0]);
     res.json({ 
       message: 'Member demoted to user successfully',
       user: result.rows[0]
@@ -662,12 +494,6 @@ router.post('/:id/demote', authMiddleware, async (req: Request, res: Response) =
 router.post('/:id/freeze', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    console.log('POST /users/:id/freeze request:', {
-      targetUserId: id,
-      requestingUser: { id: req.user?.id, role: req.user?.role },
-      timestamp: new Date().toISOString()
-    });
 
     // Only admin and staff can freeze accounts
     if (!isAdminOrStaff(req.user?.role)) {
@@ -690,7 +516,6 @@ router.post('/:id/freeze', authMiddleware, async (req: Request, res: Response) =
     // Invalidate cache to force immediate effect
     invalidateUserCache(id);
 
-    console.log('Account frozen successfully:', result.rows[0]);
     res.json({ 
       message: 'Account frozen successfully',
       user: result.rows[0]
@@ -705,12 +530,6 @@ router.post('/:id/freeze', authMiddleware, async (req: Request, res: Response) =
 router.post('/:id/reactivate', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-
-    console.log('POST /users/:id/reactivate request:', {
-      targetUserId: id,
-      requestingUser: { id: req.user?.id, role: req.user?.role },
-      timestamp: new Date().toISOString()
-    });
 
     // Only admin and staff can reactivate accounts
     if (!isAdminOrStaff(req.user?.role)) {
@@ -733,7 +552,6 @@ router.post('/:id/reactivate', authMiddleware, async (req: Request, res: Respons
     // Invalidate cache to allow immediate access
     invalidateUserCache(id);
 
-    console.log('Account reactivated successfully:', result.rows[0]);
     res.json({ 
       message: 'Account reactivated successfully',
       user: result.rows[0]
@@ -794,15 +612,8 @@ router.post('/send-email', authMiddleware, async (req: Request, res: Response) =
       [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
     );
 
-    // Log the email (in production, integrate with nodemailer, SendGrid, etc.)
-    console.log('📧 Email sent and inbox message created:', {
-      from: sender.email,
-      to,
-      subject,
-      timestamp: new Date().toISOString()
-    });
-
     // TODO: Integration with email service for actual email delivery
+    // In production, integrate with nodemailer, SendGrid, etc.
     // Example with nodemailer:
     // const transporter = nodemailer.createTransport({ ... });
     // await transporter.sendMail({

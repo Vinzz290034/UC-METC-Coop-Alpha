@@ -24,7 +24,6 @@ const verifyEmailDomainExists = async (email: string): Promise<boolean> => {
     const addresses = await resolveMx(domain);
     return addresses && addresses.length > 0;
   } catch (err) {
-    console.error('Email domain verification error:', err);
     return false;
   }
 };
@@ -55,7 +54,6 @@ router.post('/login', async (req: Request, res: Response) => {
 
     // Check if user account is active
     if (user.status !== 'active') {
-      console.log(`[LOGIN] Login attempt blocked - account is ${user.status}:`, email || id_number);
       return res.status(403).json({ 
         message: 'Your account has been deactivated. Please contact an administrator for assistance.' 
       });
@@ -63,7 +61,6 @@ router.post('/login', async (req: Request, res: Response) => {
 
     const isValidPassword = await bcryptjs.compare(password, user.password);
     if (!isValidPassword) {
-      console.error('Password mismatch for user:', email || id_number);
       const errorMsg = id_number ? 'Invalid ID number or password' : 'Invalid email or password';
       return res.status(401).json({ message: errorMsg });
     }
@@ -73,10 +70,6 @@ router.post('/login', async (req: Request, res: Response) => {
       email: user.email,
       role: user.role,
     };
-
-    if (config.nodeEnv === 'development') {
-      console.log('[LOGIN] Signing token for user:', user.id, user.role);
-    }
 
     const token = jwt.sign(payload, config.jwt.secret as string, {
       expiresIn: config.jwt.expiresIn,
@@ -98,8 +91,7 @@ router.post('/login', async (req: Request, res: Response) => {
       },
     });
   } catch (err: any) {
-    console.error('Login error:', err?.message || err);
-    res.status(500).json({ message: 'Login failed', error: err?.message });
+    res.status(500).json({ message: 'Login failed' });
   }
 });
 
@@ -135,9 +127,7 @@ router.post('/register', async (req: Request, res: Response) => {
 
     const newUser = result.rows[0];
 
-    console.log(`[REGISTRATION] New user created: ${newUser.email} (ID: ${newUser.id})`);
 
-    // Return success without token - user must login separately
     res.status(201).json({
       message: 'Account created successfully! Please log in with your credentials.',
       user: {
@@ -153,7 +143,6 @@ router.post('/register', async (req: Request, res: Response) => {
       },
     });
   } catch (err) {
-    console.error('Registration error:', err);
     res.status(500).json({ message: 'Registration failed' });
   }
 });
@@ -173,17 +162,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     }
 
     // Verify email domain actually exists (check MX records)
-    console.log(`[EMAIL VERIFICATION] Checking if ${email} domain exists...`);
     const domainExists = await verifyEmailDomainExists(email);
     
     if (!domainExists) {
-      console.log(`[EMAIL VERIFICATION] Email domain for ${email} does not exist`);
       return res.status(400).json({ 
         message: 'This email domain does not exist. Please check your email address and try again.' 
       });
     }
-    
-    console.log(`[EMAIL VERIFICATION] Email domain for ${email} verified successfully`);
 
     // Check if user exists in database
     const result = await query('SELECT id, email, first_name, last_name FROM users WHERE email = $1', [email]);
@@ -204,47 +189,10 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
     resetCodes.set(email, { code: resetCode, email, expiresAt });
 
-    // Clean up expired codes
-    for (const [key, value] of resetCodes.entries()) {
-      if (value.expiresAt < Date.now()) {
-        resetCodes.delete(key);
-      }
-    }
-
-    console.log(`[PASSWORD RESET] Code generated for ${email}: ${resetCode} (expires in 15 minutes)`);
-
-    // Send email with reset code
     const userName = `${user.first_name} ${user.last_name}`;
     const emailSent = await emailService.sendPasswordResetEmail(email, resetCode, userName);
 
     if (!emailSent) {
-      // If email service is not configured, log to console for development
-      if (!emailService.isEmailConfigured()) {
-        console.log(`
-╔════════════════════════════════════════════════════════════╗
-║         PASSWORD RESET CODE (EMAIL NOT CONFIGURED)         ║
-╠════════════════════════════════════════════════════════════╣
-║  User: ${user.first_name} ${user.last_name}
-║  Email: ${email}
-║  Reset Code: ${resetCode}
-║  Expires: ${new Date(expiresAt).toLocaleString()}
-║
-║  ⚠️  Configure EMAIL_USER and EMAIL_PASSWORD in .env
-║     to enable email sending in production!
-╚════════════════════════════════════════════════════════════╝
-        `);
-        
-        // In development without email config, return code in response
-        if (process.env.NODE_ENV === 'development') {
-          return res.json({ 
-            message: 'Email service not configured. Reset code logged to console.',
-            resetCode, // Only in development
-            warning: 'Configure EMAIL_USER and EMAIL_PASSWORD to enable email sending'
-          });
-        }
-      }
-      
-      // Email service is configured but sending failed
       return res.status(500).json({ 
         message: 'Failed to send reset code email. Please try again later or contact support.' 
       });
@@ -252,11 +200,9 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 
     res.json({ 
       message: 'Reset code sent to your email! Please check your inbox (and spam folder).',
-      // In development, optionally include the code for testing
       ...(process.env.NODE_ENV === 'development' && { resetCode })
     });
   } catch (err) {
-    console.error('Forgot password error:', err);
     res.status(500).json({ message: 'Failed to process password reset request' });
   }
 });
@@ -287,7 +233,6 @@ router.post('/verify-reset-code', async (req: Request, res: Response) => {
 
     res.json({ message: 'Code verified successfully' });
   } catch (err) {
-    console.error('Verify code error:', err);
     res.status(500).json({ message: 'Failed to verify reset code' });
   }
 });
@@ -332,11 +277,8 @@ router.post('/reset-password', async (req: Request, res: Response) => {
     // Remove used code
     resetCodes.delete(email);
 
-    console.log(`[PASSWORD RESET] Password successfully reset for ${email}`);
-
     res.json({ message: 'Password reset successful' });
   } catch (err) {
-    console.error('Reset password error:', err);
     res.status(500).json({ message: 'Failed to reset password' });
   }
 });

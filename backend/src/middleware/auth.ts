@@ -35,10 +35,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
       return res.status(401).json({ message: 'No token provided' });
     }
 
-    if (config.nodeEnv === 'development') {
-      console.log('[AUTH DEBUG] Token verification:', { method: req.method, path: req.path });
-    }
-
     const decoded = jwt.verify(token, config.jwt.secret as string) as AuthPayload;
     
     // Check cache first
@@ -47,22 +43,11 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     if (isCacheValid(cachedStatus)) {
       // Use cached status
       if (cachedStatus!.status !== 'active') {
-        console.log('[AUTH ERROR] User account is inactive (cached):', {
-          userId: decoded.id,
-          email: decoded.email,
-          status: cachedStatus!.status
-        });
         return res.status(403).json({ 
           message: 'Your account has been deactivated. Please contact an administrator for assistance.',
           accountStatus: cachedStatus!.status
         });
       }
-      
-      console.log('[AUTH SUCCESS] Token verified (cached status):', {
-        userId: decoded.id,
-        userEmail: decoded.email,
-        userRole: decoded.role
-      });
       
       req.user = decoded;
       return next();
@@ -75,7 +60,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     );
 
     if (userResult.rows.length === 0) {
-      console.log('[AUTH ERROR] User not found in database:', decoded.id);
       userStatusCache.delete(decoded.id); // Clear cache
       return res.status(401).json({ message: 'User account not found' });
     }
@@ -89,29 +73,15 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
     });
 
     if (user.status !== 'active') {
-      console.log('[AUTH ERROR] User account is inactive:', {
-        userId: user.id,
-        email: user.email,
-        status: user.status
-      });
       return res.status(403).json({ 
         message: 'Your account has been deactivated. Please contact an administrator for assistance.',
         accountStatus: user.status
       });
     }
     
-    console.log('[AUTH SUCCESS] Token verified for user:', {
-      userId: decoded.id,
-      userEmail: decoded.email,
-      userRole: decoded.role,
-      accountStatus: user.status
-    });
-    
     req.user = decoded;
     next();
   } catch (err: any) {
-    console.error('[AUTH ERROR] Token verification failed:', err.name, err.message);
-
     const errorDetail = err.name === 'TokenExpiredError'
       ? 'Token has expired'
       : err.name === 'JsonWebTokenError'
@@ -128,7 +98,6 @@ export const authMiddleware = async (req: Request, res: Response, next: NextFunc
 // Helper function to invalidate user cache (call when user is deactivated/reactivated)
 export const invalidateUserCache = (userId: string) => {
   userStatusCache.delete(userId);
-  console.log('[AUTH CACHE] Invalidated cache for user:', userId);
 };
 
 export const adminMiddleware = (req: Request, res: Response, next: NextFunction) => {

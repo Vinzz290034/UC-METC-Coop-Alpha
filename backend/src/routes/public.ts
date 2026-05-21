@@ -6,23 +6,36 @@ const router = Router();
 // Get landing page statistics (public endpoint - no auth required)
 router.get('/stats', async (req: Request, res: Response) => {
   try {
-    // Get total products count
-    const productsResult = await pool.query(
-      'SELECT COUNT(*) as count FROM products'
-    );
-    const productsCount = parseInt(productsResult.rows[0].count);
+    let productsCount = 0;
+    let studentsCount = 0;
+    let membersCount = 0;
 
-    // Get total registered students count (all users with role 'user')
-    const studentsResult = await pool.query(
-      "SELECT COUNT(*) as count FROM users WHERE role = 'user'"
-    );
-    const studentsCount = parseInt(studentsResult.rows[0].count);
+    try {
+      const productsResult = await pool.query(
+        'SELECT COUNT(*) as count FROM products'
+      );
+      productsCount = parseInt(productsResult.rows[0].count) || 0;
+    } catch (err) {
+      console.error('[public/stats] Failed to get products count:', err);
+    }
 
-    // Get approved members count (users with membership_status = 'approved')
-    const membersResult = await pool.query(
-      "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved'"
-    );
-    const membersCount = parseInt(membersResult.rows[0].count);
+    try {
+      const studentsResult = await pool.query(
+        "SELECT COUNT(*) as count FROM users WHERE role = 'user'"
+      );
+      studentsCount = parseInt(studentsResult.rows[0].count) || 0;
+    } catch (err) {
+      console.error('[public/stats] Failed to get students count:', err);
+    }
+
+    try {
+      const membersResult = await pool.query(
+        "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved'"
+      );
+      membersCount = parseInt(membersResult.rows[0].count) || 0;
+    } catch (err) {
+      console.error('[public/stats] Failed to get members count:', err);
+    }
 
     res.json({
       products: productsCount,
@@ -32,8 +45,12 @@ router.get('/stats', async (req: Request, res: Response) => {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     const code = error && typeof error === 'object' && 'code' in error ? String((error as { code?: string }).code) : '';
-    console.error('[public/stats] Database error:', msg, code ? `(pg ${code})` : '');
-    res.status(500).json({ error: 'Failed to fetch statistics' });
+    console.error('[public/stats] Error:', msg, code ? `(pg ${code})` : '');
+    res.json({
+      products: 0,
+      students: 0,
+      members: 0,
+    });
   }
 });
 

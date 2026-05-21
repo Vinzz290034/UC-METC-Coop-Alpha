@@ -1,0 +1,34 @@
+# Render Blueprint — UC METC SILMS API + PostgreSQL
+# Dashboard: New → Blueprint → connect repo, or apply this file when creating a Blueprint.
+# Set secrets in Render after deploy: JWT_SECRET, EMAIL_*, CORS_ORIGIN, FRONTEND_URL
+
+databases:
+  - name: uc-metc-silms-db
+    databaseName: uc_coop
+    user: uc_coop
+    plan: free
+
+services:
+  - type: web
+    name: uc-metc-silms-api
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /health
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: uc-metc-silms-db
+          property: connectionString
+      - key: JWT_EXPIRES_IN
+        value: 30d
+      - key: EMAIL_SERVICE
+        value: SendGrid
+      - key: EMAIL_USER
+        value: apikey
+      # Add in Render dashboard (Secret):
+      # JWT_SECRET, EMAIL_PASSWORD, EMAIL_FROM, CORS_ORIGIN, FRONTEND_URL

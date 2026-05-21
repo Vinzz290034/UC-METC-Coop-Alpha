@@ -93,6 +93,9 @@ CREATE TABLE IF NOT EXISTS cart_items (
   price DECIMAL(10, 2) NOT NULL,
   quantity INTEGER NOT NULL DEFAULT 1,
   selected_options JSONB,
+  payment_type VARCHAR(50),
+  order_type VARCHAR(50) DEFAULT 'regular',
+  full_price DECIMAL(10, 2),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(user_id, product_id, selected_options)
@@ -106,6 +109,10 @@ CREATE TABLE IF NOT EXISTS orders (
   total_amount DECIMAL(10, 2) NOT NULL,
   payment_method VARCHAR(50) NOT NULL CHECK (payment_method IN ('cash', 'ewallet')),
   status VARCHAR(50) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'completed', 'cancelled')),
+  reference_number VARCHAR(100),
+  order_type VARCHAR(50) DEFAULT 'merchandise' CHECK (order_type IN ('merchandise', 'insurance')),
+  payment_status VARCHAR(50) DEFAULT 'pending' CHECK (payment_status IN ('pending', 'completed')),
+  completed_at TIMESTAMP,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -120,6 +127,9 @@ CREATE TABLE IF NOT EXISTS order_items (
   unit_price DECIMAL(10, 2) NOT NULL,
   subtotal DECIMAL(10, 2) NOT NULL,
   selected_options JSONB,
+  payment_type VARCHAR(50),
+  order_type VARCHAR(50) DEFAULT 'regular',
+  full_price DECIMAL(10, 2),
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -170,6 +180,26 @@ CREATE TABLE IF NOT EXISTS announcements (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Stock intake (inventory receiving)
+CREATE TABLE IF NOT EXISTS stock_intake (
+  id SERIAL PRIMARY KEY,
+  product_id VARCHAR(255) NOT NULL,
+  product_name VARCHAR(255) NOT NULL,
+  quantity INTEGER NOT NULL,
+  cost_per_unit DECIMAL(10, 2) NOT NULL,
+  selling_price DECIMAL(10, 2) NOT NULL,
+  total_cost DECIMAL(10, 2) NOT NULL,
+  potential_revenue DECIMAL(10, 2) NOT NULL,
+  profit DECIMAL(10, 2) NOT NULL,
+  profit_margin VARCHAR(10),
+  supplier VARCHAR(255),
+  notes TEXT,
+  date_received DATE NOT NULL,
+  selected_variant JSONB,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Notifications table
 CREATE TABLE IF NOT EXISTS notifications (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -208,6 +238,11 @@ CREATE INDEX idx_billing_user_id ON billing(user_id);
 CREATE INDEX idx_cart_items_user_id ON cart_items(user_id);
 CREATE INDEX idx_orders_user_id ON orders(user_id);
 CREATE INDEX idx_orders_status ON orders(status);
+CREATE INDEX idx_orders_reference_number ON orders(reference_number) WHERE reference_number IS NOT NULL;
+CREATE INDEX idx_orders_order_type ON orders(order_type);
+CREATE INDEX idx_stock_intake_product_id ON stock_intake(product_id);
+CREATE INDEX idx_stock_intake_date_received ON stock_intake(date_received);
+CREATE INDEX idx_stock_intake_created_at ON stock_intake(created_at);
 CREATE INDEX idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX idx_messages_sender_id ON messages(sender_id);
 CREATE INDEX idx_messages_recipient_id ON messages(recipient_id);
