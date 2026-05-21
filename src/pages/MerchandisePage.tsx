@@ -986,7 +986,7 @@ export const MerchandisePage: React.FC = () => {
                     const isOutOfStock = !isMadeToOrder && product.stock <= 0;
                     setOrderType(isOutOfStock ? 'preorder' : 'regular');
                   }}
-                  disabled={!product.available && product.available !== undefined}
+
                   className="w-full bg-purple-900 text-white py-2 rounded-lg font-semibold hover:bg-purple-950 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Eye size={18} />
