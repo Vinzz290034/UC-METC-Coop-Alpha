@@ -142,6 +142,10 @@ class ApiClient {
     return this.request('/users');
   }
 
+  async getMembers() {
+    return this.request('/users/members');
+  }
+
   async getUsersForMessaging() {
     return this.request('/users/for-messaging/list');
   }

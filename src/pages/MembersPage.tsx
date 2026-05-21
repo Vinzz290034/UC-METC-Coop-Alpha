@@ -171,8 +171,8 @@ export const MembersPage: React.FC = () => {
       
       // Refresh members list to show the newly approved member
       try {
-        const usersResponse = await apiClient.getUsers() as any;
-        console.log('getUsers API response:', usersResponse);
+        const usersResponse = await apiClient.getMembers() as any;
+        console.log('getMembers API response:', usersResponse);
         
         const users = Array.isArray(usersResponse) ? usersResponse : (usersResponse?.users || usersResponse);
         console.log('Parsed users array:', users);

@@ -78,6 +78,34 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
   }
 });
 
+// Get members only (exclude admin and staff) - admin and staff only
+router.get('/members', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    // Only admin and staff can view members
+    if (!isAdminOrStaff(req.user?.role)) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    
+    const result = await query(
+      `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at 
+       FROM users 
+       WHERE role NOT IN ('admin', 'staff')
+       ORDER BY created_at DESC`
+    );
+    
+    // Map status to is_active for frontend compatibility
+    const users = result.rows.map(user => ({
+      ...user,
+      is_active: user.status === 'active'
+    }));
+    
+    res.json({ users });
+  } catch (err) {
+    console.error('Error fetching members:', err);
+    res.status(500).json({ message: 'Failed to fetch members' });
+  }
+});
+
 // Get users for messaging (all authenticated users can access)
 router.get('/for-messaging/list', authMiddleware, async (req: Request, res: Response) => {
   try {
