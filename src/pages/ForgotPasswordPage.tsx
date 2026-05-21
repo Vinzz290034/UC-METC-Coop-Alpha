@@ -4,6 +4,8 @@ import { FloatingInput } from '../components/FloatingInput';
 import { apiClient } from '../services/api';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
+// @ts-ignore
+import backgroundImage from '../assets/Background2.jpeg';
 import { ChevronLeft, Mail } from 'lucide-react';
 
 export const ForgotPasswordPage: React.FC = () => {
@@ -122,7 +124,7 @@ export const ForgotPasswordPage: React.FC = () => {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: 'url(/src/assets/Background2.jpeg)',
+        backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
