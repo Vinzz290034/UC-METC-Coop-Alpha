@@ -62,6 +62,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     const result = await query(
       `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at 
        FROM users 
+       WHERE role NOT IN ('admin', 'staff')
        ORDER BY created_at DESC`
     );
     
