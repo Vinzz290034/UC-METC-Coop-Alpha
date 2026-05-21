@@ -332,7 +332,6 @@ export class AppDataSync {
         stock: p.stock,
         sku: p.sku,
         image: p.image,
-        available: p.available,
         note: p.note,
         options: p.options,
         variants: p.variants,

@@ -39,13 +39,13 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create product
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, name, category, price, stock, sku, note, options, variants, available } = req.body;
+    const { id, name, category, price, stock, sku, note, options, variants } = req.body;
     
     const result = await pool.query(
-      `INSERT INTO products (id, name, category, price, stock, sku, note, options, variants, available, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `INSERT INTO products (id, name, category, price, stock, sku, note, options, variants, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [id, name, category, price, stock, sku, note, options ? JSON.stringify(options) : null, variants ? JSON.stringify(variants) : null, available !== undefined ? available : true]
+      [id, name, category, price, stock, sku, note, options ? JSON.stringify(options) : null, variants ? JSON.stringify(variants) : null]
     );
     
     res.status(201).json(result.rows[0]);
@@ -63,7 +63,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, category, price, stock, sku, note, options, variants, available } = req.body;
+    const { name, category, price, stock, sku, note, options, variants } = req.body;
     
     const result = await pool.query(
       `UPDATE products 
@@ -75,11 +75,10 @@ router.put('/:id', async (req: Request, res: Response) => {
            note = COALESCE($6, note),
            options = COALESCE($7, options),
            variants = COALESCE($8, variants),
-           available = COALESCE($9, available),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
+       WHERE id = $9
        RETURNING *`,
-      [name, category, price, stock, sku, note, options ? JSON.stringify(options) : null, variants ? JSON.stringify(variants) : null, available, id]
+      [name, category, price, stock, sku, note, options ? JSON.stringify(options) : null, variants ? JSON.stringify(variants) : null, id]
     );
     
     if (result.rows.length === 0) {

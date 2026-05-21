@@ -238,7 +238,6 @@ export const InventoryPage: React.FC = () => {
       const updates: Partial<Product> = {
         price: editingProduct.price,
         note: editingProduct.note,
-        available: editingProduct.available,
       };
 
       // If product has variants, save variant stocks
@@ -1538,25 +1537,7 @@ export const InventoryPage: React.FC = () => {
                     </p>
                   </div>
 
-                  {/* Available Checkbox */}
-                  <div className="flex items-center space-x-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                    <input
-                      type="checkbox"
-                      id="product-available"
-                      checked={editingProduct.available !== false}
-                      onChange={(e) => setEditingProduct({
-                        ...editingProduct,
-                        available: e.target.checked
-                      })}
-                      className="w-5 h-5 text-purple-600 border-slate-300 rounded focus:ring-2 focus:ring-purple-500 cursor-pointer"
-                    />
-                    <label htmlFor="product-available" className="text-sm font-semibold text-slate-700 cursor-pointer">
-                      Product Available for Purchase
-                    </label>
-                  </div>
-                  <p className="text-xs text-slate-500 -mt-2 ml-1">
-                    Uncheck to temporarily hide this product from customers
-                  </p>
+
                 </div>
 
                 {/* Right Column - Variant Stock Management */}

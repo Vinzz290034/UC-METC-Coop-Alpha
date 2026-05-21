@@ -875,12 +875,7 @@ export const MerchandisePage: React.FC = () => {
                     {product.image || '📦'}
                   </span>
                 )}
-                {!product.available && (
-                  <div className="absolute inset-0 bg-slate-900/70 flex items-center justify-center">
-                    <span className="text-white font-bold text-lg">Unavailable</span>
-                  </div>
-                )}
-                {product.stock <= 0 && product.available !== false && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
+                {product.stock <= 0 && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
                   <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
                     <span className="text-white font-bold">Out of Stock</span>
                   </div>
@@ -1396,8 +1391,7 @@ export const MerchandisePage: React.FC = () => {
                       return false;
                     }
                     
-                    // Check if product is available
-                    if (!selectedProduct.available) return true;
+
                     
                     // If pre-order is selected, allow adding to cart even if out of stock
                     if (orderType === 'preorder') {
