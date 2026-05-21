@@ -30,7 +30,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 
     try {
       const membersResult = await pool.query(
-        "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved'"
+        "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved' AND role = 'user'"
       );
       membersCount = parseInt(membersResult.rows[0].count) || 0;
     } catch (err) {
