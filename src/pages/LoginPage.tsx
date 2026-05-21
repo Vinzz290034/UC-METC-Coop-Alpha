@@ -6,6 +6,8 @@ import { FloatingInput } from '../components/FloatingInput';
 import { LoginTransition } from '../components/PageTransition';
 // @ts-ignore
 import coopLogo from '../assets/Coop.jpeg';
+// @ts-ignore
+import backgroundImage from '../assets/Background2.jpeg';
 
 import { UserIcon, ChevronLeft, UserPlus } from 'lucide-react';
 
@@ -304,7 +306,7 @@ export const LoginPage: React.FC = () => {
           : 'justify-start pt-16 md:pt-8'
       }`}
       style={{
-        backgroundImage: 'url(/src/assets/Background2.jpeg)',
+        backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
