@@ -60,8 +60,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     }
     
     const result = await query(
-      `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_approved_at, 
-              membership_status, status, created_at 
+      `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at 
        FROM users 
        ORDER BY created_at DESC`
     );
@@ -341,9 +340,9 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
       userId = createUserResult.rows[0].id;
       console.log('Created new user for membership request:', createUserResult.rows[0]);
     } else {
-      // If user exists, update their membership_status to 'approved' and set membership_approved_at to NOW
+      // If user exists, update their membership_status to 'approved'
       await query(
-        'UPDATE users SET membership_status = $1, membership_approved_at = NOW(), updated_at = NOW() WHERE id = $2',
+        'UPDATE users SET membership_status = $1, updated_at = NOW() WHERE id = $2',
         ['approved', userId]
       );
     }
