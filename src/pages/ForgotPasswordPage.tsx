@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FloatingInput } from '../components/FloatingInput';
 import { apiClient } from '../services/api';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
-// @ts-ignore
-import backgroundImage from '../assets/Background2.jpeg';
+import { COOP_LOGO_URL, BACKGROUND_IMAGE_URL } from '../constants/cloudinaryAssets';
 import { ChevronLeft, Mail } from 'lucide-react';
 
 export const ForgotPasswordPage: React.FC = () => {
@@ -124,7 +121,7 @@ export const ForgotPasswordPage: React.FC = () => {
     <div
       className="min-h-screen flex items-center justify-center p-4 relative"
       style={{
-        backgroundImage: `url(${backgroundImage})`,
+        backgroundImage: `url(${BACKGROUND_IMAGE_URL})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -152,7 +149,7 @@ export const ForgotPasswordPage: React.FC = () => {
             </div>
             <div className="relative z-10 text-center flex flex-col items-center">
               <img 
-                src={coopLogo}
+                src={COOP_LOGO_URL}
                 alt="UC METC Logo" 
                 className="w-20 h-20 rounded-full mb-2"
               />

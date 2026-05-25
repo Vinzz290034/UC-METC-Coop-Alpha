@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
+import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { COMMUNITY_GA_GALLERY_URLS } from '../constants/cloudinaryGallery';
 import {
   ChevronLeft,
@@ -110,7 +109,7 @@ export const CommunityPage: React.FC = () => {
           <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <img 
-                src={coopLogo}
+                src={COOP_LOGO_URL}
                 alt="UC METC Logo" 
                 className="w-10 h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
               />

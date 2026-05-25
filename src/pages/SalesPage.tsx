@@ -103,6 +103,7 @@ export const SalesPage: React.FC = () => {
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
   const [fulfillmentSearchQuery, setFulfillmentSearchQuery] = useState<string>('');
+  const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
 
   // Load pending orders
   useEffect(() => {
@@ -683,138 +684,203 @@ export const SalesPage: React.FC = () => {
           <div className="space-y-6">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
               <div className="p-6">
+                {/* Search Bar */}
+                <div className="mb-5 relative">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by name, email, or ID number..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2.5 border-2 border-slate-200 rounded-lg text-sm focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 transition-all"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors text-xs font-medium"
+                    >
+                      ✕ Clear
+                    </button>
+                  )}
+                </div>
+
                 {pendingOrders.length === 0 ? (
                   <div className="text-center py-12">
                     <Clock size={48} className="mx-auto text-slate-300 mb-4" />
                     <p className="text-slate-600 text-lg">No pending orders at the moment</p>
                   </div>
-                ) : (
-                  <div className="space-y-4">
-                    {pendingOrders.map((order) => (
-                      <div key={order.id} className="border border-slate-200 rounded-lg p-4 hover:bg-slate-50 transition-colors">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-semibold text-slate-900">
-                                {order.first_name} {order.last_name}
-                              </p>
-                              {/* Balance Payment Badge */}
-                              {order.receipt_no && order.receipt_no.startsWith('BAL-') && (
-                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">
-                                  BALANCE
-                                </span>
-                              )}
+                ) : (() => {
+                  const filteredPending = pendingOrders.filter((order) => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    const fullName = `${order.first_name || ''} ${order.last_name || ''}`.toLowerCase();
+                    const email = (order.email || '').toLowerCase();
+                    const idNumber = (order.id_number || '').toLowerCase();
+                    return fullName.includes(q) || email.includes(q) || idNumber.includes(q);
+                  });
+
+                  return filteredPending.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Search size={48} className="mx-auto text-slate-300 mb-4" />
+                      <p className="text-slate-600 text-lg">No orders match your search</p>
+                      <p className="text-slate-400 text-sm mt-1">Try a different name, email, or ID number</p>
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-slate-100">
+                      {filteredPending.map((order) => {
+                        const initials = `${order.first_name?.[0] || ''}${order.last_name?.[0] || ''}`.toUpperCase();
+                        return (
+                          <div
+                            key={order.id}
+                            onClick={() => setSelectedPendingOrder(order)}
+                            className="flex items-center gap-4 py-4 px-2 cursor-pointer hover:bg-purple-50 rounded-lg transition-colors group"
+                          >
+                            {/* Avatar */}
+                            <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                              <span className="text-sm font-bold text-purple-600">{initials}</span>
                             </div>
-                            <p className="text-sm text-slate-600">
-                              {order.email} • ID: {order.id_number}
-                            </p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-purple-600">
-                              ₱{parseFloat(order.total_amount).toLocaleString()}
-                            </p>
-                            <div className="text-sm text-slate-600 mt-1">
-                              {/* Payment Method Display */}
-                              <div className="flex items-center justify-end">
-                                {order.payment_method === 'cash' ? (
-                                  <span>Cash</span>
-                                ) : (
-                                  <span>GCash</span>
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="font-semibold text-slate-900 group-hover:text-purple-700 transition-colors">
+                                  {order.first_name} {order.last_name}
+                                </p>
+                                {order.receipt_no && order.receipt_no.startsWith('BAL-') && (
+                                  <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>
                                 )}
                               </div>
-                              
-                              {/* Reference Number Display - Only for GCash */}
-                              {order.payment_method === 'ewallet' && order.reference_number && (
-                                <div className="text-xs text-slate-500 mt-1">
-                                  Ref: {order.reference_number}
-                                </div>
-                              )}
+                              <p className="text-sm text-slate-500 truncate">{order.email}</p>
                             </div>
+                            {/* Amount */}
+                            <div className="text-right flex-shrink-0">
+                              <p className="font-bold text-purple-600">₱{parseFloat(order.total_amount).toLocaleString()}</p>
+                              <p className="text-xs text-slate-400">{order.payment_method === 'cash' ? 'Cash' : 'GCash'}</p>
+                            </div>
+                            {/* Chevron */}
+                            <ChevronRight size={16} className="text-slate-300 group-hover:text-purple-400 transition-colors flex-shrink-0" />
                           </div>
-                        </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
 
-                        {/* Order Details */}
-                        <div className="bg-slate-50 rounded p-3 mb-3">
-                          <p className="text-sm font-semibold text-slate-700 mb-2">Items:</p>
-                          <div className="space-y-1">
-                            {order.items && order.items.length > 0 && order.items.map((item: any, idx: number) => {
-                              // Check if item is downpayment
-                              const paymentType = item.paymentType || item.payment_type;
-                              const isDownpayment = paymentType === 'downpayment' ||
-                                (item.productName?.includes('Gala') && parseFloat(item.subtotal) === 500) ||
-                                (item.product_name?.includes('Gala') && parseFloat(item.subtotal) === 500) ||
-                                ((item.productName?.includes('Type A & B Uniform') || item.productName?.includes('BSNAME Uniform')) && parseFloat(item.subtotal) === 1500) ||
-                                ((item.product_name?.includes('Type A & B Uniform') || item.product_name?.includes('BSNAME Uniform')) && parseFloat(item.subtotal) === 1500);
-                              
-                              // Check if item is pre-order
-                              const orderType = item.orderType || item.order_type;
-                              const isPreorder = orderType === 'preorder';
-                              
-                              return (
-                                <div key={idx} className="text-xs text-slate-600">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <p>• {formatProductNameWithVariants(item)} (Qty: {item.quantity}) - ₱{parseFloat(item.subtotal).toLocaleString()}</p>
-                                    {isDownpayment && (
-                                      <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">DOWNPAYMENT</span>
-                                    )}
-                                    {isPreorder && (
-                                      <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>
-                                    )}
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-
-                        {/* Metadata */}
-                        <div className="flex items-center justify-between text-xs text-slate-500 mb-3">
-                          <span>Receipt: {order.receipt_no}</span>
-                          <span>{new Date(order.created_at).toLocaleDateString()}</span>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={async () => {
-                              try {
-                                await AppDataSync.updateOrderStatus(order.id, 'completed', user?.id || '');
-                                // Reload products to reflect updated stock
-                                await AppDataSync.loadProductsFromAPI();
-                                await loadPendingOrders();
-                                // Reload downpayment orders to update Order Fulfillment tab
-                                await loadDownpaymentOrders();
-                                showNotification('Order marked as paid! Stock updated.', 'success');
-                              } catch (err) {
-                                console.error('Failed to mark order as paid:', err);
-                                showNotification('Failed to mark order as paid. Please try again.', 'error');
-                              }
-                            }}
-                            className="flex-1 px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center justify-center space-x-1 text-sm"
-                          >
-                            <CheckCircle size={16} />
-                            <span>Paid</span>
-                          </button>
-                          <button
-                            onClick={async () => {
-                              try {
-                                await AppDataSync.updateOrderStatus(order.id, 'cancelled', user?.id || '');
-                                await loadPendingOrders();
-                                showNotification('Order cancelled successfully!', 'success');
-                              } catch (err) {
-                                console.error('Failed to cancel order:', err);
-                                showNotification('Failed to cancel order. Please try again.', 'error');
-                              }
-                            }}
-                            className="flex-1 px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors text-sm"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+        {/* Pending Order Detail Modal */}
+        {selectedPendingOrder && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={() => setSelectedPendingOrder(null)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-5 border-b border-slate-200">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <span className="text-sm font-bold text-purple-600">
+                      {`${selectedPendingOrder.first_name?.[0] || ''}${selectedPendingOrder.last_name?.[0] || ''}`.toUpperCase()}
+                    </span>
                   </div>
-                )}
+                  <div>
+                    <h3 className="font-bold text-slate-900">
+                      {selectedPendingOrder.first_name} {selectedPendingOrder.last_name}
+                    </h3>
+                    <p className="text-sm text-slate-500">{selectedPendingOrder.email} • ID: {selectedPendingOrder.id_number}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setSelectedPendingOrder(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-5 space-y-4">
+                {/* Amount & Payment */}
+                <div className="flex items-center justify-between">
+                  <p className="text-3xl font-bold text-purple-600">₱{parseFloat(selectedPendingOrder.total_amount).toLocaleString()}</p>
+                  <div className="text-right">
+                    <p className="font-semibold text-slate-700">{selectedPendingOrder.payment_method === 'cash' ? 'Cash' : 'GCash'}</p>
+                    {selectedPendingOrder.payment_method === 'ewallet' && selectedPendingOrder.reference_number && (
+                      <p className="text-xs text-slate-500">Ref: {selectedPendingOrder.reference_number}</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-slate-700 mb-3">Items:</p>
+                  <div className="space-y-2">
+                    {selectedPendingOrder.items && selectedPendingOrder.items.map((item: any, idx: number) => {
+                      const paymentType = item.paymentType || item.payment_type;
+                      const isDownpayment = paymentType === 'downpayment' ||
+                        (item.productName?.includes('Gala') && parseFloat(item.subtotal) === 500) ||
+                        (item.product_name?.includes('Gala') && parseFloat(item.subtotal) === 500) ||
+                        ((item.productName?.includes('Type A & B Uniform') || item.productName?.includes('BSNAME Uniform')) && parseFloat(item.subtotal) === 1500) ||
+                        ((item.product_name?.includes('Type A & B Uniform') || item.product_name?.includes('BSNAME Uniform')) && parseFloat(item.subtotal) === 1500);
+                      const orderType = item.orderType || item.order_type;
+                      const isPreorder = orderType === 'preorder';
+                      return (
+                        <div key={idx} className="flex items-start gap-2 flex-wrap text-sm text-slate-600">
+                          <span>• {formatProductNameWithVariants(item)} (Qty: {item.quantity}) — ₱{parseFloat(item.subtotal).toLocaleString()}</span>
+                          {isDownpayment && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">DOWNPAYMENT</span>}
+                          {isPreorder && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Metadata */}
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>Receipt: {selectedPendingOrder.receipt_no}</span>
+                  <span>{new Date(selectedPendingOrder.created_at).toLocaleDateString()}</span>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={async () => {
+                      try {
+                        await AppDataSync.updateOrderStatus(selectedPendingOrder.id, 'completed', user?.id || '');
+                        await AppDataSync.loadProductsFromAPI();
+                        await loadPendingOrders();
+                        await loadDownpaymentOrders();
+                        setSelectedPendingOrder(null);
+                        showNotification('Order marked as paid! Stock updated.', 'success');
+                      } catch (err) {
+                        showNotification('Failed to mark order as paid. Please try again.', 'error');
+                      }
+                    }}
+                    className="flex-1 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle size={18} />
+                    Paid
+                  </button>
+                  <button
+                    onClick={async () => {
+                      try {
+                        await AppDataSync.updateOrderStatus(selectedPendingOrder.id, 'cancelled', user?.id || '');
+                        await loadPendingOrders();
+                        setSelectedPendingOrder(null);
+                        showNotification('Order cancelled successfully!', 'success');
+                      } catch (err) {
+                        showNotification('Failed to cancel order. Please try again.', 'error');
+                      }
+                    }}
+                    className="flex-1 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
               </div>
             </div>
           </div>

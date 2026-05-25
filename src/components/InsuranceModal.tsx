@@ -5,8 +5,7 @@ import { Z_INDEX } from '../constants/zIndex';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { apiClient } from '../services/api';
-// @ts-ignore
-import icardImage from '../assets/I-CARD.jpeg';
+import { I_CARD_URL } from '../constants/cloudinaryAssets';
 
 interface InsuranceModalProps {
   onClose: () => void;
@@ -107,7 +106,7 @@ export const InsuranceModal: React.FC<InsuranceModalProps> = ({ onClose }) => {
           {/* Insurance Card Image */}
           <div className="mb-6 rounded-xl overflow-hidden shadow-lg">
             <img
-              src={icardImage}
+              src={I_CARD_URL}
               alt="I-CARD Micro-insurance"
               className="w-full h-auto object-cover"
             />

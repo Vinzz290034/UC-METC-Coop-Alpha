@@ -19,8 +19,7 @@ import {
   Lock,
   Settings,
 } from 'lucide-react';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
+import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 
@@ -208,7 +207,7 @@ export const Sidebar: React.FC = () => {
           {/* Logo */}
           <div className="p-6 border-b border-purple-600/50 flex items-center space-x-3 bg-gradient-to-r from-purple-800/50 to-purple-700/50">
             <img 
-              src={coopLogo}
+              src={COOP_LOGO_URL}
               alt="UC METC Logo" 
               className="w-12 h-12 rounded-full"
             />

@@ -8,108 +8,32 @@ import { useAuth } from '../store/authContext';
 import { AppDataSync } from '../store/appDataSync';
 import { Z_INDEX } from '../constants/zIndex';
 import type { Product } from '../types';
-// @ts-ignore
-import typeABUniformImage from '../assets/Type A & B.jpeg';
-// @ts-ignore
-import bsnameUniformImage from '../assets/BSNAME Uniform.jpeg';
-// @ts-ignore
-import typeABBSMTImage from '../assets/Type C-BSMT.jpeg';
-// @ts-ignore
-import typeABBSMAREImage from '../assets/Type C-BSMARE.jpeg';
-// @ts-ignore
-import typeCBSMTImage from '../assets/Type C-BSMT.jpeg';
-// @ts-ignore
-import typeCBSMAREImage from '../assets/Type C-BSMARE.jpeg';
-// @ts-ignore
-import typeCSHSImage from '../assets/Type C-SHS.jpeg';
-// @ts-ignore
-import lanyardBSMTImage from '../assets/Lanyard-BSMT.jpeg';
-// @ts-ignore
-import lanyardBSMAREImage from '../assets/Lanyard-BSMARE.jpeg';
-// @ts-ignore
-import lanyardSHSImage from '../assets/Lanyard-SHS.jpeg';
-// @ts-ignore
-import lanyardHMImage from '../assets/Lanyard-HM.jpeg';
-// @ts-ignore
-import lanyardTMImage from '../assets/Lanyard-TM.jpeg';
-// @ts-ignore
-import idCaseImage from '../assets/ID Case.jpeg';
-// @ts-ignore
-import handbagImage from '../assets/Handbag.png';
-// @ts-ignore
-import hardboundImage from '../assets/Hardbound.jpeg';
-// @ts-ignore
-import safetyShoesImage from '../assets/Safety Shoes.jpeg';
-// @ts-ignore
-import coverallImage from '../assets/Coverall.jpeg';
-// @ts-ignore
-import coverallBlueImage from '../assets/Cover All BLUE.jpeg';
-// @ts-ignore
-import glovesImage from '../assets/Gloves.jpeg';
-// @ts-ignore
-import hardhatYellowImage from '../assets/Hardhat-Yellow.jpeg';
-// @ts-ignore
-import hardhatBlueImage from '../assets/Hardhat-Blue.jpeg';
-// @ts-ignore
-import peShirtImage from '../assets/PE Shirt.jpeg';
-// @ts-ignore
-import pePantsImage from '../assets/PE Pants.jpeg';
-// @ts-ignore
-import pershingCapImage from '../assets/Pershing Cap.jpeg';
-// @ts-ignore
-import plottingSheetImage from '../assets/Plotting Sheet.jpeg';
-// @ts-ignore
-import pershingCapBSMAREImage from '../assets/Pershing Cap BSMARE.jpeg';
-// @ts-ignore
-import peShortsImage from '../assets/PE Shorts.jpeg';
-// @ts-ignore
-import buttonsImage from '../assets/Buttons.jpeg';
-// @ts-ignore
-import anchorImage from '../assets/Anchor.jpeg';
-// @ts-ignore
-import propellerImage from '../assets/Propeller.jpeg';
-// @ts-ignore
-import shoulderBoard1Image from '../assets/Shoulder board 1.jpeg';
-// @ts-ignore
-import shoulderBoard2Image from '../assets/Shoulder board 2.jpeg';
-// @ts-ignore
-import swimmingTrunksImage from '../assets/Swimming Trunks.jpeg';
-// @ts-ignore
-import swimmingCapImage from '../assets/Cap.jpeg';
-// @ts-ignore
-import cwtsShirtImage from '../assets/CWTS Shirt.jpeg';
-// @ts-ignore
-import rotcManualImage from '../assets/ROTC Manual.jpeg';
-// @ts-ignore
-import rotcManualPart1Image from '../assets/ROTC Manual Part 1.png';
-// @ts-ignore
-import blackBeltImage from '../assets/Black Belt.jpeg';
-// @ts-ignore
-import whiteBeltImage from '../assets/White Belt.jpeg';
-// @ts-ignore
-import whiteShoesImage from '../assets/White Shoes .jpeg';
-// @ts-ignore
-import safetyGogglesImage from '../assets/Goggles.jpeg';
-// @ts-ignore
-import ropeImage from '../assets/Rope.png';
-// @ts-ignore
-import galaBundleAImage from '../assets/Gala Bundle A.png';
-// @ts-ignore
-import galaBundleBImage from '../assets/Gala Bundle B.png';
-// @ts-ignore
-import galaBundleCImage from '../assets/Gala Bundle C.png';
-// @ts-ignore
-import galaBundleDImage from '../assets/Gala Bundle D.png';
-// @ts-ignore
-import galaBundleEImage from '../assets/Gala Bundle E.png';
-// @ts-ignore
-import galaBundleFImage from '../assets/Gala Bundle F.png';
-// @ts-ignore
-import galaBundleGImage from '../assets/Gala Bundle G.png';
-// @ts-ignore
-import galaBundleHImage from '../assets/Gala Bundle H.png';
-// @ts-ignore
-import galaBundleIImage from '../assets/Gala Bundle I.png';
+import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
+
+// Destructure or map individual product images from PRODUCT_IMAGES
+const typeABUniformImage = PRODUCT_IMAGES['Type A & B Uniform'];
+const bsnameImage = PRODUCT_IMAGES['BSNAME Uniform'];
+const peShirtImage = PRODUCT_IMAGES['PE Shirt'];
+const pePantsImage = PRODUCT_IMAGES['PE Pants'];
+const plottingSheetImage = PRODUCT_IMAGES['Plotting Sheet'];
+const peShortsImage = PRODUCT_IMAGES['PE Shorts'];
+const buttonsImage = PRODUCT_IMAGES['Buttons'];
+const anchorImage = PRODUCT_IMAGES['Anchor'];
+const propellerImage = PRODUCT_IMAGES['Propeller'];
+const whiteShoesImage = PRODUCT_IMAGES['White Shoes '];
+const safetyGogglesImage = PRODUCT_IMAGES['Goggles'];
+const blackBeltImage = PRODUCT_IMAGES['Black Belt'];
+const rotcManualImage = PRODUCT_IMAGES['ROTC Manual'];
+const rotcManualPart1Image = PRODUCT_IMAGES['ROTC Manual Part 1'];
+const hardhatBlueImage = PRODUCT_IMAGES['Hardhat-Blue'];
+const lanyardSHSImage = PRODUCT_IMAGES['Lanyard-SHS'];
+const galaBundleBImage = PRODUCT_IMAGES['Gala Bundle B'];
+const galaBundleCImage = PRODUCT_IMAGES['Gala Bundle C'];
+const galaBundleDImage = PRODUCT_IMAGES['Gala Bundle D'];
+const galaBundleEImage = PRODUCT_IMAGES['Gala Bundle E'];
+const galaBundleFImage = PRODUCT_IMAGES['Gala Bundle F'];
+const galaBundleGImage = PRODUCT_IMAGES['Gala Bundle G'];
+const galaBundleHImage = PRODUCT_IMAGES['Gala Bundle H'];
 
 
 const cartButtonStyles = `
@@ -311,7 +235,7 @@ export const MerchandisePage: React.FC = () => {
     if (product.name === 'Gala') {
       const bundleOption = selectedOpts['bundle'];
       if (bundleOption) {
-        if (bundleOption.includes('Bundle A')) return galaBundleAImage;
+        if (bundleOption.includes('Bundle A')) return PRODUCT_IMAGES['Gala Bundle A'];
         if (bundleOption.includes('Bundle B')) return galaBundleBImage;
         if (bundleOption.includes('Bundle C')) return galaBundleCImage;
         if (bundleOption.includes('Bundle D')) return galaBundleDImage;
@@ -319,65 +243,65 @@ export const MerchandisePage: React.FC = () => {
         if (bundleOption.includes('Bundle F')) return galaBundleFImage;
         if (bundleOption.includes('Bundle G')) return galaBundleGImage;
         if (bundleOption.includes('Bundle H')) return galaBundleHImage;
-        if (bundleOption.includes('Bundle I')) return galaBundleIImage;
+        if (bundleOption.includes('Bundle I')) return PRODUCT_IMAGES['Gala Bundle I'];
       }
-      return galaBundleAImage; // Default to Bundle A
+      return PRODUCT_IMAGES['Gala Bundle A']; // Default to Bundle A
     }
     
     if (product.name === 'Type C Uniform') {
       const courseOption = selectedOpts['course'];
       if (courseOption) {
-        if (courseOption.includes('BSMT')) return typeCBSMTImage;
-        if (courseOption.includes('BSMARE')) return typeCBSMAREImage;
-        if (courseOption.includes('SHS')) return typeCSHSImage;
+        if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Type C-BSMT'];
+        if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Type C-BSMARE'];
+        if (courseOption.includes('SHS')) return PRODUCT_IMAGES['Type C-SHS'];
       }
-      return typeCBSMTImage; // Default to BSMT
+      return PRODUCT_IMAGES['Type C-BSMT']; // Default to BSMT
     }
     
     if (product.name === 'Lanyard') {
       const courseOption = selectedOpts['course'];
       if (courseOption) {
-        if (courseOption.includes('BSMT')) return lanyardBSMTImage;
-        if (courseOption.includes('BSMARE')) return lanyardBSMAREImage;
+        if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Lanyard-BSMT'];
+        if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Lanyard-BSMARE'];
         if (courseOption.includes('SHS')) return lanyardSHSImage;
-        if (courseOption.includes('HM')) return lanyardHMImage;
-        if (courseOption.includes('TM') || courseOption.includes('TOURISM')) return lanyardTMImage;
+        if (courseOption.includes('HM')) return PRODUCT_IMAGES['Lanyard-HM'];
+        if (courseOption.includes('TM') || courseOption.includes('TOURISM')) return PRODUCT_IMAGES['Lanyard-TM'];
       }
-      return lanyardBSMTImage; // Default to BSMT
+      return PRODUCT_IMAGES['Lanyard-BSMT']; // Default to BSMT
     }
     
     if (product.name === 'Hard Hat') {
       const colorOption = selectedOpts['color'];
       if (colorOption) {
-        if (colorOption.includes('Yellow')) return hardhatYellowImage;
+        if (colorOption.includes('Yellow')) return PRODUCT_IMAGES['Hardhat-Yellow'];
         if (colorOption.includes('Blue')) return hardhatBlueImage;
       }
-      return hardhatYellowImage; // Default to Yellow
+      return PRODUCT_IMAGES['Hardhat-Yellow']; // Default to Yellow
     }
     
     if (product.name === 'Pershing Cap') {
       const courseOption = selectedOpts['course'];
       if (courseOption) {
-        if (courseOption.includes('BSMARE')) return pershingCapBSMAREImage;
-        if (courseOption.includes('BSMT')) return pershingCapImage;
+        if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Pershing Cap BSMARE'];
+        if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Pershing Cap'];
       }
-      return pershingCapImage; // Default to BSMT
+      return PRODUCT_IMAGES['Pershing Cap']; // Default to BSMT
     }
     
     if (product.name === 'Cover All') {
       const colorOption = selectedOpts['color'];
       if (colorOption) {
-        if (colorOption.includes('Blue')) return coverallBlueImage;
-        if (colorOption.includes('Orange')) return coverallImage;
+        if (colorOption.includes('Blue')) return PRODUCT_IMAGES['Cover All BLUE'];
+        if (colorOption.includes('Orange')) return PRODUCT_IMAGES['Coverall'];
       }
-      return coverallImage; // Default to Orange
+      return PRODUCT_IMAGES['Coverall']; // Default to Orange
     }
     
     if (product.name === 'Belt') {
       const colorOption = selectedOpts['color'];
       if (colorOption) {
         if (colorOption.includes('Black')) return blackBeltImage;
-        if (colorOption.includes('White')) return whiteBeltImage;
+        if (colorOption.includes('White')) return PRODUCT_IMAGES['White Belt'];
       }
       return blackBeltImage; // Default to Black
     }
@@ -385,10 +309,10 @@ export const MerchandisePage: React.FC = () => {
     if (product.name === 'Shoulder Board') {
       const courseOption = selectedOpts['course'];
       if (courseOption) {
-        if (courseOption.includes('BSMT')) return shoulderBoard2Image;
-        if (courseOption.includes('BSMARE')) return shoulderBoard1Image;
+        if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Shoulder board 2'];
+        if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Shoulder board 1'];
       }
-      return shoulderBoard2Image; // Default to BSMT (Shoulder board 2)
+      return PRODUCT_IMAGES['Shoulder board 2']; // Default to BSMT (Shoulder board 2)
     }
     
     if (product.name === 'ROTC Manual') {
@@ -401,12 +325,12 @@ export const MerchandisePage: React.FC = () => {
     }
     
     // Products with single static images
-    if (product.name === 'BSNAME Uniform') return bsnameUniformImage;
-    if (product.name === 'ID Case') return idCaseImage;
-    if (product.name === 'Handbag') return handbagImage;
-    if (product.name === 'Hard Bound') return hardboundImage;
-    if (product.name === 'Safety Shoes') return safetyShoesImage;
-    if (product.name === 'Gloves') return glovesImage;
+    if (product.name === 'BSNAME Uniform') return bsnameImage
+    if (product.name === 'ID Case') return PRODUCT_IMAGES['ID Case'];
+    if (product.name === 'Handbag') return PRODUCT_IMAGES['Handbag'];
+    if (product.name === 'Hard Bound') return PRODUCT_IMAGES['Hardbound'];
+    if (product.name === 'Safety Shoes') return PRODUCT_IMAGES['Safety Shoes'];
+    if (product.name === 'Gloves') return PRODUCT_IMAGES['Gloves'];
     if (product.name === 'PE Tshirt') return peShirtImage;
     if (product.name === 'PE Pants') return pePantsImage;
     if (product.name === 'Plotting Sheet') return plottingSheetImage;
@@ -414,12 +338,12 @@ export const MerchandisePage: React.FC = () => {
     if (product.name === 'Buttons') return buttonsImage;
     if (product.name === 'Anchor Pins') return anchorImage;
     if (product.name === 'Propeller Pins') return propellerImage;
-    if (product.name === 'Swimming Set') return swimmingTrunksImage;
-    if (product.name === 'Swimming Cap') return swimmingCapImage;
-    if (product.name === 'CWTS Shirt') return cwtsShirtImage;
+    if (product.name === 'Swimming Set') return PRODUCT_IMAGES['Swimming Trunks'];
+    if (product.name === 'Swimming Cap') return PRODUCT_IMAGES['Cap'];
+    if (product.name === 'CWTS Shirt') return PRODUCT_IMAGES['CWTS Shirt'];
     if (product.name === 'White Shoes') return whiteShoesImage;
     if (product.name === 'Safety Goggles') return safetyGogglesImage;
-    if (product.name === 'Rope') return ropeImage;
+    if (product.name === 'Rope') return PRODUCT_IMAGES['Rope'];
     
     return null;
   };
@@ -702,63 +626,63 @@ export const MerchandisePage: React.FC = () => {
                     alt="Type A & B Uniform" 
                     className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Type C Uniform' && typeCBSMTImage ? (
+                ) : product.name === 'Type C Uniform' && PRODUCT_IMAGES['Type C-BSMT'] ? (
                   <img 
-                    src={typeCBSMTImage} 
+                    src={PRODUCT_IMAGES['Type C-BSMT']} 
                     alt="Type C Uniform" 
                     className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'BSNAME Uniform' && bsnameUniformImage ? (
+                ) : product.name === 'BSNAME Uniform' && PRODUCT_IMAGES['BSNAME Uniform'] ? (
                   <img 
-                    src={bsnameUniformImage} 
+                    src={PRODUCT_IMAGES['BSNAME Uniform']}
                     alt="BSNAME Uniform" 
                     className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : product.name === 'Lanyard' ? (
                   <div className="w-full h-full grid grid-cols-3 gap-0.5 p-1 group-hover:scale-110 transition-transform duration-300">
-                    <img src={lanyardBSMTImage} alt="BSMT" className="w-full h-full object-cover" />
-                    <img src={lanyardBSMAREImage} alt="BSMARE" className="w-full h-full object-cover" />
-                    <img src={lanyardSHSImage} alt="SHS" className="w-full h-full object-cover" />
+                    <img src={PRODUCT_IMAGES['Lanyard-BSMT']} alt="BSMT" className="w-full h-full object-cover" />
+                    <img src={PRODUCT_IMAGES['Lanyard-BSMARE']} alt="BSMARE" className="w-full h-full object-cover" />
+                    <img src={PRODUCT_IMAGES['Lanyard-SHS']} alt="SHS" className="w-full h-full object-cover" />
                   </div>
-                ) : product.name === 'ID Case' && idCaseImage ? (
+                ) : product.name === 'ID Case' && PRODUCT_IMAGES['ID Case'] ? (
                   <img 
-                    src={idCaseImage} 
+                    src={PRODUCT_IMAGES['ID Case']} 
                     alt="ID Case" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Handbag' && handbagImage ? (
+                ) : product.name === 'Handbag' && PRODUCT_IMAGES['Handbag'] ? (
                   <img 
-                    src={handbagImage} 
+                    src={PRODUCT_IMAGES['Handbag']} 
                     alt="Handbag" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Hard Bound' && hardboundImage ? (
+                ) : product.name === 'Hard Bound' && PRODUCT_IMAGES['Hardbound'] ? (
                   <img 
-                    src={hardboundImage} 
+                    src={PRODUCT_IMAGES['Hardbound']} 
                     alt="Hard Bound" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Safety Shoes' && safetyShoesImage ? (
+                ) : product.name === 'Safety Shoes' && PRODUCT_IMAGES['Safety Shoes'] ? (
                   <img 
-                    src={safetyShoesImage} 
+                    src={PRODUCT_IMAGES['Safety Shoes']} 
                     alt="Safety Shoes" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Cover All' && coverallImage ? (
+                ) : product.name === 'Cover All' && PRODUCT_IMAGES['Coverall'] ? (
                   <img 
-                    src={coverallImage} 
+                    src={PRODUCT_IMAGES['Coverall']} 
                     alt="Cover All" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Gloves' && glovesImage ? (
+                ) : product.name === 'Gloves' && PRODUCT_IMAGES['Gloves'] ? (
                   <img 
-                    src={glovesImage} 
+                    src={PRODUCT_IMAGES['Gloves']} 
                     alt="Gloves" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Hard Hat' && hardhatYellowImage ? (
+                ) : product.name === 'Hard Hat' && PRODUCT_IMAGES['Hardhat-Yellow'] ? (
                   <img 
-                    src={hardhatYellowImage} 
+                    src={PRODUCT_IMAGES['Hardhat-Yellow']} 
                     alt="Hard Hat" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
@@ -774,9 +698,9 @@ export const MerchandisePage: React.FC = () => {
                     alt="PE Pants" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Pershing Cap' && pershingCapImage ? (
+                ) : product.name === 'Pershing Cap' && PRODUCT_IMAGES['Pershing Cap'] ? (
                   <img 
-                    src={pershingCapImage} 
+                    src={PRODUCT_IMAGES['Pershing Cap']} 
                     alt="Pershing Cap" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
@@ -810,27 +734,27 @@ export const MerchandisePage: React.FC = () => {
                     alt="Propeller Pins" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Shoulder Board' && shoulderBoard2Image ? (
+                ) : product.name === 'Shoulder Board' && PRODUCT_IMAGES['Shoulder board 2'] ? (
                   <img 
-                    src={shoulderBoard2Image} 
+                    src={PRODUCT_IMAGES['Shoulder board 2']} 
                     alt="Shoulder Board" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Swimming Set' && swimmingTrunksImage ? (
+                ) : product.name === 'Swimming Set' && PRODUCT_IMAGES['Swimming Trunks'] ? (
                   <img 
-                    src={swimmingTrunksImage} 
+                    src={PRODUCT_IMAGES['Swimming Trunks']} 
                     alt="Swimming Set" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Swimming Cap' && swimmingCapImage ? (
+                ) : product.name === 'Swimming Cap' && PRODUCT_IMAGES['Cap'] ? (
                   <img 
-                    src={swimmingCapImage} 
+                    src={PRODUCT_IMAGES['Cap']} 
                     alt="Swimming Cap" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'CWTS Shirt' && cwtsShirtImage ? (
+                ) : product.name === 'CWTS Shirt' && PRODUCT_IMAGES['CWTS Shirt'] ? (
                   <img 
-                    src={cwtsShirtImage} 
+                    src={PRODUCT_IMAGES['CWTS Shirt']} 
                     alt="CWTS Shirt" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
@@ -858,15 +782,15 @@ export const MerchandisePage: React.FC = () => {
                     alt="Safety Goggles" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Rope' && ropeImage ? (
+                ) : product.name === 'Rope' && PRODUCT_IMAGES['Rope'] ? (
                   <img 
-                    src={ropeImage} 
+                    src={PRODUCT_IMAGES['Rope']} 
                     alt="Rope" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
-                ) : product.name === 'Gala' && galaBundleAImage ? (
+                ) : product.name === 'Gala' && PRODUCT_IMAGES['Gala Bundle A'] ? (
                   <img 
-                    src={galaBundleAImage} 
+                    src={PRODUCT_IMAGES['Gala Bundle A']} 
                     alt="Gala" 
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />

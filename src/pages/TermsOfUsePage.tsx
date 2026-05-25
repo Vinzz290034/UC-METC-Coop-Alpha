@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft } from 'lucide-react';
+import { BACKGROUND_IMAGE_URL } from '../constants/cloudinaryAssets.js';
 
 export const TermsOfUsePage: React.FC = () => {
   // Scroll to top when component mounts
@@ -10,14 +11,16 @@ export const TermsOfUsePage: React.FC = () => {
   
   const navigate = useNavigate();
 
+  const backgroundStyle = {
+    backgroundImage: `url(${BACKGROUND_IMAGE_URL})`,
+    backgroundSize: 'cover' as const,
+    backgroundPosition: 'center' as const,
+  };
+
   return (
     <div
       className="min-h-screen flex flex-col p-4 relative"
-      style={{
-        backgroundImage: 'url(/src/assets/Background2.jpeg)',
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
+      style={backgroundStyle}
     >
       {/* Green to White to Purple Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-green-400/60 via-white/30 to-purple-900/70"></div>

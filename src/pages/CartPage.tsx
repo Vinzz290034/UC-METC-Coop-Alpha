@@ -7,7 +7,7 @@ import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 import { AppDataSync } from '../store/appDataSync';
 import { Z_INDEX } from '../constants/zIndex';
-import GcashQR from '../assets/Gcash.jpeg';
+import { GCASH_URL } from '../constants/cloudinaryAssets';
 import { formatProductName } from '../utils/productNameFormatter';
 
 export const CartPage: React.FC = () => {
@@ -398,7 +398,7 @@ export const CartPage: React.FC = () => {
                     {/* QR Code Display */}
                     <div className="bg-white p-4 rounded-lg inline-block mb-4 overflow-hidden transform transition-all duration-700 ease-out hover:scale-105">
                       <img 
-                        src={GcashQR} 
+                        src={GCASH_URL} 
                         alt="GCash QR Code" 
                         className="w-64 h-auto object-cover rounded-lg animate-fade-in"
                         style={{

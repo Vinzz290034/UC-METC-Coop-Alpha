@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
+import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { Bell, Search, Settings, LogOut, User } from 'lucide-react';
 
 export const Header: React.FC = () => {
@@ -63,7 +62,7 @@ export const Header: React.FC = () => {
       <div className="px-6 py-4 flex items-center justify-between">
         <div className="flex items-center space-x-3">
           <img 
-            src={coopLogo}
+            src={COOP_LOGO_URL}
             alt="UC METC Logo" 
             className="w-10 h-10 rounded-full"
           />

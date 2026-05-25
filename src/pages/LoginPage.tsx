@@ -4,10 +4,7 @@ import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { FloatingInput } from '../components/FloatingInput';
 import { LoginTransition } from '../components/PageTransition';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
-// @ts-ignore
-import backgroundImage from '../assets/Background2.jpeg';
+import { COOP_LOGO_URL, BACKGROUND_IMAGE_URL } from '../constants/cloudinaryAssets';
 
 import { UserIcon, ChevronLeft, UserPlus } from 'lucide-react';
 
@@ -306,7 +303,7 @@ export const LoginPage: React.FC = () => {
           : 'justify-start pt-16 md:pt-8'
       }`}
       style={{
-        backgroundImage: `url(${backgroundImage})`,
+        backgroundImage: `url(${BACKGROUND_IMAGE_URL})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
       }}
@@ -408,7 +405,7 @@ export const LoginPage: React.FC = () => {
               </div>
               <div className="relative z-10 text-center flex flex-col items-center">
                 <img 
-                  src={coopLogo}
+                  src={COOP_LOGO_URL}
                   alt="UC METC Logo" 
                   className="w-16 h-16 rounded-full mb-1"
                 />
@@ -492,7 +489,7 @@ export const LoginPage: React.FC = () => {
               </div>
               <div className="relative z-10 text-center">
                 <img 
-                  src={coopLogo}
+                  src={COOP_LOGO_URL}
                   alt="UC METC Logo" 
                   className="w-24 h-24 rounded-full mx-auto mb-4"
                 />
@@ -515,7 +512,7 @@ export const LoginPage: React.FC = () => {
                 </div>
                 <div className="relative z-10 text-center flex flex-col items-center">
                   <img 
-                    src={coopLogo}
+                    src={COOP_LOGO_URL}
                     alt="UC METC Logo" 
                     className="w-12 h-12 md:w-16 md:h-16 rounded-full mb-1"
                   />
@@ -608,7 +605,7 @@ export const LoginPage: React.FC = () => {
                   </div>
                   <div className="relative z-10 flex items-center gap-4">
                     <img 
-                      src={coopLogo}
+                      src={COOP_LOGO_URL}
                       alt="UC METC Logo" 
                       className="w-16 h-16 rounded-full border-2 border-white"
                     />
@@ -631,7 +628,17 @@ export const LoginPage: React.FC = () => {
                       <FloatingInput
                         label="ID Number"
                         value={idNumber}
-                        onChange={(e) => setIdNumber(e.target.value)}
+                        onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, ''))}
+                        onKeyDown={(e) => {
+                          // Allow: backspace, delete, tab, escape, enter, arrows, home, end
+                          const allowed = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+                          if (allowed.includes(e.key)) return;
+                          // Allow Ctrl/Cmd+A, C, V, X
+                          if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
+                          // Block anything that isn't a digit
+                          if (!/^\d$/.test(e.key)) e.preventDefault();
+                        }}
+                        inputMode="numeric"
                         required
                       />
                     </div>

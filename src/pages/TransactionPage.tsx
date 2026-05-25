@@ -9,10 +9,7 @@ import { Toast } from '../components/Toast';
 import domtoimage from 'dom-to-image';
 import { Z_INDEX } from '../constants/zIndex';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
-// @ts-ignore
-import GcashQR from '../assets/Gcash.jpeg';
+import { COOP_LOGO_URL, GCASH_URL } from '../constants/cloudinaryAssets';
 
 export const TransactionPage: React.FC = () => {
   const navigate = useNavigate();
@@ -625,7 +622,7 @@ export const TransactionPage: React.FC = () => {
             {/* Receipt Header with Logo */}
             <div className="text-center mb-4 pb-4 border-b-2 border-slate-300">
               <div className="flex items-center justify-center mb-3">
-                <img src={coopLogo} alt="UC METC SILMS" className="h-12 w-12 object-contain mr-3" />
+                <img src={COOP_LOGO_URL} alt="UC METC SILMS" className="h-12 w-12 object-contain mr-3" />
                 <div className="text-left">
                   <div className="text-lg font-bold text-purple-600 whitespace-nowrap" style={{ lineHeight: '1.3', marginBottom: '2px' }}>UC METC</div>
                   <div className="text-xs font-semibold text-slate-700 whitespace-nowrap" style={{ lineHeight: '1.3' }}>SILMS</div>

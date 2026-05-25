@@ -1,10 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle2, Users, Zap, BarChart3, Lock, ShoppingCart, Bell, Facebook, Mail, Github } from 'lucide-react';
-// @ts-ignore
-import coopLogo from '../assets/Coop.jpeg';
-// @ts-ignore
-import ucMetcBg from '../assets/UC_metc.jpg';
+import { ChevronLeft, CheckCircle2, Users, Zap, BarChart3, Lock, ShoppingCart, Bell, Facebook, Mail, Github, Phone } from 'lucide-react';
+import { COOP_LOGO_URL, UC_METC_LOGO_URL } from '../constants/cloudinaryAssets';
 
 const styles = `
   @keyframes float {
@@ -101,11 +98,7 @@ export const LearnMorePage: React.FC = () => {
         <div className="relative z-10">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <img src={coopLogo} alt="UC METC Logo" className="w-10 h-10 rounded-full" />
-            <h2 className="text-xl font-bold text-slate-800">UC METC SILMS</h2>
-          </div>
+        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center">
           <button
             onClick={() => navigate('/')}
             className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
@@ -120,7 +113,7 @@ export const LearnMorePage: React.FC = () => {
       <div 
         className="text-white py-20 bg-cover bg-center bg-no-repeat relative"
         style={{
-          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url(${ucMetcBg})`
+          backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url(${UC_METC_LOGO_URL})`
         }}
       >
         <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
@@ -148,7 +141,7 @@ export const LearnMorePage: React.FC = () => {
           </div>
           <div className="bg-gradient-to-br from-purple-100 to-green-100 rounded-2xl p-12 flex items-center justify-center">
             <div className="text-center">
-              <img src={coopLogo} alt="UC METC Logo" className="w-32 h-32 rounded-full mx-auto mb-6 shadow-lg" />
+              <img src={COOP_LOGO_URL} alt="UC METC Logo" className="w-32 h-32 rounded-full mx-auto mb-6 shadow-lg" />
               <h3 className="text-2xl font-bold text-slate-800">UC METC SILMS</h3>
               <p className="text-slate-600 mt-2">Sales, Inventory, Locker, and <br/> Membership System</p>
               <p className="text-sm text-slate-500 mt-4">University of Cebu Maritime Education<br/> and Training Center</p>
@@ -199,35 +192,85 @@ export const LearnMorePage: React.FC = () => {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-white/20 py-12 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col items-center justify-center space-y-6">
-            <div className="flex items-center gap-6 sm:gap-8">
-              <a 
-                href="https://www.facebook.com/profile.php?id=61573124552924" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-              >
-                <Facebook size={24} />
-              </a>
-              <a 
-                href="mailto:ucmetc.ecc@gmail.com" 
-                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-              >
-                <Mail size={24} />
-              </a>
-              <a 
-                href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="text-white hover:text-green-400 transition-colors hover:scale-110 duration-300"
-              >
-                <Github size={24} />
-              </a>
+      <footer className="border-t border-white/20 py-14 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
+        <div className="max-w-7xl mx-auto">
+
+          {/* 3-Column Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+
+            {/* Col 1 — Brand */}
+            <div>
+              <h3 className="text-2xl font-bold text-white mb-4">UC METC SILMS</h3>
+              <p className="text-purple-100 text-sm leading-relaxed">
+                UC METC Sales, Inventory, Locker, and Membership System is your one-stop platform for shopping school essentials,
+                managing locker rentals, and accessing cooperative member benefits designed exclusively for UC METC students.
+              </p>
             </div>
-            <p className="text-white text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
+
+            {/* Col 2 — Quick Links */}
+            <div className="md:pl-16">
+              <h4 className="text-lg font-semibold text-white mb-5">Quick Links</h4>
+              <ul className="space-y-3">
+                {[
+                  { label: 'Home', path: '/' },
+                  { label: 'Announcements', path: '/announcements' },
+                  { label: 'Community', path: '/community' },
+                  { label: 'Learn More', path: '/learn-more' },
+                ].map((link) => (
+                  <li key={link.label}>
+                    <button
+                      onClick={() => navigate(link.path)}
+                      className="text-purple-100 hover:text-green-300 text-sm transition-colors duration-200"
+                    >
+                      {link.label}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            {/* Col 3 — Get in Touch */}
+            <div>
+              <h4 className="text-lg font-semibold text-white mb-5">Get in Touch</h4>
+              <ul className="space-y-3 mb-6">
+                <li className="flex items-center gap-3 text-purple-100 text-sm">
+                  <Mail size={16} className="flex-shrink-0" />
+                  <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors">
+                    ucmetc.ecc@gmail.com
+                  </a>
+                </li>
+                <li className="flex items-center gap-3 text-purple-100 text-sm">
+                  <Phone size={16} className="flex-shrink-0" />
+                  <span>09695345084</span>
+                </li>
+              </ul>
+              <div className="flex items-center gap-5">
+                <a
+                  href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                >
+                  <Github size={22} />
+                </a>
+                <a
+                  href="https://www.facebook.com/profile.php?id=61573124552924"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                >
+                  <Facebook size={22} />
+                </a>
+              </div>
+            </div>
+
           </div>
+
+          {/* Divider + Copyright */}
+          <div className="border-t border-white/20 pt-8 text-center">
+            <p className="text-purple-100 text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
+          </div>
+
         </div>
       </footer>
         </div>

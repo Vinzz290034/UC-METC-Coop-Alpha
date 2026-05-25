@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ShoppingCart, UserCheck, CheckCircle, XCircle, Users, Bell, Trash2, ArrowLeft } from 'lucide-react';
+import { Mail, ShoppingCart, UserCheck, CheckCircle, XCircle, Users, Bell, Trash2, ChevronLeft } from 'lucide-react';
 import { useNotificationStore } from '../store/notificationStore';
 import type { Notification, NotificationType } from '../types';
 
@@ -80,26 +80,22 @@ export const NotificationsPage: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 p-6 animate-slide-in-right">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
+      <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          {/* Back Button */}
+        <div className="mb-8 flex items-center space-x-4">
           <button
             onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-black hover:text-purple-800 transition-colors mb-4 group"
+            className="p-2 rounded-lg hover:bg-white transition-colors"
           >
-            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-            <span className="font-semibold">Back</span>
+            <ChevronLeft size={24} className="text-slate-700" />
           </button>
-          
-          <div className="flex items-center gap-3 mb-2">
-            <Bell className="w-8 h-8 text-black" />
-            <h1 className="text-4xl font-bold text-black">Notifications</h1>
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-wide uppercase">NOTIFICATIONS</h1>
+            <p className="text-slate-700 text-sm font-medium mt-0.5">
+              {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
+            </p>
           </div>
-          <p className="text-black">
-            {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
-          </p>
         </div>
 
         {/* Actions Bar */}

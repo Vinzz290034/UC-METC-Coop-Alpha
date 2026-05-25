@@ -17,10 +17,7 @@ import { GlobalSearch } from '../components/GlobalSearch';
 import { WelcomeTour } from '../components/WelcomeTour';
 import { InsuranceModal } from '../components/InsuranceModal';
 import { GALLERY_IMAGE_URLS } from '../constants/cloudinaryGallery';
-// @ts-ignore
-import ucMetcImage from '../assets/UC_metc.jpg';
-// @ts-ignore
-import assemblyImage from '../assets/12.png';
+import { UC_METC_LOGO_URL, STUDENT_DASHBOARD_BANNER_IMAGE } from '../constants/cloudinaryAssets';
 
 export const StudentDashboard: React.FC = () => {
   // Scroll to top when component mounts
@@ -245,7 +242,7 @@ export const StudentDashboard: React.FC = () => {
       time: '8:00 AM - 5:00 PM',
       cta: 'Shop Now',
       bg: 'from-green-600/40 to-purple-600/40',
-      image: ucMetcImage,
+      image: STUDENT_DASHBOARD_BANNER_IMAGE,
       overlayColor: 'from-purple-900/90 via-purple-800/50 to-transparent',
       action: () => navigate('/merchandise'),
     },
@@ -256,7 +253,7 @@ export const StudentDashboard: React.FC = () => {
       time: '1:00 PM - 5:00 PM',
       cta: 'Learn More',
       bg: 'from-blue-600/40 to-purple-700/40',
-      image: assemblyImage,
+      image: GALLERY_IMAGE_URLS[5],
       overlayColor: 'from-green-900/90 via-green-800/50 to-transparent',
       action: () => {
         const activitiesSection = document.getElementById('recent-activities');
