@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import {
   Users,
   Search,
-  Filter,
   MoreVertical,
   UserX,
   Trash2,
@@ -12,8 +11,6 @@ import {
   Eye,
   AlertTriangle,
   CheckCircle2,
-  XCircle,
-  Clock,
   X,
 } from 'lucide-react';
 import { apiClient } from '../services/api';
@@ -144,27 +141,6 @@ export const UserManagementPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status?: string, isActive?: boolean) => {
-    if (isActive === false) return 'bg-red-100 text-red-800 border-red-200';
-    
-    switch (status) {
-      case 'approved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'pending': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'rejected': return 'bg-red-100 text-red-800 border-red-200';
-      default: return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getStatusIcon = (status?: string, isActive?: boolean) => {
-    if (isActive === false) return <XCircle size={16} />;
-    
-    switch (status) {
-      case 'approved': return <CheckCircle2 size={16} />;
-      case 'pending': return <Clock size={16} />;
-      case 'rejected': return <XCircle size={16} />;
-      default: return <Eye size={16} />;
-    }
-  };
 
   // Helper function to get display role (show "Member" for approved members)
   const getDisplayRole = (user: User) => {
@@ -477,25 +453,9 @@ export const UserManagementPage: React.FC = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Status</label>
-                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(selectedUser.membership_status, selectedUser.is_active)}`}>
-                    {getStatusIcon(selectedUser.membership_status, selectedUser.is_active)}
-                    {selectedUser.is_active === false ? 'Inactive' : 
-                     selectedUser.membership_status ? selectedUser.membership_status.charAt(0).toUpperCase() + selectedUser.membership_status.slice(1) : 'Active'}
-                  </span>
-                </div>
-
-                <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Course & Year</label>
                   <p className="text-slate-900 font-medium">
                     {selectedUser.course && selectedUser.year ? `${selectedUser.course} - ${selectedUser.year}` : 'Not provided'}
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">Staff Type</label>
-                  <p className="text-slate-900 font-medium">
-                    {selectedUser.staffType ? selectedUser.staffType.replace('_', ' ') : 'Not applicable'}
                   </p>
                 </div>
 
