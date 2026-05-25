@@ -828,11 +828,13 @@ export const SalesPage: React.FC = () => {
                         ((item.product_name?.includes('Type A & B Uniform') || item.product_name?.includes('BSNAME Uniform')) && parseFloat(item.subtotal) === 1500);
                       const orderType = item.orderType || item.order_type;
                       const isPreorder = orderType === 'preorder';
+                      const isBalance = selectedPendingOrder.receipt_no?.startsWith('BAL-') || selectedPendingOrder.receiptNo?.startsWith('BAL-');
                       return (
                         <div key={idx} className="flex items-start gap-2 flex-wrap text-sm text-slate-600">
                           <span>• {formatProductNameWithVariants(item)} (Qty: {item.quantity}) — ₱{parseFloat(item.subtotal).toLocaleString()}</span>
                           {isDownpayment && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">DOWNPAYMENT</span>}
                           {isPreorder && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>}
+                          {isBalance && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>}
                         </div>
                       );
                     })}

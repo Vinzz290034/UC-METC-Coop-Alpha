@@ -551,6 +551,9 @@ export const BillingHistoryPage: React.FC = () => {
                                   {item.orderType === 'preorder' && (
                                     <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">PRE-ORDER</span>
                                   )}
+                                  {transaction.receiptNumber?.startsWith('BAL-') && (
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
+                                  )}
                                 </div>
                                 {filterStatus === 'balance-due' && isDownpayment ? (
                                   <p className="text-xs text-slate-500 ml-4">
@@ -743,6 +746,9 @@ export const BillingHistoryPage: React.FC = () => {
                           )}
                           {item.orderType === 'preorder' && (
                             <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">PRE-ORDER</span>
+                          )}
+                          {selectedTransaction.receiptNumber?.startsWith('BAL-') && (
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
                           )}
                         </div>
                       )}

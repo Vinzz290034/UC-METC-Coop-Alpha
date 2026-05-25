@@ -480,6 +480,9 @@ export const TransactionPage: React.FC = () => {
                                   {item.orderType === 'preorder' && (
                                     <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>
                                   )}
+                                  {transaction.receiptNumber?.startsWith('BAL-') && (
+                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
+                                  )}
                                 </div>
                                 {filterStatus === 'balance-due' && isDownpayment ? (
                                   <p className="text-xs text-slate-500 ml-4">
@@ -664,13 +667,16 @@ export const TransactionPage: React.FC = () => {
                         <span className="font-medium text-slate-900 flex-1">{item.productName}</span>
                         <span className="font-semibold text-slate-900 flex-shrink-0">₱{Number(item.subtotal || 0).toLocaleString()}</span>
                       </div>
-                      {(item.paymentType === 'downpayment' || item.orderType === 'preorder') && (
+                      {(item.paymentType === 'downpayment' || item.orderType === 'preorder' || selectedTransaction.receiptNumber?.startsWith('BAL-')) && (
                         <div className="flex items-center gap-2 mb-1">
                           {item.paymentType === 'downpayment' && (
                             <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">DOWNPAYMENT</span>
                           )}
                           {item.orderType === 'preorder' && (
                             <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">PRE-ORDER</span>
+                          )}
+                          {selectedTransaction.receiptNumber?.startsWith('BAL-') && (
+                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
                           )}
                         </div>
                       )}
