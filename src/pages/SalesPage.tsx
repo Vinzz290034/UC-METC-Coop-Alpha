@@ -834,7 +834,7 @@ export const SalesPage: React.FC = () => {
                           <span>• {formatProductNameWithVariants(item)} (Qty: {item.quantity}) — ₱{parseFloat(item.subtotal).toLocaleString()}</span>
                           {isDownpayment && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">DOWNPAYMENT</span>}
                           {isPreorder && <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>}
-                          {isBalance && <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>}
+                          {isBalance && <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>}
                         </div>
                       );
                     })}

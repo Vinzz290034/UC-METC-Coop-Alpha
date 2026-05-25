@@ -480,9 +480,6 @@ export const TransactionPage: React.FC = () => {
                                   {item.orderType === 'preorder' && (
                                     <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>
                                   )}
-                                  {transaction.receiptNumber?.startsWith('BAL-') && (
-                                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
-                                  )}
                                 </div>
                                 {filterStatus === 'balance-due' && isDownpayment ? (
                                   <p className="text-xs text-slate-500 ml-4">
@@ -676,7 +673,7 @@ export const TransactionPage: React.FC = () => {
                             <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">PRE-ORDER</span>
                           )}
                           {selectedTransaction.receiptNumber?.startsWith('BAL-') && (
-                            <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
+                            <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold whitespace-nowrap">BALANCE</span>
                           )}
                         </div>
                       )}
