@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Shield, CheckCircle, AlertCircle } from 'lucide-react';
-import { Z_INDEX } from '../constants/zIndex';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { apiClient } from '../services/api';
@@ -40,7 +39,7 @@ export const InsuranceModal: React.FC<InsuranceModalProps> = ({ onClose }) => {
       const orderData = {
         items: [
           {
-            productId: null, // Special product for insurance
+            productId: 'insurance', // Special product for insurance
             productName: 'I-CARD Micro-insurance',
             name: 'I-CARD Micro-insurance',
             quantity: 1,
