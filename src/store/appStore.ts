@@ -147,7 +147,7 @@ interface AppState {
   clearAll: () => void;
 }
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   products: createDefaultProducts(),
   members: [],
   lockers: [],
@@ -296,11 +296,19 @@ export const useAppStore = create<AppState>((set) => ({
     })),
 
   toggleFavorite: async (id: string, userId: string) => {
+    // Optimistically toggle the local state immediately for instant UI feedback
+    const previousMessages = get().messages;
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, isFavorite: !m.isFavorite } : m
+      ),
+    }));
+
     try {
-      // Call API to update favorite status in database
+      // Call API to persist favorite status in database
       const result = await apiClient.toggleMessageFavorite(id, userId);
       
-      // Update local state with the response (convert snake_case to camelCase)
+      // Reconcile with the server's authoritative value
       set((state) => ({
         messages: state.messages.map((m) =>
           m.id === id ? { ...m, isFavorite: result.is_favorite } : m
@@ -308,6 +316,8 @@ export const useAppStore = create<AppState>((set) => ({
       }));
     } catch (error) {
       console.error('Failed to toggle favorite:', error);
+      // Revert optimistic update on failure
+      set({ messages: previousMessages });
       throw error;
     }
   },

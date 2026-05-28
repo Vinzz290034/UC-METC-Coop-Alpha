@@ -86,8 +86,29 @@ export const InboxPage: React.FC = () => {
     return false;
   });
   const sentMessages = messages.filter(msg => msg.folder === 'sent' && msg.senderId === user?.id);
-  const displayMessages = activeTab === 'inbox' ? inboxMessages : sentMessages;
+  // Sort messages so favorites always appear at the top
+  const sortedInbox = [...inboxMessages].sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return 0;
+  });
+  const sortedSent = [...sentMessages].sort((a, b) => {
+    if (a.isFavorite && !b.isFavorite) return -1;
+    if (!a.isFavorite && b.isFavorite) return 1;
+    return 0;
+  });
+  const displayMessages = activeTab === 'inbox' ? sortedInbox : sortedSent;
   const unreadCount = inboxMessages.filter(m => !m.isRead).length;
+
+  // Keep selectedMessage in sync with the store (so star updates are instant)
+  useEffect(() => {
+    if (selectedMessage) {
+      const updated = messages.find(m => m.id === selectedMessage.id);
+      if (updated && updated.isFavorite !== selectedMessage.isFavorite) {
+        setSelectedMessage(updated);
+      }
+    }
+  }, [messages, selectedMessage]);
 
   const handleDelete = async (id: string) => {
     try {
@@ -462,16 +483,21 @@ export const InboxPage: React.FC = () => {
                     <button
                       onClick={async () => {
                         if (!user?.id || !selectedMessage) return;
+                        const wasFavorite = selectedMessage.isFavorite;
+                        // Optimistically update the selected message for instant star feedback
+                        setSelectedMessage({ ...selectedMessage, isFavorite: !wasFavorite });
+                        setAnimatingStarId(selectedMessage.id);
                         try {
-                          setAnimatingStarId(selectedMessage.id);
                           await toggleFavorite(selectedMessage.id, user.id);
                           showNotification(
-                            selectedMessage.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+                            wasFavorite ? 'Removed from favorites' : 'Added to favorites',
                             'success'
                           );
                           // Clear animation after it completes
                           setTimeout(() => setAnimatingStarId(null), 600);
                         } catch (error) {
+                          // Revert optimistic update on the selected message
+                          setSelectedMessage({ ...selectedMessage, isFavorite: wasFavorite });
                           showNotification('Failed to toggle favorite', 'error');
                           setAnimatingStarId(null);
                         }
