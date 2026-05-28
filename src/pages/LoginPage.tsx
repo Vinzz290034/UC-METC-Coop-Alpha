@@ -388,7 +388,7 @@ export const LoginPage: React.FC = () => {
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-6 text-white text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 14a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 3h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 10.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 17.92z"/><path d="M14.05 2a9 9 0 0 1 8 7.94"/><path d="M14.05 6A5 5 0 0 1 18 10"/></svg>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               </div>
               <h2 className="text-xl font-bold">Verify Your Email</h2>
               <p className="text-purple-100 text-sm mt-1">We sent a 6-digit code to</p>
@@ -481,6 +481,14 @@ export const LoginPage: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => {
+          // If OTP modal is visible, close it first instead of navigating
+          if (showVerification) {
+            setShowVerification(false);
+            setVerificationCode('');
+            setVerificationError('');
+            setVerificationSuccess('');
+            return;
+          }
           // Check if mobile (below md breakpoint)
           const isMobile = window.innerWidth < 768;
           

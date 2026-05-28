@@ -15,8 +15,26 @@ const router = Router();
 // Store reset codes temporarily (in production, use Redis or database)
 const resetCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
 
-// Store email verification codes temporarily
-const emailVerificationCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
+// Store email verification codes + pending registration data temporarily
+// User is NOT inserted into the DB until they verify the OTP
+interface PendingRegistration {
+  code: string;
+  email: string;
+  expiresAt: number;
+  registrationData: {
+    id_number: string | null;
+    email: string;
+    hashedPassword: string;
+    first_name: string;
+    middle_name: string | null;
+    last_name: string;
+    role: string;
+    status: string;
+    course: string | null;
+    year: string | null;
+  };
+}
+const pendingRegistrations = new Map<string, PendingRegistration>();
 
 const resolveMx = promisify(dns.resolveMx);
 
@@ -136,7 +154,7 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Check if email already exists
+    // Check if email already exists in DB
     const checkUser = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (checkUser.rows.length > 0) {
       return res.status(409).json({ message: 'Email already exists' });
@@ -150,46 +168,46 @@ router.post('/register', async (req: Request, res: Response) => {
       }
     }
 
+    // Hash password now, but DO NOT insert user into DB yet
     const hashedPassword = await bcryptjs.hash(password, 10);
-    const userRole = role || 'member';
+    const userRole = role || 'user';
 
-    // Create user with email_verified = false
-    const result = await query(
-      'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, id_number, email, first_name, middle_name, last_name, role, course, year',
-      [id_number || null, email, hashedPassword, first_name, middle_name || null, last_name, userRole, 'active', req.body.course || null, req.body.year || null, false]
-    );
-
-    const newUser = result.rows[0];
-
-    // Generate 6-digit verification code and send it
+    // Generate 6-digit OTP
     const verificationCode = crypto.randomInt(100000, 999999).toString();
     const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-    emailVerificationCodes.set(email, { code: verificationCode, email, expiresAt });
 
-    // Send verification email (don't block registration if email fails)
+    // Store pending registration (overwrite if they re-register with same email)
+    pendingRegistrations.set(email, {
+      code: verificationCode,
+      email,
+      expiresAt,
+      registrationData: {
+        id_number: id_number || null,
+        email,
+        hashedPassword,
+        first_name,
+        middle_name: middle_name || null,
+        last_name,
+        role: userRole,
+        status: 'active',
+        course: req.body.course || null,
+        year: req.body.year || null,
+      }
+    });
+
+    // Send OTP verification email
     const emailSent = await withTimeout(
       emailService.sendVerificationEmail(email, verificationCode, first_name),
-      10000, // 10 second timeout
+      10000,
       false
     );
 
-    console.log(`[REGISTER] User ${email} created. Verification email sent: ${emailSent}`);
+    console.log(`[REGISTER] Pending registration for ${email}. Verification email sent: ${emailSent}`);
 
-    res.status(201).json({
-      message: 'Account created! Please check your email for the verification code.',
+    res.status(200).json({
+      message: 'Please check your email for the verification code to complete registration.',
       requiresVerification: true,
-      email: newUser.email,
-      user: {
-        id: newUser.id,
-        id_number: newUser.id_number,
-        email: newUser.email,
-        first_name: newUser.first_name,
-        middle_name: newUser.middle_name,
-        last_name: newUser.last_name,
-        role: newUser.role,
-        course: newUser.course,
-        year: newUser.year,
-      },
+      email,
       ...(process.env.NODE_ENV === 'development' && { verificationCode })
     });
   } catch (err) {
@@ -198,7 +216,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// Verify email with OTP code
+// Verify email with OTP code — this is where the user is actually created in the DB
 router.post('/verify-email', async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
@@ -207,27 +225,40 @@ router.post('/verify-email', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email and verification code are required' });
     }
 
-    const storedData = emailVerificationCodes.get(email);
+    const pending = pendingRegistrations.get(email);
 
-    if (!storedData) {
-      return res.status(400).json({ message: 'Invalid or expired verification code. Please request a new one.' });
+    if (!pending) {
+      return res.status(400).json({ message: 'Invalid or expired verification code. Please register again.' });
     }
 
-    if (storedData.expiresAt < Date.now()) {
-      emailVerificationCodes.delete(email);
-      return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+    if (pending.expiresAt < Date.now()) {
+      pendingRegistrations.delete(email);
+      return res.status(400).json({ message: 'Verification code has expired. Please register again.' });
     }
 
-    if (storedData.code !== code) {
+    if (pending.code !== code) {
       return res.status(400).json({ message: 'Invalid verification code. Please check and try again.' });
     }
 
-    // Mark email as verified in database
-    await query('UPDATE users SET email_verified = true, updated_at = NOW() WHERE email = $1', [email]);
+    // OTP is correct — now insert the user into the database
+    const { registrationData: rd } = pending;
 
-    // Remove used code
-    emailVerificationCodes.delete(email);
+    // Double-check email hasn't been taken while they were verifying
+    const existingUser = await query('SELECT id FROM users WHERE email = $1', [rd.email]);
+    if (existingUser.rows.length > 0) {
+      pendingRegistrations.delete(email);
+      return res.status(409).json({ message: 'Email already exists. Please log in or reset your password.' });
+    }
 
+    await query(
+      'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+      [rd.id_number, rd.email, rd.hashedPassword, rd.first_name, rd.middle_name, rd.last_name, rd.role, rd.status, rd.course, rd.year, true]
+    );
+
+    // Remove pending registration
+    pendingRegistrations.delete(email);
+
+    console.log(`[VERIFY EMAIL] User ${email} successfully registered and verified.`);
     res.json({ message: 'Email verified successfully! You can now log in.' });
   } catch (err) {
     console.error('[VERIFY EMAIL ERROR]:', err);
@@ -235,7 +266,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
   }
 });
 
-// Resend verification code
+// Resend verification code for pending registration
 router.post('/resend-verification', async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
@@ -244,35 +275,25 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Email is required' });
     }
 
-    // Check if user exists and is unverified
-    const result = await query('SELECT id, first_name, email_verified FROM users WHERE email = $1', [email]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'No account found with this email address.' });
+    const pending = pendingRegistrations.get(email);
+    if (!pending) {
+      return res.status(404).json({ message: 'No pending registration found. Please register again.' });
     }
 
-    const user = result.rows[0];
-
-    if (user.email_verified) {
-      return res.status(400).json({ message: 'This email is already verified. You can log in.' });
-    }
-
-    // Generate new 6-digit verification code
+    // Generate new 6-digit code and refresh expiry
     const verificationCode = crypto.randomInt(100000, 999999).toString();
-    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
-    emailVerificationCodes.set(email, { code: verificationCode, email, expiresAt });
+    pending.code = verificationCode;
+    pending.expiresAt = Date.now() + 15 * 60 * 1000;
+    pendingRegistrations.set(email, pending);
 
-    // Send verification email with timeout
     const emailSent = await withTimeout(
-      emailService.sendVerificationEmail(email, verificationCode, user.first_name),
+      emailService.sendVerificationEmail(email, verificationCode, pending.registrationData.first_name),
       10000,
       false
     );
 
     if (!emailSent) {
-      return res.status(500).json({ 
-        message: 'Failed to send verification email. Please try again later.' 
-      });
+      return res.status(500).json({ message: 'Failed to send verification email. Please try again later.' });
     }
 
     res.json({ 
