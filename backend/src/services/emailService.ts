@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import axios from 'axios';
 import { config } from '../config/config.js';
 
 interface EmailOptions {
@@ -21,6 +22,17 @@ class EmailService {
     const emailPassword = process.env.EMAIL_PASSWORD;
     const emailService = process.env.EMAIL_SERVICE || 'gmail';
 
+    if (emailService.toLowerCase() === 'sendgrid') {
+      if (!emailPassword) {
+        console.warn('⚠️  [EMAIL SERVICE] SendGrid API Key (EMAIL_PASSWORD) not configured.');
+        this.isConfigured = false;
+        return;
+      }
+      this.isConfigured = true;
+      console.log(`✅ [EMAIL SERVICE] Email service initialized successfully via SendGrid Web API`);
+      return;
+    }
+
     if (!emailUser || !emailPassword) {
       console.warn('⚠️  [EMAIL SERVICE] Email credentials not configured. Email sending will be disabled.');
       console.warn('⚠️  [EMAIL SERVICE] Set EMAIL_USER and EMAIL_PASSWORD in .env file to enable email functionality.');
@@ -29,27 +41,14 @@ class EmailService {
     }
 
     try {
-      // SendGrid uses different configuration
-      if (emailService.toLowerCase() === 'sendgrid') {
-        this.transporter = nodemailer.createTransport({
-          host: 'smtp.sendgrid.net',
-          port: 587,
-          secure: false, // Use TLS
-          auth: {
-            user: 'apikey', // SendGrid SMTP strictly requires the literal string 'apikey'
-            pass: emailPassword, // Your SendGrid API key
-          },
-        });
-      } else {
-        // Gmail, Outlook, etc.
-        this.transporter = nodemailer.createTransport({
-          service: emailService,
-          auth: {
-            user: emailUser,
-            pass: emailPassword,
-          },
-        });
-      }
+      // Gmail, Outlook, etc.
+      this.transporter = nodemailer.createTransport({
+        service: emailService,
+        auth: {
+          user: emailUser,
+          pass: emailPassword,
+        },
+      });
 
       this.isConfigured = true;
       console.log(`✅ [EMAIL SERVICE] Email service initialized successfully (${emailService})`);
@@ -60,13 +59,55 @@ class EmailService {
   }
 
   async sendEmail(options: EmailOptions): Promise<boolean> {
-    if (!this.isConfigured || !this.transporter) {
+    const emailService = process.env.EMAIL_SERVICE || 'gmail';
+    const emailPassword = process.env.EMAIL_PASSWORD;
+    const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'no-reply@uc-metc-coop.com';
+
+    if (!this.isConfigured) {
       console.error('❌ [EMAIL SERVICE] Cannot send email - service not configured');
       return false;
     }
 
     try {
-      const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+      if (emailService.toLowerCase() === 'sendgrid') {
+        // Send via official SendGrid HTTP API - ultra fast and immune to SMTP port blocks
+        await axios.post(
+          'https://api.sendgrid.com/v3/mail/send',
+          {
+            personalizations: [
+              {
+                to: [{ email: options.to }],
+              },
+            ],
+            from: {
+              email: fromEmail,
+              name: 'UC METC SILMS',
+            },
+            subject: options.subject,
+            content: [
+              {
+                type: 'text/html',
+                value: options.html,
+              },
+            ],
+          },
+          {
+            headers: {
+              Authorization: `Bearer ${emailPassword}`,
+              'Content-Type': 'application/json',
+            },
+          }
+        );
+        console.log(`✅ [EMAIL SERVICE] Email sent successfully to ${options.to} via SendGrid Web API`);
+        return true;
+      }
+
+      // Gmail / SMTP fallback
+      if (!this.transporter) {
+        console.error('❌ [EMAIL SERVICE] Cannot send email - SMTP transporter not initialized');
+        return false;
+      }
+
       const mailOptions = {
         from: `"UC METC SILMS" <${fromEmail}>`,
         to: options.to,
@@ -79,7 +120,7 @@ class EmailService {
       console.log(`✅ [EMAIL SERVICE] Email sent successfully to ${options.to} (Message ID: ${info.messageId})`);
       return true;
     } catch (error: any) {
-      console.error(`❌ [EMAIL SERVICE] Failed to send email to ${options.to}:`, error?.message || error);
+      console.error(`❌ [EMAIL SERVICE] Failed to send email to ${options.to}:`, error?.response?.data || error?.message || error);
       return false;
     }
   }
@@ -177,8 +218,8 @@ class EmailService {
             font-family: 'Courier New', monospace;
           }
           .warning {
-            background: #fef3c7;
-            border-left: 4px solid #f59e0b;
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
             padding: 15px;
             margin: 20px 0;
             border-radius: 4px;
@@ -196,35 +237,30 @@ class EmailService {
       <body>
         <div class="header">
           <h1 style="margin: 0;">Password Reset Request</h1>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">UC METC SILMS</p>
+          <p style="margin: 10px 0 0 0; opacity: 0.9;">UC METC Cooperative Management System</p>
         </div>
         <div class="content">
           <p>Hello <strong>${userName}</strong>,</p>
           
-          <p>We received a request to reset your password for your UC METC SILMS account. Use the verification code below to proceed:</p>
+          <p>We received a request to reset the password for your UC METC Cooperative account. Use the code below to complete the reset:</p>
           
           <div class="code-box">
             <div style="color: #6b7280; font-size: 14px; margin-bottom: 10px;">Your Reset Code</div>
             <div class="code">${resetCode}</div>
           </div>
           
-          <p>Enter this code on the password reset page to create a new password.</p>
+          <p>Enter this code on the password reset page to choose a new password.</p>
           
           <div class="warning">
-            <strong>Important:</strong> This code will expire in <strong>15 minutes</strong> for security reasons.
+            <strong>Security Notice:</strong> This code will expire in <strong>15 minutes</strong>. If you did not request a password reset, please ignore this email or contact support.
           </div>
           
-          <p><strong>Didn't request this?</strong><br>
-          If you didn't request a password reset, please ignore this email. Your password will remain unchanged.</p>
-          
-          <p>For security reasons, never share this code with anyone.</p>
-          
           <p>Best regards,<br>
-          <strong>UC METC SILMS Team</strong></p>
+          <strong>UC METC Cooperative Team</strong></p>
         </div>
         <div class="footer">
           <p>This is an automated message from UC METC Sales, Inventory, Locker, and Management System.</p>
-          <p>© ${new Date().getFullYear()} UC METC SILMS. All rights reserved.</p>
+          <p>&copy; ${new Date().getFullYear()} UC METC SILMS. All rights reserved.</p>
         </div>
       </body>
       </html>
@@ -232,15 +268,10 @@ class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: 'Password Reset Code - UC METC SILMS',
+      subject: 'Reset Your Password - UC METC Cooperative',
       html,
     });
   }
-
-  isEmailConfigured(): boolean {
-    return this.isConfigured;
-  }
 }
 
-// Export singleton instance
 export const emailService = new EmailService();
