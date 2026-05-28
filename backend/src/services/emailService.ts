@@ -36,7 +36,7 @@ class EmailService {
           port: 587,
           secure: false, // Use TLS
           auth: {
-            user: emailUser, // Should be 'apikey'
+            user: 'apikey', // SendGrid SMTP strictly requires the literal string 'apikey'
             pass: emailPassword, // Your SendGrid API key
           },
         });
