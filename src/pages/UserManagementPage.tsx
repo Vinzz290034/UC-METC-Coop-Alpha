@@ -45,6 +45,68 @@ export const UserManagementPage: React.FC = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<User | null>(null);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState<User | null>(null);
 
+  // User Profile Editing State (for Admins)
+  const [isEditing, setIsEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editFirstName, setEditFirstName] = useState('');
+  const [editMiddleName, setEditMiddleName] = useState('');
+  const [editLastName, setEditLastName] = useState('');
+  const [editIdNumber, setEditIdNumber] = useState('');
+  const [editCourse, setEditCourse] = useState('');
+  const [editYear, setEditYear] = useState('');
+  const [editRole, setEditRole] = useState<'admin' | 'staff' | 'member' | 'user'>('user');
+
+  const startEditing = (user: User) => {
+    setEditFirstName(user.first_name || '');
+    setEditMiddleName(user.middle_name || '');
+    setEditLastName(user.last_name || '');
+    setEditIdNumber(user.id_number || '');
+    setEditCourse(user.course || '');
+    setEditYear(user.year || '');
+    setEditRole(user.role || 'user');
+    setIsEditing(true);
+  };
+
+  const closeModal = () => {
+    setSelectedUser(null);
+    setIsEditing(false);
+  };
+
+  const handleSaveUser = async () => {
+    if (!selectedUser) return;
+    if (!editFirstName.trim() || !editLastName.trim()) {
+      showNotification('First name and last name are required', 'error');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const updateData = {
+        first_name: editFirstName.trim(),
+        middle_name: editMiddleName.trim(),
+        last_name: editLastName.trim(),
+        id_number: editIdNumber.trim(),
+        course: editCourse.trim(),
+        year: editYear.trim(),
+        role: editRole,
+      };
+
+      const response = await apiClient.updateUser(selectedUser.id, updateData);
+      const updatedUser = response.user || { ...selectedUser, ...updateData };
+
+      // Update the user in the main state list
+      setUsers(users.map(u => u.id === selectedUser.id ? { ...u, ...updatedUser } : u));
+      setSelectedUser({ ...selectedUser, ...updatedUser });
+      setIsEditing(false);
+      showNotification('User profile updated successfully', 'success');
+    } catch (error: any) {
+      console.error('Failed to update user profile:', error);
+      showNotification(error?.message || 'Failed to update user profile', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   useEffect(() => {
     window.scrollTo(0, 0);
     fetchUsers();
@@ -405,17 +467,17 @@ export const UserManagementPage: React.FC = () => {
       {/* User Details Modal - Portal */}
       {selectedUser && createPortal(
         <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setSelectedUser(null)}
+          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 modal-fade-in"
+          onClick={closeModal}
           style={{ zIndex: 9999 }}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full animate-scale-in max-h-[90vh] overflow-y-auto relative"
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full modal-content-in max-h-[90vh] overflow-y-auto relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close X Button */}
             <button
-              onClick={() => setSelectedUser(null)}
+              onClick={closeModal}
               className="absolute top-4 right-4 z-10 p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 hover:scale-110"
               aria-label="Close modal"
             >
@@ -423,40 +485,120 @@ export const UserManagementPage: React.FC = () => {
             </button>
 
             <div className="p-8">
-              <h2 className="text-2xl font-bold text-slate-900 mb-6 pr-8">User Details</h2>
+              <h2 className="text-2xl font-bold text-slate-900 mb-6 pr-8">
+                {isEditing ? 'Edit User Details' : 'User Details'}
+              </h2>
               
-              <div className="flex items-center space-x-4 mb-8">
-                <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-xl font-medium text-purple-600">
-                    {selectedUser.first_name.charAt(0)}{selectedUser.last_name.charAt(0)}
-                  </span>
+              {isEditing ? (
+                <div className="space-y-4 mb-8">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">First Name</label>
+                      <input
+                        type="text"
+                        value={editFirstName}
+                        onChange={(e) => setEditFirstName(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Middle Name</label>
+                      <input
+                        type="text"
+                        value={editMiddleName}
+                        onChange={(e) => setEditMiddleName(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="Optional"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">Last Name</label>
+                      <input
+                        type="text"
+                        value={editLastName}
+                        onChange={(e) => setEditLastName(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <p className="text-slate-500 text-sm">Email: <strong className="text-slate-700">{selectedUser.email}</strong> (Cannot be changed)</p>
                 </div>
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-900">
-                    {selectedUser.first_name} {selectedUser.middle_name} {selectedUser.last_name}
-                  </h3>
-                  <p className="text-slate-600">{selectedUser.email}</p>
+              ) : (
+                <div className="flex items-center space-x-4 mb-8">
+                  <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
+                    <span className="text-xl font-medium text-purple-600">
+                      {selectedUser.first_name.charAt(0)}{selectedUser.last_name.charAt(0)}
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-semibold text-slate-900">
+                      {selectedUser.first_name} {selectedUser.middle_name} {selectedUser.last_name}
+                    </h3>
+                    <p className="text-slate-600">{selectedUser.email}</p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">ID Number</label>
-                  <p className="text-slate-900 font-medium">{selectedUser.id_number || 'Not provided'}</p>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      value={editIdNumber}
+                      onChange={(e) => setEditIdNumber(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      placeholder="e.g. 123456789"
+                    />
+                  ) : (
+                    <p className="text-slate-900 font-medium">{selectedUser.id_number || 'Not provided'}</p>
+                  )}
                 </div>
                 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Role</label>
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(getDisplayRole(selectedUser))}`}>
-                    {getDisplayRole(selectedUser).charAt(0).toUpperCase() + getDisplayRole(selectedUser).slice(1)}
-                  </span>
+                  {isEditing ? (
+                    <select
+                      value={editRole}
+                      onChange={(e) => setEditRole(e.target.value as any)}
+                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
+                    >
+                      <option value="user">User</option>
+                      <option value="member">Member</option>
+                      <option value="staff">Staff</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  ) : (
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(getDisplayRole(selectedUser))}`}>
+                      {getDisplayRole(selectedUser).charAt(0).toUpperCase() + getDisplayRole(selectedUser).slice(1)}
+                    </span>
+                  )}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Course & Year</label>
-                  <p className="text-slate-900 font-medium">
-                    {selectedUser.course && selectedUser.year ? `${selectedUser.course} - ${selectedUser.year}` : 'Not provided'}
-                  </p>
+                  {isEditing ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editCourse}
+                        onChange={(e) => setEditCourse(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="Course (e.g. HM, BSIT)"
+                      />
+                      <input
+                        type="text"
+                        value={editYear}
+                        onChange={(e) => setEditYear(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                        placeholder="Year (e.g. 1st, 2nd)"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-slate-900 font-medium">
+                      {selectedUser.course && selectedUser.year ? `${selectedUser.course} - ${selectedUser.year}` : 'Not provided'}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -465,13 +607,47 @@ export const UserManagementPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-8 pt-6 border-t border-slate-200 flex justify-end">
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
-                >
-                  Close
-                </button>
+              <div className="mt-8 pt-6 border-t border-slate-200 flex justify-end space-x-3">
+                {isEditing ? (
+                  <>
+                    <button
+                      onClick={() => setIsEditing(false)}
+                      className="px-6 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium"
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleSaveUser}
+                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium flex items-center gap-2"
+                      disabled={saving}
+                    >
+                      {saving ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          Saving...
+                        </>
+                      ) : (
+                        'Save Changes'
+                      )}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => startEditing(selectedUser)}
+                      className="px-6 py-2.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg transition-colors font-medium"
+                    >
+                      Edit Details
+                    </button>
+                    <button
+                      onClick={closeModal}
+                      className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors font-medium"
+                    >
+                      Close
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

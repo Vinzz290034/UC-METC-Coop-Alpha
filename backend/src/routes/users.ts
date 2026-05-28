@@ -152,7 +152,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { first_name, last_name, role } = req.body;
+    const { first_name, middle_name, last_name, role, id_number, course, year } = req.body;
 
     // Users can only update their own profile unless admin/staff
     if (req.user?.id !== id && !isAdminOrStaff(req.user?.role)) {
@@ -163,15 +163,40 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     const values: any[] = [];
     let paramCount = 1;
 
-    if (first_name) {
+    if (first_name !== undefined) {
       updates.push(`first_name = $${paramCount}`);
       values.push(first_name);
       paramCount++;
     }
 
-    if (last_name) {
+    if (middle_name !== undefined) {
+      updates.push(`middle_name = $${paramCount}`);
+      values.push(middle_name);
+      paramCount++;
+    }
+
+    if (last_name !== undefined) {
       updates.push(`last_name = $${paramCount}`);
       values.push(last_name);
+      paramCount++;
+    }
+
+    if (id_number !== undefined) {
+      // Clear id_number if empty string
+      updates.push(`id_number = $${paramCount}`);
+      values.push(id_number || null);
+      paramCount++;
+    }
+
+    if (course !== undefined) {
+      updates.push(`course = $${paramCount}`);
+      values.push(course || null);
+      paramCount++;
+    }
+
+    if (year !== undefined) {
+      updates.push(`year = $${paramCount}`);
+      values.push(year || null);
       paramCount++;
     }
 
@@ -186,13 +211,17 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
     }
 
     values.push(id);
-    const query_str = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, email, first_name, last_name, role, membership_status`;
+    const query_str = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, email, first_name, middle_name, last_name, role, course, year, membership_status`;
 
     const result = await query(query_str, values);
 
     if (result.rows.length === 0) {
       return res.status(404).json({ message: 'User not found' });
     }
+    
+    // Invalidate user cache to ensure immediate updates across system
+    invalidateUserCache(id);
+
     res.json({ message: 'User updated successfully', user: result.rows[0] });
   } catch (err) {
     console.error('Error updating user:', err);
