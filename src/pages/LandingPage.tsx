@@ -132,11 +132,23 @@ const styles = `
   .zoom-in-animation { animation: zoom-in 0.8s ease-out forwards; }
   
   .blob-pulse-green {
-    animation: glow-pulse-scale 6s ease-in-out infinite, float 10s ease-in-out infinite;
+    animation: blob-glow-pulse 5s ease-in-out infinite;
   }
   
   .blob-pulse-purple {
-    animation: glow-pulse-scale-alt 6s ease-in-out infinite, float-slow 12s ease-in-out infinite;
+    animation: blob-glow-pulse 5s ease-in-out infinite;
+    animation-delay: 2.5s;
+  }
+
+  @keyframes blob-glow-pulse {
+    0%, 100% {
+      opacity: 0.35;
+      transform: scale(0.9) translate(0px, 0px);
+    }
+    50% {
+      opacity: 0.95;
+      transform: scale(1.15) translate(15px, -15px);
+    }
   }
   
   @keyframes hero-fade-scale {
