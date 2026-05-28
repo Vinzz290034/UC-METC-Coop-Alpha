@@ -3,10 +3,9 @@ import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import dns from 'dns';
+import net from 'net';
 import { promisify } from 'util';
 import emailValidator from 'email-validator';
-// @ts-ignore
-import emailExistence from 'email-existence';
 import { config } from '../config/config.js';
 import { query } from '../config/database.js';
 import { User, AuthPayload } from '../types/index.js';
@@ -19,25 +18,86 @@ const resetCodes = new Map<string, { code: string; email: string; expiresAt: num
 
 const resolveMx = promisify(dns.resolveMx);
 
-// Helper function to verify if the email inbox actually exists using email-existence
-const verifyEmailInboxExists = (email: string): Promise<boolean> => {
-  // Production serverless/cloud environments (Render, Vercel, etc.) strictly block outbound port 25.
-  // Therefore, we bypass this check in production to prevent blocking legitimate users,
-  // while keeping it active in development to allow testing.
-  if (process.env.NODE_ENV === 'production') {
-    return Promise.resolve(true);
-  }
-
-  return new Promise((resolve) => {
-    emailExistence.check(email, (error: any, response: boolean) => {
-      if (error) {
-        console.warn('[Email Existence Check Error]:', error);
-        resolve(true); // Fallback to true on network/resolver error to prevent blocking users
-      } else {
-        resolve(response);
-      }
+// Helper function to verify if the email inbox actually exists using a custom SMTP handshake probe.
+// Unlike third-party libraries, this helper correctly distinguishes between:
+// 1. A legitimate network block/timeout (such as outbound port 25 blocked in cloud environments like Render/Vercel)
+// 2. An explicit "550 Mailbox does not exist" response from the mail exchange server.
+const verifyEmailInboxExists = async (email: string): Promise<boolean> => {
+  try {
+    const domain = email.split('@')[1];
+    const mxRecords = await resolveMx(domain);
+    if (!mxRecords || mxRecords.length === 0) {
+      return false;
+    }
+    
+    // Sort by priority (lowest value has highest priority)
+    mxRecords.sort((a, b) => a.priority - b.priority);
+    const host = mxRecords[0].exchange;
+    
+    return new Promise((resolve) => {
+      const socket = net.createConnection(25, host);
+      socket.setTimeout(4000); // 4 seconds connection/read timeout
+      
+      let step = 0;
+      let ended = false;
+      
+      const end = (result: boolean) => {
+        if (ended) return;
+        ended = true;
+        socket.destroy();
+        resolve(result);
+      };
+      
+      socket.on('connect', () => {
+        // Connection established successfully - Port 25 is open!
+      });
+      
+      socket.on('data', (data) => {
+        const str = data.toString();
+        
+        if (step === 0) {
+          // SMTP Banner (starts with 220)
+          socket.write(`HELO ${domain}\r\n`);
+          step = 1;
+        } else if (step === 1) {
+          // Response to HELO
+          socket.write(`MAIL FROM:<test@${domain}>\r\n`);
+          step = 2;
+        } else if (step === 2) {
+          // Response to MAIL FROM
+          socket.write(`RCPT TO:<${email}>\r\n`);
+          step = 3;
+        } else if (step === 3) {
+          // Response to RCPT TO
+          // 250 is successful.
+          // 550, 551, 552, 553, 554, etc. indicate the mailbox is invalid or disabled.
+          if (str.startsWith('250') || str.includes(' 250 ') || str.includes('\n250 ')) {
+            end(true);
+          } else if (str.startsWith('550') || str.includes(' 550 ') || str.includes('\n550 ') ||
+                     str.startsWith('551') || str.startsWith('552') || str.startsWith('553')) {
+            end(false); // Valid domain, but mailbox definitely does not exist
+          } else {
+            // Other status code, assume safe/valid
+            end(true);
+          }
+        }
+      });
+      
+      socket.on('error', (err) => {
+        // Port 25 is blocked or server is unreachable.
+        // Fallback to true (allow the email) rather than blocking legitimate users in production.
+        console.warn(`[SMTP Check Bypassed - Port 25 Blocked or Network Error]:`, err.message);
+        end(true);
+      });
+      
+      socket.on('timeout', () => {
+        console.warn(`[SMTP Check Bypassed - Timeout connecting to ${host}]`);
+        end(true);
+      });
     });
-  });
+  } catch (err) {
+    return true; // Graceful fallback on DNS or parsing issues
+  }
 };
 
 // Helper function to verify email domain exists (checks MX records)

@@ -59,4 +59,3 @@ public/videos/*.mp4
 # Admin/Staff creation & user update scripts (keep local only)
 backend/create-admin.js
 backend/create-staff.js
-backend/update-user.js
