@@ -21,6 +21,13 @@ const resolveMx = promisify(dns.resolveMx);
 
 // Helper function to verify if the email inbox actually exists using email-existence
 const verifyEmailInboxExists = (email: string): Promise<boolean> => {
+  // Production serverless/cloud environments (Render, Vercel, etc.) strictly block outbound port 25.
+  // Therefore, we bypass this check in production to prevent blocking legitimate users,
+  // while keeping it active in development to allow testing.
+  if (process.env.NODE_ENV === 'production') {
+    return Promise.resolve(true);
+  }
+
   return new Promise((resolve) => {
     emailExistence.check(email, (error: any, response: boolean) => {
       if (error) {
