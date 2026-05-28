@@ -123,6 +123,20 @@ class ApiClient {
     });
   }
 
+  async verifyEmail(email: string, code: string) {
+    return this.request<any>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    });
+  }
+
+  async resendVerification(email: string) {
+    return this.request<any>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  }
+
   async verifyResetCode(email: string, code: string) {
     return this.request<any>('/auth/verify-reset-code', {
       method: 'POST',

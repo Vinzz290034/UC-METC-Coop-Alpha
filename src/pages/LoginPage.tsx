@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiClient } from '../services/api';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
@@ -45,6 +46,15 @@ export const LoginPage: React.FC = () => {
   const [course, setCourse] = useState('');
   const [year, setYear] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Email Verification OTP States
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationError, setVerificationError] = useState('');
+  const [verificationSuccess, setVerificationSuccess] = useState('');
+  const [verificationLoading, setVerificationLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Auto-select student login on mobile
   useEffect(() => {
@@ -202,6 +212,13 @@ export const LoginPage: React.FC = () => {
 
       await register(signupData);
       
+      // Show email verification modal
+      setVerificationEmail(email);
+      setVerificationError('');
+      setVerificationSuccess('');
+      setVerificationCode('');
+      setShowVerification(true);
+
       // Clear form
       setIdNumber('');
       setFirstName('');
@@ -212,16 +229,53 @@ export const LoginPage: React.FC = () => {
       setYear('');
       setPassword('');
       setConfirmPassword('');
-      
-      // Show success notification
-      showNotification('Account created successfully! Please log in with your credentials.', 'success');
-      
-      // Simply switch to login form - no page reload needed!
-      handleFormTypeChange('login');
     } catch (err: any) {
       setError(err.message || 'Registration failed. Please try again.');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setVerificationError('');
+    setVerificationLoading(true);
+    try {
+      if (!verificationCode || verificationCode.length !== 6) {
+        setVerificationError('Please enter the 6-digit verification code.');
+        return;
+      }
+      await apiClient.verifyEmail(verificationEmail, verificationCode);
+      setVerificationSuccess('Email verified! Redirecting to login...');
+      setShowVerification(false);
+      showNotification('Account verified! Please log in with your credentials.', 'success');
+      handleFormTypeChange('login');
+    } catch (err: any) {
+      setVerificationError(err.message || 'Invalid or expired code. Please try again.');
+    } finally {
+      setVerificationLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    if (resendCooldown > 0) return;
+    setVerificationError('');
+    setVerificationLoading(true);
+    try {
+      await apiClient.resendVerification(verificationEmail);
+      setVerificationSuccess('New code sent! Check your inbox.');
+      // Start 60-second cooldown
+      setResendCooldown(60);
+      const interval = setInterval(() => {
+        setResendCooldown(prev => {
+          if (prev <= 1) { clearInterval(interval); return 0; }
+          return prev - 1;
+        });
+      }, 1000);
+    } catch (err: any) {
+      setVerificationError(err.message || 'Failed to resend code. Please try again.');
+    } finally {
+      setVerificationLoading(false);
     }
   };
 
@@ -326,6 +380,102 @@ export const LoginPage: React.FC = () => {
       }}
     >
       {isTransitioning && <LoginTransition />}
+      
+      {/* Email Verification OTP Modal */}
+      {showVerification && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-[scale-in_0.25s_ease-out]">
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-6 text-white text-center">
+              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 14a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 3h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 10.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 17.92z"/><path d="M14.05 2a9 9 0 0 1 8 7.94"/><path d="M14.05 6A5 5 0 0 1 18 10"/></svg>
+              </div>
+              <h2 className="text-xl font-bold">Verify Your Email</h2>
+              <p className="text-purple-100 text-sm mt-1">We sent a 6-digit code to</p>
+              <p className="font-semibold text-sm mt-1 bg-white/20 rounded-lg px-3 py-1 inline-block">{verificationEmail}</p>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              <form onSubmit={handleVerifyEmail} className="space-y-4">
+                {/* OTP Code Input */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-2 text-center">Enter Verification Code</label>
+                  <input
+                    id="otp-verification-code"
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={verificationCode}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, '');
+                      setVerificationCode(val);
+                      setVerificationError('');
+                    }}
+                    placeholder="000000"
+                    className="w-full text-center text-3xl font-bold tracking-[0.5em] border-2 border-slate-200 rounded-xl px-4 py-4 focus:border-purple-500 focus:outline-none transition-colors text-purple-700"
+                    autoFocus
+                    autoComplete="one-time-code"
+                  />
+                </div>
+
+                {/* Error */}
+                {verificationError && (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 text-center">
+                    {verificationError}
+                  </div>
+                )}
+
+                {/* Success */}
+                {verificationSuccess && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 text-center">
+                    {verificationSuccess}
+                  </div>
+                )}
+
+                {/* Verify Button */}
+                <button
+                  id="otp-verify-button"
+                  type="submit"
+                  disabled={verificationLoading || verificationCode.length !== 6}
+                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all duration-200 active:scale-95"
+                >
+                  {verificationLoading ? 'Verifying...' : 'Verify Email'}
+                </button>
+
+                {/* Resend + Cancel */}
+                <div className="flex items-center justify-between text-sm pt-1">
+                  <button
+                    type="button"
+                    onClick={handleResendCode}
+                    disabled={resendCooldown > 0 || verificationLoading}
+                    className="text-purple-600 hover:underline disabled:text-slate-400 disabled:no-underline disabled:cursor-not-allowed transition-colors"
+                  >
+                    {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend Code'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowVerification(false);
+                      setVerificationCode('');
+                      setVerificationError('');
+                      setVerificationSuccess('');
+                    }}
+                    className="text-slate-500 hover:text-slate-700 hover:underline transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+
+              <p className="text-xs text-slate-500 text-center mt-4">
+                Didn't receive the email? Check your spam folder or resend above.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Green to White to Purple Overlay */}
       <div className="absolute inset-0 bg-gradient-to-b from-green-400/60 via-white/30 to-purple-900/70"></div>
       {/* Back Button */}

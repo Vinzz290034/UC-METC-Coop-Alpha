@@ -14,6 +14,7 @@ CREATE TABLE IF NOT EXISTS users (
   role VARCHAR(50) NOT NULL DEFAULT 'user' CHECK (role IN ('admin', 'staff', 'user')),
   membership_status VARCHAR(50) NOT NULL DEFAULT 'none' CHECK (membership_status IN ('none', 'pending', 'approved', 'rejected')),
   status VARCHAR(50) NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+  email_verified BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

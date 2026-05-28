@@ -1,4 +1,4 @@
-export type UserRole = 'admin' | 'cashier' | 'locker_officer' | 'inventory_officer' | 'manager' | 'member';
+export type UserRole = 'admin' | 'staff' | 'user' | 'cashier' | 'locker_officer' | 'inventory_officer' | 'manager' | 'member';
 
 export interface User {
   id: string;
@@ -10,6 +10,7 @@ export interface User {
   last_name: string;
   role: UserRole;
   status: 'active' | 'inactive';
+  email_verified?: boolean;
   course?: string;
   year?: string;
   created_at: Date;

@@ -3,7 +3,6 @@ import bcryptjs from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import dns from 'dns';
-import net from 'net';
 import { promisify } from 'util';
 import emailValidator from 'email-validator';
 import { config } from '../config/config.js';
@@ -16,89 +15,10 @@ const router = Router();
 // Store reset codes temporarily (in production, use Redis or database)
 const resetCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
 
-const resolveMx = promisify(dns.resolveMx);
+// Store email verification codes temporarily
+const emailVerificationCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
 
-// Helper function to verify if the email inbox actually exists using a custom SMTP handshake probe.
-// Unlike third-party libraries, this helper correctly distinguishes between:
-// 1. A legitimate network block/timeout (such as outbound port 25 blocked in cloud environments like Render/Vercel)
-// 2. An explicit "550 Mailbox does not exist" response from the mail exchange server.
-const verifyEmailInboxExists = async (email: string): Promise<boolean> => {
-  try {
-    const domain = email.split('@')[1];
-    const mxRecords = await resolveMx(domain);
-    if (!mxRecords || mxRecords.length === 0) {
-      return false;
-    }
-    
-    // Sort by priority (lowest value has highest priority)
-    mxRecords.sort((a, b) => a.priority - b.priority);
-    const host = mxRecords[0].exchange;
-    
-    return new Promise((resolve) => {
-      const socket = net.createConnection(25, host);
-      socket.setTimeout(4000); // 4 seconds connection/read timeout
-      
-      let step = 0;
-      let ended = false;
-      
-      const end = (result: boolean) => {
-        if (ended) return;
-        ended = true;
-        socket.destroy();
-        resolve(result);
-      };
-      
-      socket.on('connect', () => {
-        // Connection established successfully - Port 25 is open!
-      });
-      
-      socket.on('data', (data) => {
-        const str = data.toString();
-        
-        if (step === 0) {
-          // SMTP Banner (starts with 220)
-          socket.write(`HELO ${domain}\r\n`);
-          step = 1;
-        } else if (step === 1) {
-          // Response to HELO
-          socket.write(`MAIL FROM:<test@${domain}>\r\n`);
-          step = 2;
-        } else if (step === 2) {
-          // Response to MAIL FROM
-          socket.write(`RCPT TO:<${email}>\r\n`);
-          step = 3;
-        } else if (step === 3) {
-          // Response to RCPT TO
-          // 250 is successful.
-          // 550, 551, 552, 553, 554, etc. indicate the mailbox is invalid or disabled.
-          if (str.startsWith('250') || str.includes(' 250 ') || str.includes('\n250 ')) {
-            end(true);
-          } else if (str.startsWith('550') || str.includes(' 550 ') || str.includes('\n550 ') ||
-                     str.startsWith('551') || str.startsWith('552') || str.startsWith('553')) {
-            end(false); // Valid domain, but mailbox definitely does not exist
-          } else {
-            // Other status code, assume safe/valid
-            end(true);
-          }
-        }
-      });
-      
-      socket.on('error', (err) => {
-        // Port 25 is blocked or server is unreachable.
-        // Fallback to true (allow the email) rather than blocking legitimate users in production.
-        console.warn(`[SMTP Check Bypassed - Port 25 Blocked or Network Error]:`, err.message);
-        end(true);
-      });
-      
-      socket.on('timeout', () => {
-        console.warn(`[SMTP Check Bypassed - Timeout connecting to ${host}]`);
-        end(true);
-      });
-    });
-  } catch (err) {
-    return true; // Graceful fallback on DNS or parsing issues
-  }
-};
+const resolveMx = promisify(dns.resolveMx);
 
 // Helper function to verify email domain exists (checks MX records)
 const verifyEmailDomainExists = async (email: string): Promise<boolean> => {
@@ -109,6 +29,14 @@ const verifyEmailDomainExists = async (email: string): Promise<boolean> => {
   } catch (err) {
     return false;
   }
+};
+
+// Helper: wrap a promise with a timeout to prevent hanging
+const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallbackValue), ms))
+  ]);
 };
 
 router.post('/login', async (req: Request, res: Response) => {
@@ -139,6 +67,15 @@ router.post('/login', async (req: Request, res: Response) => {
     if (user.status !== 'active') {
       return res.status(403).json({ 
         message: 'Your account has been deactivated. Please contact an administrator for assistance.' 
+      });
+    }
+
+    // Check if email is verified (only for student/user accounts, not admin/staff)
+    if (user.role === 'user' && (user as any).email_verified === false) {
+      return res.status(403).json({ 
+        message: 'Please verify your email address before logging in. Check your inbox for the verification code.',
+        requiresVerification: true,
+        email: user.email
       });
     }
 
@@ -199,14 +136,6 @@ router.post('/register', async (req: Request, res: Response) => {
       });
     }
 
-    // Verify email inbox actually exists (SMTP handshake check)
-    const inboxExists = await verifyEmailInboxExists(email);
-    if (!inboxExists) {
-      return res.status(400).json({
-        message: 'This email address does not exist or is inactive. Please use a valid, active email address.'
-      });
-    }
-
     // Check if email already exists
     const checkUser = await query('SELECT id FROM users WHERE email = $1', [email]);
     if (checkUser.rows.length > 0) {
@@ -224,16 +153,32 @@ router.post('/register', async (req: Request, res: Response) => {
     const hashedPassword = await bcryptjs.hash(password, 10);
     const userRole = role || 'member';
 
+    // Create user with email_verified = false
     const result = await query(
-      'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id, id_number, email, first_name, middle_name, last_name, role, course, year',
-      [id_number || null, email, hashedPassword, first_name, middle_name || null, last_name, userRole, 'active', req.body.course || null, req.body.year || null]
+      'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id, id_number, email, first_name, middle_name, last_name, role, course, year',
+      [id_number || null, email, hashedPassword, first_name, middle_name || null, last_name, userRole, 'active', req.body.course || null, req.body.year || null, false]
     );
 
     const newUser = result.rows[0];
 
+    // Generate 6-digit verification code and send it
+    const verificationCode = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+    emailVerificationCodes.set(email, { code: verificationCode, email, expiresAt });
+
+    // Send verification email (don't block registration if email fails)
+    const emailSent = await withTimeout(
+      emailService.sendVerificationEmail(email, verificationCode, first_name),
+      10000, // 10 second timeout
+      false
+    );
+
+    console.log(`[REGISTER] User ${email} created. Verification email sent: ${emailSent}`);
 
     res.status(201).json({
-      message: 'Account created successfully! Please log in with your credentials.',
+      message: 'Account created! Please check your email for the verification code.',
+      requiresVerification: true,
+      email: newUser.email,
       user: {
         id: newUser.id,
         id_number: newUser.id_number,
@@ -245,9 +190,98 @@ router.post('/register', async (req: Request, res: Response) => {
         course: newUser.course,
         year: newUser.year,
       },
+      ...(process.env.NODE_ENV === 'development' && { verificationCode })
     });
   } catch (err) {
+    console.error('[REGISTER ERROR]:', err);
     res.status(500).json({ message: 'Registration failed' });
+  }
+});
+
+// Verify email with OTP code
+router.post('/verify-email', async (req: Request, res: Response) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({ message: 'Email and verification code are required' });
+    }
+
+    const storedData = emailVerificationCodes.get(email);
+
+    if (!storedData) {
+      return res.status(400).json({ message: 'Invalid or expired verification code. Please request a new one.' });
+    }
+
+    if (storedData.expiresAt < Date.now()) {
+      emailVerificationCodes.delete(email);
+      return res.status(400).json({ message: 'Verification code has expired. Please request a new one.' });
+    }
+
+    if (storedData.code !== code) {
+      return res.status(400).json({ message: 'Invalid verification code. Please check and try again.' });
+    }
+
+    // Mark email as verified in database
+    await query('UPDATE users SET email_verified = true, updated_at = NOW() WHERE email = $1', [email]);
+
+    // Remove used code
+    emailVerificationCodes.delete(email);
+
+    res.json({ message: 'Email verified successfully! You can now log in.' });
+  } catch (err) {
+    console.error('[VERIFY EMAIL ERROR]:', err);
+    res.status(500).json({ message: 'Failed to verify email' });
+  }
+});
+
+// Resend verification code
+router.post('/resend-verification', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ message: 'Email is required' });
+    }
+
+    // Check if user exists and is unverified
+    const result = await query('SELECT id, first_name, email_verified FROM users WHERE email = $1', [email]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'No account found with this email address.' });
+    }
+
+    const user = result.rows[0];
+
+    if (user.email_verified) {
+      return res.status(400).json({ message: 'This email is already verified. You can log in.' });
+    }
+
+    // Generate new 6-digit verification code
+    const verificationCode = crypto.randomInt(100000, 999999).toString();
+    const expiresAt = Date.now() + 15 * 60 * 1000; // 15 minutes
+    emailVerificationCodes.set(email, { code: verificationCode, email, expiresAt });
+
+    // Send verification email with timeout
+    const emailSent = await withTimeout(
+      emailService.sendVerificationEmail(email, verificationCode, user.first_name),
+      10000,
+      false
+    );
+
+    if (!emailSent) {
+      return res.status(500).json({ 
+        message: 'Failed to send verification email. Please try again later.' 
+      });
+    }
+
+    res.json({ 
+      message: 'New verification code sent! Please check your inbox.',
+      ...(process.env.NODE_ENV === 'development' && { verificationCode })
+    });
+  } catch (err) {
+    console.error('[RESEND VERIFICATION ERROR]:', err);
+    res.status(500).json({ message: 'Failed to resend verification code' });
   }
 });
 
@@ -265,20 +299,10 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Please enter a valid email address' });
     }
 
-    // Verify email domain actually exists (check MX records)
-    const domainExists = await verifyEmailDomainExists(email);
-    
-    if (!domainExists) {
-      return res.status(400).json({ 
-        message: 'This email domain does not exist. Please check your email address and try again.' 
-      });
-    }
-
     // Check if user exists in database
     const result = await query('SELECT id, email, first_name, last_name FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
-      // Email exists on internet but not in our database
       return res.status(404).json({ 
         message: 'No account found with this email address. Please register first.' 
       });
@@ -294,7 +318,13 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     resetCodes.set(email, { code: resetCode, email, expiresAt });
 
     const userName = `${user.first_name} ${user.last_name}`;
-    const emailSent = await emailService.sendPasswordResetEmail(email, resetCode, userName);
+    
+    // Send email with a 15-second timeout to prevent hanging
+    const emailSent = await withTimeout(
+      emailService.sendPasswordResetEmail(email, resetCode, userName),
+      15000,
+      false
+    );
 
     if (!emailSent) {
       return res.status(500).json({ 
@@ -307,6 +337,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
       ...(process.env.NODE_ENV === 'development' && { resetCode })
     });
   } catch (err) {
+    console.error('[FORGOT PASSWORD ERROR]:', err);
     res.status(500).json({ message: 'Failed to process password reset request' });
   }
 });
