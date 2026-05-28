@@ -50,6 +50,7 @@ export async function testConnection() {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS course VARCHAR(100)');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_completed BOOLEAN NOT NULL DEFAULT false');
     
     // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
     try {

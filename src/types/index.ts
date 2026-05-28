@@ -13,6 +13,7 @@ export interface User {
   course?: string; // For user/student role
   year?: string; // For user/student role (e.g., "1st Year", "2nd Year")
   membership_status?: 'approved' | 'pending' | 'rejected'; // Membership status
+  tour_completed?: boolean;
 }
 
 // Member Types

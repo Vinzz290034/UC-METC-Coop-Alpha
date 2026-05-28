@@ -41,7 +41,7 @@ export const StudentDashboard: React.FC = () => {
   useEffect(() => {
     if (user?.id) {
       const tourKey = `welcome_tour_completed_${user.id}`;
-      const hasSeenTour = localStorage.getItem(tourKey);
+      const hasSeenTour = localStorage.getItem(tourKey) || (user.tour_completed ? 'true' : null);
       
       if (!hasSeenTour) {
         // Show tour after a short delay for better UX
@@ -49,16 +49,27 @@ export const StudentDashboard: React.FC = () => {
           setShowWelcomeTour(true);
         }, 500);
         return () => clearTimeout(timer);
+      } else if (!user.tour_completed && hasSeenTour === 'true') {
+        // LocalStorage says seen but DB does not know yet; sync it silently in background
+        apiClient.updateUser(user.id, { tour_completed: true }).catch(err => {
+          console.error('Failed to sync tour completion with database:', err);
+        });
       }
     }
-  }, [user?.id]);
+  }, [user?.id, user?.tour_completed]);
 
   // Handle tour completion
-  const handleTourComplete = () => {
+  const handleTourComplete = async () => {
     if (user?.id) {
       const tourKey = `welcome_tour_completed_${user.id}`;
       localStorage.setItem(tourKey, 'true');
       setShowWelcomeTour(false);
+      try {
+        await apiClient.updateUser(user.id, { tour_completed: true });
+        refreshUser();
+      } catch (error) {
+        console.error('Failed to save tour completion to database:', error);
+      }
     }
   };
 

@@ -22,7 +22,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
     }
 
     const result = await query(
-      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at FROM users WHERE id = $1',
+      'SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, tour_completed, created_at FROM users WHERE id = $1',
       [userId]
     );
 
@@ -43,6 +43,7 @@ router.get('/me', authMiddleware, async (req: Request, res: Response) => {
       year: user.year,
       membership_status: user.membership_status,
       status: user.status,
+      tour_completed: user.tour_completed,
       created_at: user.created_at
     });
   } catch (err) {
@@ -152,7 +153,7 @@ router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
 router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { first_name, middle_name, last_name, role, id_number, course, year } = req.body;
+    const { first_name, middle_name, last_name, role, id_number, course, year, tour_completed } = req.body;
 
     // Users can only update their own profile unless admin/staff
     if (req.user?.id !== id && !isAdminOrStaff(req.user?.role)) {
@@ -206,12 +207,18 @@ router.put('/:id', authMiddleware, async (req: Request, res: Response) => {
       paramCount++;
     }
 
+    if (tour_completed !== undefined) {
+      updates.push(`tour_completed = $${paramCount}`);
+      values.push(tour_completed);
+      paramCount++;
+    }
+
     if (updates.length === 0) {
       return res.status(400).json({ message: 'No fields to update' });
     }
 
     values.push(id);
-    const query_str = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, email, first_name, middle_name, last_name, role, course, year, membership_status`;
+    const query_str = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, email, first_name, middle_name, last_name, role, course, year, membership_status, tour_completed`;
 
     const result = await query(query_str, values);
 

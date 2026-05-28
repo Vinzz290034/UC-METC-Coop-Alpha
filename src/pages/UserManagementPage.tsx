@@ -31,6 +31,7 @@ interface User {
   membership_status?: 'approved' | 'pending' | 'rejected';
   created_at: string;
   is_active?: boolean;
+  tour_completed?: boolean;
 }
 
 export const UserManagementPage: React.FC = () => {
