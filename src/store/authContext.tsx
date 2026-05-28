@@ -186,7 +186,103 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     hasRole,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  // Inactivity and Tab switching auto-logout logic
+  const [showForbiddenModal, setShowForbiddenModal] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+
+    const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
+    const TAB_TIMEOUT = 5 * 60 * 1000;  // 5 minutes
+    
+    let lastActivity = Date.now();
+    let hiddenTimestamp: number | null = null;
+
+    const handleActivity = () => {
+      lastActivity = Date.now();
+    };
+
+    // Listeners for idle detection
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      window.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    // Check idle state every 10 seconds
+    const idleCheckInterval = setInterval(() => {
+      if (Date.now() - lastActivity > IDLE_TIMEOUT) {
+        console.warn('[AUTH CONTEXT] User is idle. Triggering auto-logout...');
+        logout();
+        setShowForbiddenModal(true);
+      }
+    }, 10000);
+
+    // Visibility change detection
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        hiddenTimestamp = Date.now();
+      } else if (document.visibilityState === 'visible') {
+        if (hiddenTimestamp) {
+          const durationAway = Date.now() - hiddenTimestamp;
+          if (durationAway > TAB_TIMEOUT) {
+            console.warn('[AUTH CONTEXT] Tab was hidden too long. Triggering auto-logout...');
+            logout();
+            setShowForbiddenModal(true);
+          }
+          hiddenTimestamp = null;
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      events.forEach(event => {
+        window.removeEventListener(event, handleActivity);
+      });
+      clearInterval(idleCheckInterval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [user, logout]);
+
+  const handleModalClose = () => {
+    setShowForbiddenModal(false);
+    window.location.href = '/login';
+  };
+
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {showForbiddenModal && <ForbiddenModal onClose={handleModalClose} />}
+    </AuthContext.Provider>
+  );
+};
+
+// Premium Forbidden/Session Expired Modal Overlay
+const ForbiddenModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-md animate-[modalFadeIn_0.3s_ease-out]">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md w-full mx-4 border border-slate-100 text-center animate-[scaleIn_0.3s_ease-out]">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-red-100 animate-pulse">
+          <svg className="w-8 h-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m0-8V5m0 16a9 9 0 110-18 9 9 0 010 18z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold text-slate-900 mb-2">Access Forbidden</h3>
+        <p className="text-slate-600 mb-6 text-sm leading-relaxed">
+          For your security, your session has been terminated because you were inactive or away from this tab for too long.
+        </p>
+        <button
+          onClick={onClose}
+          className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-semibold shadow-lg hover:shadow-purple-500/20 transition-all duration-200"
+        >
+          Log Back In
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export const useAuth = () => {
