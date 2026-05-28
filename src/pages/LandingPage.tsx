@@ -130,6 +130,15 @@ const styles = `
   .btn-glow-green:hover { box-shadow: 0 8px 25px rgba(22, 163, 74, 0.4), 0 0 20px rgba(22, 163, 74, 0.2); }
   .btn-glow-purple:hover { animation: button-glow-purple 1.5s ease-in-out infinite; }
   .zoom-in-animation { animation: zoom-in 0.8s ease-out forwards; }
+  
+  .blob-pulse-green {
+    animation: glow-pulse-scale 6s ease-in-out infinite, float 10s ease-in-out infinite;
+  }
+  
+  .blob-pulse-purple {
+    animation: glow-pulse-scale-alt 6s ease-in-out infinite, float-slow 12s ease-in-out infinite;
+  }
+  
   @keyframes hero-fade-scale {
     0% { transform: scale(0.92) translateY(20px); opacity: 0; }
     100% { transform: scale(1) translateY(0); opacity: 1; }
@@ -445,8 +454,8 @@ export const LandingPage: React.FC = () => {
         <section className="relative pt-20 sm:pt-32 lg:pt-40 pb-16 sm:pb-24 lg:pb-32 px-4 sm:px-6">
           {/* Animated Background Pattern */}
           <div className="absolute inset-0 opacity-80 pointer-events-none z-0">
-            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-green-400 to-green-300 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-tl from-purple-400 to-purple-300 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-green-400 to-green-300 rounded-full blur-3xl blob-pulse-green"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-tl from-purple-400 to-purple-300 rounded-full blur-3xl blob-pulse-purple" style={{ animationDelay: '1s' }}></div>
           </div>
           
           <div className="max-w-6xl mx-auto relative z-10 fade-in-up-animation">
