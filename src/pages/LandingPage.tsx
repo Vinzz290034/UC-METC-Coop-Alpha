@@ -326,11 +326,6 @@ export const LandingPage: React.FC = () => {
       <style>{styles}</style>
       <div className="relative w-full min-h-screen bg-gradient-to-b from-white to-purple-400 text-slate-900 overflow-hidden">
         
-        {/* Animated Background Pattern */}
-        <div className="absolute inset-0 opacity-80 pointer-events-none overflow-hidden">
-          <div className="absolute top-20 left-[-150px] w-96 h-96 bg-gradient-to-br from-green-400 to-green-300 rounded-full blur-3xl animate-pulse"></div>
-          <div className="absolute top-[400px] right-[-150px] w-96 h-96 bg-gradient-to-tl from-purple-400 to-purple-300 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-        </div>
 
         {/* Navigation Bar */}
         <nav className={`fixed top-0 left-0 right-0 z-50 backdrop-blur-md bg-gradient-to-b from-white/40 to-white/10 transition-transform duration-300 ease-in-out ${
@@ -448,6 +443,12 @@ export const LandingPage: React.FC = () => {
  
         {/* Hero Section */}
         <section className="relative pt-20 sm:pt-32 lg:pt-40 pb-16 sm:pb-24 lg:pb-32 px-4 sm:px-6">
+          {/* Animated Background Pattern */}
+          <div className="absolute inset-0 opacity-80 pointer-events-none z-0">
+            <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-br from-green-400 to-green-300 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-gradient-to-tl from-purple-400 to-purple-300 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
+          </div>
+          
           <div className="max-w-6xl mx-auto relative z-10 fade-in-up-animation">
             <div className="text-center">
               <div className="mb-4 sm:mb-6 inline-block">
