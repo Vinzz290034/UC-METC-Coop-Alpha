@@ -383,8 +383,8 @@ export const LoginPage: React.FC = () => {
       
       {/* Email Verification OTP Modal */}
       {showVerification && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-[scale-in_0.25s_ease-out]">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-fade-in" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content-in">
             {/* Modal Header */}
             <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-6 text-white text-center">
               <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">

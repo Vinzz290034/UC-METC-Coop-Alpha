@@ -45,6 +45,22 @@ export async function testConnection() {
 
     await pool.query('SELECT NOW()');
     console.log('✓ Database connected successfully');
+    
+    // Auto-migrate: ensure all required columns exist in the users table
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN NOT NULL DEFAULT true');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS course VARCHAR(100)');
+    await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)');
+    
+    // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
+    try {
+      await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
+      await pool.query("ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin', 'staff', 'user', 'cashier', 'locker_officer', 'inventory_officer', 'manager', 'member'))");
+    } catch (constraintErr) {
+      console.warn('⚠️  Could not update role check constraint (might not exist yet):', constraintErr);
+    }
+    
+    console.log('✓ Database self-healing migrations checked and applied successfully');
+    
     return true;
   } catch (err) {
     console.error('✗ Database connection failed:', err);

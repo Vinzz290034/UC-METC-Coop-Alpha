@@ -249,10 +249,23 @@ router.post('/verify-email', async (req: Request, res: Response) => {
       return res.status(409).json({ message: 'Email already exists. Please log in or reset your password.' });
     }
 
-    await query(
-      'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
-      [rd.id_number, rd.email, rd.hashedPassword, rd.first_name, rd.middle_name, rd.last_name, rd.role, rd.status, rd.course, rd.year, true]
-    );
+    try {
+      await query(
+        'INSERT INTO users (id_number, email, password, first_name, middle_name, last_name, role, status, course, year, email_verified) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)',
+        [rd.id_number, rd.email, rd.hashedPassword, rd.first_name, rd.middle_name, rd.last_name, rd.role, rd.status, rd.course, rd.year, true]
+      );
+    } catch (dbErr: any) {
+      if (dbErr.code === '23505') { // PostgreSQL unique violation code
+        const detail = dbErr.detail || '';
+        if (detail.includes('id_number')) {
+          return res.status(409).json({ message: 'This ID Number is already registered to another account.' });
+        }
+        if (detail.includes('email')) {
+          return res.status(409).json({ message: 'This email address is already registered.' });
+        }
+      }
+      throw dbErr;
+    }
 
     // Remove pending registration
     pendingRegistrations.delete(email);
