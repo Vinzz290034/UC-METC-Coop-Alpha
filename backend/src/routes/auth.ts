@@ -5,6 +5,8 @@ import crypto from 'crypto';
 import dns from 'dns';
 import { promisify } from 'util';
 import emailValidator from 'email-validator';
+// @ts-ignore
+import emailExistence from 'email-existence';
 import { config } from '../config/config.js';
 import { query } from '../config/database.js';
 import { User, AuthPayload } from '../types/index.js';
@@ -16,6 +18,20 @@ const router = Router();
 const resetCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
 
 const resolveMx = promisify(dns.resolveMx);
+
+// Helper function to verify if the email inbox actually exists using email-existence
+const verifyEmailInboxExists = (email: string): Promise<boolean> => {
+  return new Promise((resolve) => {
+    emailExistence.check(email, (error: any, response: boolean) => {
+      if (error) {
+        console.warn('[Email Existence Check Error]:', error);
+        resolve(true); // Fallback to true on network/resolver error to prevent blocking users
+      } else {
+        resolve(response);
+      }
+    });
+  });
+};
 
 // Helper function to verify email domain exists (checks MX records)
 const verifyEmailDomainExists = async (email: string): Promise<boolean> => {
@@ -101,6 +117,27 @@ router.post('/register', async (req: Request, res: Response) => {
 
     if (!email || !password || !first_name || !last_name) {
       return res.status(400).json({ message: 'All fields required' });
+    }
+
+    // Validate email format syntax
+    if (!emailValidator.validate(email)) {
+      return res.status(400).json({ message: 'Please enter a valid email address' });
+    }
+
+    // Verify email domain actually exists (check MX records)
+    const domainExists = await verifyEmailDomainExists(email);
+    if (!domainExists) {
+      return res.status(400).json({ 
+        message: 'This email domain does not exist. Please check your email address and try again.' 
+      });
+    }
+
+    // Verify email inbox actually exists (SMTP handshake check)
+    const inboxExists = await verifyEmailInboxExists(email);
+    if (!inboxExists) {
+      return res.status(400).json({
+        message: 'This email address does not exist or is inactive. Please use a valid, active email address.'
+      });
     }
 
     // Check if email already exists
