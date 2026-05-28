@@ -155,6 +155,15 @@ export const LoginPage: React.FC = () => {
       return;
     }
 
+    // Validate ID number length (exactly 8 digits) for student registrations
+    if (loginMode === 'student') {
+      if (idNumber.length !== 8) {
+        setError('ID Number must be exactly 8 digits');
+        setLoading(false);
+        return;
+      }
+    }
+
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       setLoading(false);
@@ -636,7 +645,8 @@ export const LoginPage: React.FC = () => {
                       <FloatingInput
                         label="ID Number"
                         value={idNumber}
-                        onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, ''))}
+                        onChange={(e) => setIdNumber(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                        maxLength={8}
                         onKeyDown={(e) => {
                           // Allow: backspace, delete, tab, escape, enter, arrows, home, end
                           const allowed = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];

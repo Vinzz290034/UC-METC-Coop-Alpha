@@ -13,6 +13,7 @@ interface FloatingInputProps {
   focusColor?: 'purple' | 'green';
   onKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  maxLength?: number;
 }
 
 export const FloatingInput = React.memo(({
@@ -27,6 +28,7 @@ export const FloatingInput = React.memo(({
   focusColor = 'purple',
   onKeyDown,
   inputMode,
+  maxLength,
 }: FloatingInputProps) => {
   const [isFocused, setIsFocused] = useState(false);
 
@@ -54,6 +56,7 @@ export const FloatingInput = React.memo(({
         onBlur={handleBlur}
         onKeyDown={onKeyDown}
         inputMode={inputMode}
+        maxLength={maxLength}
         placeholder=" "
         className={`peer w-full px-4 pt-6 pb-2 border-2 border-slate-300 rounded-lg text-slate-900 bg-white focus:outline-none focus:ring-2 transition-all duration-200 ${
           focusColor === 'green' 
