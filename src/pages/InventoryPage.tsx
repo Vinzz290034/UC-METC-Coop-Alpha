@@ -308,17 +308,17 @@ export const InventoryPage: React.FC = () => {
   // const lowStockProducts = products.filter((p) => p.stock <= 5);
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-6">
           {/* Desktop Header */}
           <div className="hidden lg:flex justify-between items-center">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">
                 Inventory Management
               </h1>
-              <p className="text-slate-600 mt-2">Manage products and stock levels</p>
+              <p className="text-xs sm:text-sm text-slate-600 mt-2">Manage products and stock levels</p>
             </div>
             {activeTab === 'inventory' && (
               <button
@@ -351,26 +351,26 @@ export const InventoryPage: React.FC = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-xl font-bold text-slate-900">Inventory</h1>
+              <h1 className="text-lg sm:text-xl font-bold text-slate-900">Inventory</h1>
             </div>
-            <p className="text-slate-600 text-sm mb-3">Manage products and stock levels</p>
+            <p className="text-xs sm:text-sm text-slate-600 mb-3">Manage products and stock levels</p>
             <div className="flex justify-end">
               {activeTab === 'inventory' && (
                 <button
                   onClick={() => setShowForm(true)}
-                  className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-all text-sm"
+                  className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-all text-xs sm:text-sm"
                 >
-                  <Plus size={18} />
-                  <span>Add Product</span>
+                  <Plus size={16} className="sm:w-5 sm:h-5" />
+                  <span>Add</span>
                 </button>
               )}
               {activeTab === 'stock-intake' && (
                 <button
                   onClick={() => setShowStockIntakeForm(true)}
-                  className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-sm"
+                  className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm"
                 >
-                  <Plus size={18} />
-                  <span>Record Intake</span>
+                  <Plus size={16} className="sm:w-5 sm:h-5" />
+                  <span>Record</span>
                 </button>
               )}
             </div>

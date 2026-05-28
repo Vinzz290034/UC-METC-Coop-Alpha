@@ -13,7 +13,6 @@ import {
   ShoppingBag,
   ShoppingCart,
   Receipt,
-  Calendar,
   Mail,
   Megaphone,
   Lock,

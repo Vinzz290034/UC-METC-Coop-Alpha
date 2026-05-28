@@ -2,7 +2,6 @@
 // Manages WebSocket connection to backend for real-time notifications
 
 import { io, Socket } from 'socket.io-client';
-import type { Notification } from '../types';
 import { getWebSocketUrl } from '../utils/apiBaseUrl';
 
 const BACKEND_URL = getWebSocketUrl();
@@ -155,7 +154,7 @@ class WebSocketClient {
     });
 
     // Pong response
-    this.socket.on('pong', (data: any) => {
+    this.socket.on('pong', (_data: any) => {
       // Health check response
     });
   }

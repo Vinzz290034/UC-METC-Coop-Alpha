@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Mail, Send, Trash2, Star, X, Plus } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
@@ -25,6 +26,7 @@ export const InboxPage: React.FC = () => {
   const [replyData, setReplyData] = useState({ subject: '', content: '' });
   const [allUsers, setAllUsers] = useState<SystemUser[]>([]);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox');
+  const [animatingStarId, setAnimatingStarId] = useState<string | null>(null);
   const [composeData, setComposeData] = useState({
     recipientType: 'admin' as 'admin' | 'staff' | 'all_users' | 'all_members' | 'all_both' | 'specific_person',
     recipientId: '',
@@ -458,16 +460,40 @@ export const InboxPage: React.FC = () => {
                       })()}
                     </div>
                     <button
-                      onClick={() => toggleFavorite(selectedMessage.id)}
+                      onClick={async () => {
+                        if (!user?.id || !selectedMessage) return;
+                        try {
+                          setAnimatingStarId(selectedMessage.id);
+                          await toggleFavorite(selectedMessage.id, user.id);
+                          showNotification(
+                            selectedMessage.isFavorite ? 'Removed from favorites' : 'Added to favorites',
+                            'success'
+                          );
+                          // Clear animation after it completes
+                          setTimeout(() => setAnimatingStarId(null), 600);
+                        } catch (error) {
+                          showNotification('Failed to toggle favorite', 'error');
+                          setAnimatingStarId(null);
+                        }
+                      }}
                       className="p-2 hover:bg-slate-100 rounded-lg transition"
                     >
-                      <Star
-                        className={`w-6 h-6 ${
-                          selectedMessage.isFavorite
-                            ? 'fill-yellow-400 text-yellow-400'
-                            : 'text-slate-400'
-                        }`}
-                      />
+                      <motion.div
+                        animate={
+                          animatingStarId === selectedMessage?.id
+                            ? { scale: [1, 1.3, 1], rotate: [0, -15, 15, 0] }
+                            : { scale: 1, rotate: 0 }
+                        }
+                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      >
+                        <Star
+                          className={`w-6 h-6 ${
+                            selectedMessage.isFavorite
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-slate-400'
+                          }`}
+                        />
+                      </motion.div>
                     </button>
                   </div>
                 </div>

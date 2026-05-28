@@ -8,7 +8,6 @@ const LANDING_VIDEO_SRC =
   import.meta.env.VITE_LANDING_VIDEO_URL || LANDING_VIDEO_URL;
 import {
   ArrowRight,
-  Box,
   Key,
   Users,
   DollarSign,
@@ -448,16 +447,16 @@ export const LandingPage: React.FC = () => {
         </div>
 
         {/* Hero Section */}
-        <section className="relative pt-40 pb-32 px-6">
+        <section className="relative pt-20 sm:pt-32 lg:pt-40 pb-16 sm:pb-24 lg:pb-32 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto relative z-10 fade-in-up-animation">
             <div className="text-center">
-              <div className="mb-6 inline-block">
-                <span className="inline-block px-4 py-2 bg-green-100 text-green-700 rounded-full text-sm font-semibold">
+              <div className="mb-4 sm:mb-6 inline-block">
+                <span className="inline-block px-3 sm:px-4 py-1.5 sm:py-2 bg-green-100 text-green-700 rounded-full text-xs sm:text-sm font-semibold">
                   Your One-Stop Shop for UC METC School Essentials
                 </span>
               </div>
 
-              <h1 className="text-6xl md:text-7xl font-bold mb-6 leading-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
                 <span className="block">Shop Smart,</span>
                 <span className="block bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
                   <TypingEffect
@@ -470,14 +469,14 @@ export const LandingPage: React.FC = () => {
                 </span>
               </h1>
 
-              <p className="text-xl md:text-2xl text-slate-600 mb-12 max-w-2xl mx-auto leading-relaxed">
+              <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-slate-600 mb-6 sm:mb-12 max-w-2xl mx-auto leading-relaxed">
                 Get your uniforms, equipment, and school supplies in UC Coop Office. Exclusive member discounts, secure lockers, and hassle-free ordering all in one website.
               </p>
 
-              <div className="flex justify-center gap-6 flex-wrap">
+              <div className="flex justify-center gap-3 sm:gap-4 lg:gap-6 flex-wrap">
                 <button
                   onClick={() => setShowVideoModal(true)}
-                  className="inline-flex items-center justify-center space-x-3 bg-gradient-to-r from-green-600 to-green-500 text-white px-8 py-4 rounded-lg font-semibold text-lg group btn-hover-effect btn-glow-green btn-scale-in"
+                  className="inline-flex items-center justify-center space-x-2 sm:space-x-3 bg-gradient-to-r from-green-600 to-green-500 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 rounded-lg font-semibold text-xs sm:text-sm lg:text-base xl:text-lg group btn-hover-effect btn-glow-green btn-scale-in"
                 >
                   <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
@@ -499,7 +498,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Feature Quick Stats */}
-            <div className="grid grid-cols-3 gap-4 mt-20">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-12 sm:mt-16 lg:mt-20">
               {[
                 { label: 'Products Available', value: statsLoading ? '...' : `${stats.products}+` },
                 { label: 'Registered Students', value: statsLoading ? '...' : `${stats.students}+` },
@@ -509,15 +508,15 @@ export const LandingPage: React.FC = () => {
                   key={idx}
                   id={`stat-${idx}`}
                   data-animate="true"
-                  className={`text-center p-6 rounded-lg bg-white/70 backdrop-blur-sm border border-white/40 hover:border-green-400 transition-all duration-700 ${
+                  className={`text-center p-3 sm:p-6 rounded-lg bg-white/70 backdrop-blur-sm border border-white/40 hover:border-green-400 transition-all duration-700 ${
                     visibleElements.has(`stat-${idx}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
-                  <div className="text-3xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent mb-2">
+                  <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent mb-1 sm:mb-2">
                     {stat.value}
                   </div>
-                  <div className="text-slate-600 text-sm font-medium">{stat.label}</div>
+                  <div className="text-slate-600 text-xs sm:text-sm font-medium">{stat.label}</div>
                 </div>
               ))}
             </div>
@@ -540,7 +539,7 @@ export const LandingPage: React.FC = () => {
               <p 
                 id="features-desc"
                 data-animate="true"
-                className={`text-xl text-slate-600 max-w-2xl mx-auto transition-all duration-700 delay-100 ${
+                className={`text-base sm:text-lg lg:text-xl text-slate-600 max-w-2xl mx-auto transition-all duration-700 delay-100 ${
                   visibleElements.has('features-desc') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                 }`}
               >
@@ -548,7 +547,7 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
               {features.map((feature, idx) => (
                 <div
                   key={idx}
@@ -556,18 +555,18 @@ export const LandingPage: React.FC = () => {
                   data-animate="true"
                   onMouseEnter={() => setHoveredFeature(idx)}
                   onMouseLeave={() => setHoveredFeature(null)}
-                  className={`group relative p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
+                  className={`group relative p-4 sm:p-6 lg:p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
                     visibleElements.has(`feature-${idx}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="relative z-10">
-                    <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50">
+                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50">
                       {feature.icon}
                     </div>
-                    <h3 className="text-lg font-semibold mb-2 text-slate-900">{feature.title}</h3>
-                    <p className="text-slate-600 text-sm group-hover:text-slate-700">{feature.description}</p>
+                    <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-slate-900">{feature.title}</h3>
+                    <p className="text-xs sm:text-sm text-slate-600 group-hover:text-slate-700">{feature.description}</p>
                   </div>
                 </div>
               ))}
@@ -576,27 +575,27 @@ export const LandingPage: React.FC = () => {
         </section>
 
         {/* Benefits Section */}
-        <section className="relative py-24 px-6">
+        <section className="relative py-12 sm:py-16 lg:py-24 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 sm:gap-8 lg:gap-16 items-center">
               <div>
                 <h2 
                   id="benefits-title"
                   data-animate="true"
-                  className={`text-4xl md:text-5xl font-bold mb-8 transition-all duration-700 ${
+                  className={`text-2xl sm:text-3xl lg:text-4xl xl:text-5xl font-bold mb-4 sm:mb-8 transition-all duration-700 ${
                     visibleElements.has('benefits-title') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                   }`}
                 >
-                  <span className="block mb-2">Why Choose</span>
+                  <span className="block mb-1 sm:mb-2">Why Choose</span>
                   <span className="bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">UC METC SILMS</span>
                 </h2>
-                <div className="space-y-4">
+                <div className="space-y-2 sm:space-y-3 lg:space-y-4">
                   {benefits.map((benefit, idx) => (
                     <div 
                       key={idx} 
                       id={`benefit-${idx}`}
                       data-animate="true"
-                      className={`flex items-center space-x-4 group transition-all duration-700 ${
+                      className={`flex items-center space-x-2 sm:space-x-4 group transition-all duration-700 ${
                         visibleElements.has(`benefit-${idx}`) ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                       }`}
                       style={{ animationDelay: `${idx * 0.1}s` }}
@@ -632,25 +631,25 @@ export const LandingPage: React.FC = () => {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-white/20 py-14 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
+        <footer className="border-t border-white/20 py-8 sm:py-12 lg:py-14 px-4 sm:px-6 bg-gradient-to-r from-purple-500 to-purple-600">
           <div className="max-w-7xl mx-auto">
 
             {/* 3-Column Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 lg:gap-12 mb-8 sm:mb-12">
 
               {/* Col 1 — Brand */}
               <div>
-                <h3 className="text-2xl font-bold text-white mb-4">UC METC SILMS</h3>
-                <p className="text-purple-100 text-sm leading-relaxed">
+                <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">UC METC SILMS</h3>
+                <p className="text-purple-100 text-xs sm:text-sm leading-relaxed">
                   UC METC Sales, Inventory, Locker, and Membership System is your one-stop platform for shopping school essentials,
                   managing locker rentals, and accessing cooperative member benefits designed exclusively for UC METC students.
                 </p>
               </div>
 
               {/* Col 2 — Quick Links */}
-              <div className="md:pl-16">
-                <h4 className="text-lg font-semibold text-white mb-5">Quick Links</h4>
-                <ul className="space-y-3">
+              <div className="sm:pl-4 lg:pl-0">
+                <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Quick Links</h4>
+                <ul className="space-y-2 sm:space-y-3">
                   {[
                     { label: 'Home', path: '/' },
                     { label: 'Announcements', path: '/announcements' },
@@ -660,7 +659,7 @@ export const LandingPage: React.FC = () => {
                     <li key={link.label}>
                       <button
                         onClick={() => navigate(link.path)}
-                        className="text-purple-100 hover:text-green-300 text-sm transition-colors duration-200"
+                        className="text-purple-100 hover:text-green-300 text-xs sm:text-sm transition-colors duration-200"
                       >
                         {link.label}
                       </button>
@@ -670,28 +669,28 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* Col 3 — Get in Touch */}
-              <div>
-                <h4 className="text-lg font-semibold text-white mb-5">Get in Touch</h4>
-                <ul className="space-y-3 mb-6">
-                  <li className="flex items-center gap-3 text-purple-100 text-sm">
-                    <Mail size={16} className="flex-shrink-0" />
-                    <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors">
+              <div className="sm:col-span-2 lg:col-span-1">
+                <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Get in Touch</h4>
+                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
+                  <li className="flex items-center gap-2 sm:gap-3 text-purple-100 text-xs sm:text-sm">
+                    <Mail size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
+                    <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors break-all">
                       ucmetc.ecc@gmail.com
                     </a>
                   </li>
-                  <li className="flex items-center gap-3 text-purple-100 text-sm">
-                    <Phone size={16} className="flex-shrink-0" />
+                  <li className="flex items-center gap-2 sm:gap-3 text-purple-100 text-xs sm:text-sm">
+                    <Phone size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
                     <span>09695345084</span>
                   </li>
                 </ul>
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3 sm:gap-5">
                   <a
                     href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
                   >
-                    <Github size={22} />
+                    <Github size={18} className="sm:w-6 sm:h-6" />
                   </a>
                   <a
                     href="https://www.facebook.com/profile.php?id=61573124552924"
@@ -699,7 +698,7 @@ export const LandingPage: React.FC = () => {
                     rel="noopener noreferrer"
                     className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
                   >
-                    <Facebook size={22} />
+                    <Facebook size={18} className="sm:w-6 sm:h-6" />
                   </a>
                 </div>
               </div>
@@ -707,8 +706,8 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Divider + Copyright */}
-            <div className="border-t border-white/20 pt-8 text-center">
-              <p className="text-purple-100 text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
+            <div className="border-t border-white/20 pt-6 sm:pt-8 text-center">
+              <p className="text-purple-100 text-xs sm:text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
             </div>
 
           </div>

@@ -582,53 +582,53 @@ export const SalesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header with Export Button */}
-        <div className="mb-8 flex items-start justify-between">
+        <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Sales Management</h1>
-            <p className="text-slate-600 mt-2">Process orders and view sales reports</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Sales Management</h1>
+            <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Process orders and view sales reports</p>
           </div>
           
           {/* Export Button - Only show on Daily Summary, History, Monthly Sales, and Tailored Orders tabs */}
           {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'monthly' || activeTab === 'tailored') && (
             <button
               onClick={exportToExcel}
-              className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-base"
+              className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
             >
-              <Download size={20} />
+              <Download size={18} className="sm:w-5 sm:h-5" />
               <span>Export</span>
             </button>
           )}
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center mb-6 border-b border-slate-200">
-          <div className="flex space-x-4">
+        <div className="mb-6 border-b border-slate-200 overflow-x-auto">
+          <div className="flex space-x-2 sm:space-x-4 min-w-min">
             <button
               onClick={() => setActiveTab('pending')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'pending'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Pending Orders ({pendingOrders.length})
+              Pending ({pendingOrders.length})
             </button>
             <button
               onClick={() => setActiveTab('daily')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'daily'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Daily Summary
+              Daily
             </button>
             <button
               onClick={() => setActiveTab('history')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'history'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
@@ -638,37 +638,37 @@ export const SalesPage: React.FC = () => {
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'monthly'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Monthly Sales
+              Monthly
             </button>
             <button
               onClick={() => setActiveTab('tailored')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'tailored'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tailored Orders ({preOrderOrders.length + downpaymentOrders.filter(o => !o.receipt_no || !o.receipt_no.startsWith('BAL-')).length + fullPaymentOrders.length})
+              Tailored ({preOrderOrders.length + downpaymentOrders.filter(o => !o.receipt_no || !o.receipt_no.startsWith('BAL-')).length + fullPaymentOrders.length})
             </button>
             <button
               onClick={() => setActiveTab('fulfillment')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'fulfillment'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Order Fulfillment
+              Fulfillment
             </button>
             <button
               onClick={() => setActiveTab('insurance')}
-              className={`px-6 py-3 font-semibold transition-colors ${
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'insurance'
                   ? 'text-blue-600 border-b-2 border-blue-600'
                   : 'text-slate-600 hover:text-slate-900'

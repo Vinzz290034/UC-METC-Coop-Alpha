@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Edit2, Trash2, Save, X, Bell } from 'lucide-react';
+import { Plus, Edit2, Trash2, Save, Bell } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { useNavigate } from 'react-router-dom';
@@ -152,7 +152,7 @@ export const AnnouncementsManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">

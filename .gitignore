@@ -4,6 +4,7 @@ backend/node_modules/
 
 # Environment variables
 .env
+.env.example
 .env.local
 .env.production
 .env.development
@@ -54,3 +55,8 @@ CLEANUP_PLAN.md
 src/assets/FINAL COOP.mp4
 public/videos/*.mp4
 *.mp4
+
+# Admin/Staff creation & user update scripts (keep local only)
+backend/create-admin.js
+backend/create-staff.js
+backend/update-user.js

@@ -5,10 +5,6 @@ import {
   DollarSign,
   AlertCircle,
   CheckCircle2,
-  Menu,
-  UserCircle,
-  Calendar,
-  Activity,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
@@ -16,14 +12,13 @@ import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
 import { StudentDashboard } from './StudentDashboard';
 import { NotificationBell } from '../components/NotificationBell';
-import { useNavigate } from 'react-router-dom';
+
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { setSidebarOpen } = useUIStore();
   const {
     lockers,
-    members,
     products,
     lockerRentals,
     keyDuplications,
@@ -171,8 +166,7 @@ export const DashboardPage: React.FC = () => {
     return <StudentDashboard />;
   }
 
-  const navigate = useNavigate();
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+
 
   return (
     <div className="min-h-screen animate-slide-in-right">

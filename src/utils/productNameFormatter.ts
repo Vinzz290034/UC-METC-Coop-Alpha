@@ -29,8 +29,6 @@ export function formatProductName(
     // Check if member pricing was applied by comparing unit price
     if (unitPrice && bundleText.includes('Member')) {
       const memberPriceMatch = bundleText.match(/₱([\d,]+)\s*Member/);
-      const regularPriceMatch = bundleText.match(/₱([\d,]+)\s*\/\s*₱/);
-      
       if (memberPriceMatch) {
         const memberPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
         // Check if the unit price matches the member price

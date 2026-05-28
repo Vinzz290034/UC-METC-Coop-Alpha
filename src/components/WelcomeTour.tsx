@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, ChevronRight, ChevronLeft, Check, ShoppingBag, Mail, CreditCard, Search, Bell, User } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, ChevronRight, ChevronLeft, Check, ShoppingBag, Mail, CreditCard, Search, Bell } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface TourStep {

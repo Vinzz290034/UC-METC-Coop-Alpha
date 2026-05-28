@@ -17,7 +17,7 @@ import { GlobalSearch } from '../components/GlobalSearch';
 import { WelcomeTour } from '../components/WelcomeTour';
 import { InsuranceModal } from '../components/InsuranceModal';
 import { GALLERY_IMAGE_URLS } from '../constants/cloudinaryGallery';
-import { UC_METC_LOGO_URL, STUDENT_DASHBOARD_BANNER_IMAGE } from '../constants/cloudinaryAssets';
+import { STUDENT_DASHBOARD_BANNER_IMAGE } from '../constants/cloudinaryAssets';
 
 export const StudentDashboard: React.FC = () => {
   // Scroll to top when component mounts

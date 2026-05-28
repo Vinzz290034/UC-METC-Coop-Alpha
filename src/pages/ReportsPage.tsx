@@ -211,22 +211,22 @@ export const ReportsPage: React.FC = () => {
   // Add guard to prevent rendering errors before data loads
   if (!report || !report.data) {
     return (
-      <div className="min-h-screen p-6 animate-slide-in-right">
+      <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
         <div className="max-w-7xl mx-auto">
-          <h1 className="text-3xl font-bold text-slate-900 mb-4">Reports & Analytics</h1>
-          <p className="text-slate-600">Loading reports...</p>
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4">Reports & Analytics</h1>
+          <p className="text-xs sm:text-sm text-slate-600">Loading reports...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">Reports & Analytics</h1>
-          <p className="text-slate-600 mt-2">Comprehensive system reports and insights</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Reports & Analytics</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Comprehensive system reports and insights</p>
         </div>
 
         {/* Report Type Selection */}

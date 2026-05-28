@@ -10,6 +10,7 @@ import type {
   CartItem,
   Message,
 } from '../types';
+import { apiClient } from '../services/api';
 
 // Default products based on ITEM_INVENTORY
 const createDefaultProducts = (): Product[] => {
@@ -138,7 +139,7 @@ interface AppState {
   removeMessage: (id: string) => void;
   updateMessage: (id: string, update: Partial<Message>) => void;
   markAsRead: (id: string) => void;
-  toggleFavorite: (id: string) => void;
+  toggleFavorite: (id: string, userId: string) => Promise<void>;
   getMessages: () => Message[];
   setMessages: (messages: Message[]) => void;
 
@@ -294,12 +295,22 @@ export const useAppStore = create<AppState>((set) => ({
       ),
     })),
 
-  toggleFavorite: (id: string) =>
-    set((state) => ({
-      messages: state.messages.map((m) =>
-        m.id === id ? { ...m, isFavorite: !m.isFavorite } : m
-      ),
-    })),
+  toggleFavorite: async (id: string, userId: string) => {
+    try {
+      // Call API to update favorite status in database
+      const result = await apiClient.toggleMessageFavorite(id, userId);
+      
+      // Update local state with the response (convert snake_case to camelCase)
+      set((state) => ({
+        messages: state.messages.map((m) =>
+          m.id === id ? { ...m, isFavorite: result.is_favorite } : m
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+      throw error;
+    }
+  },
 
   getMessages: () => [],
 

@@ -27,6 +27,7 @@ interface NotificationState {
   incrementUnreadCount: () => void;
   decrementUnreadCount: () => void;
   setConnectionStatus: (connected: boolean) => void;
+  startPolling: () => void;
 }
 
 export const useNotificationStore = create<NotificationState>((set, get) => ({
@@ -37,9 +38,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
   isConnected: false,
   error: null,
 
-  // Initialize WebSocket connection and load notifications
   initialize: async (token: string, userId: string) => {
-    console.log('[NotificationStore] Initializing...');
+    console.log('[NotificationStore] Initializing for user:', userId);
     
     // Connect to WebSocket
     websocketClient.connect(token);
@@ -62,7 +62,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     });
 
     websocketClient.on('notifications_all_read', (data: { count: number }) => {
-      console.log('[NotificationStore] All notifications marked as read');
+      console.log('[NotificationStore] All notifications marked as read. Count:', data.count);
       set(state => ({
         notifications: state.notifications.map(n => ({ ...n, is_read: true })),
         unreadCount: 0,
@@ -148,10 +148,9 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   // Mark all notifications as read
   markAllAsRead: async () => {
+    const previousNotifications = get().notifications;
+    const previousUnreadCount = get().unreadCount;
     try {
-      const previousNotifications = get().notifications;
-      const previousUnreadCount = get().unreadCount;
-
       // Optimistically update UI
       set(state => ({
         notifications: state.notifications.map(n => ({ ...n, is_read: true })),
@@ -164,8 +163,8 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       console.error('[NotificationStore] Error marking all as read:', error);
       // Revert optimistic update
       set({
-        notifications: get().notifications,
-        unreadCount: get().unreadCount,
+        notifications: previousNotifications,
+        unreadCount: previousUnreadCount,
       });
     }
   },

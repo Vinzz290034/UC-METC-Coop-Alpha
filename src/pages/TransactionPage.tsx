@@ -1070,7 +1070,7 @@ export const TransactionPage: React.FC = () => {
                         
                         <div className="bg-white p-4 rounded-lg inline-block mb-4">
                           <img 
-                            src={GcashQR} 
+                            src={GCASH_URL} 
                             alt="GCash QR Code" 
                             className="w-64 h-auto object-cover rounded-lg"
                             style={{

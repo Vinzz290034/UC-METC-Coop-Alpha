@@ -105,7 +105,7 @@ export const LockerManagementPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">

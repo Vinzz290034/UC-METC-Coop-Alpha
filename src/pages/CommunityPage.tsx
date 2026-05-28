@@ -50,7 +50,7 @@ const communityEvents = [
 
 export const CommunityPage: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedEvent, setSelectedEvent] = useState(communityEvents[0]);
+  const [selectedEvent] = useState(communityEvents[0]);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
   useEffect(() => {

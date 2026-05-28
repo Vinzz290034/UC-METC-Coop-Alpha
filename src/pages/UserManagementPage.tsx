@@ -164,47 +164,47 @@ export const UserManagementPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen p-6 animate-slide-in-right">
+    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
-          <p className="text-slate-600 mt-2">Manage system users, roles, and account status</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">User Management</h1>
+          <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Manage system users, roles, and account status</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">Total Users</p>
-                <p className="text-3xl font-bold">{users.length}</p>
+                <p className="text-purple-100 text-xs sm:text-sm font-medium">Total Users</p>
+                <p className="text-2xl sm:text-3xl font-bold">{users.length}</p>
               </div>
-              <Users className="h-8 w-8 text-purple-200" />
+              <Users className="h-6 sm:h-8 w-6 sm:w-8 text-purple-200" />
             </div>
           </div>
           
-          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
+          <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm font-medium">Active Users</p>
-                <p className="text-3xl font-bold">
+                <p className="text-green-100 text-xs sm:text-sm font-medium">Active Users</p>
+                <p className="text-2xl sm:text-3xl font-bold">
                   {users.filter(u => u.is_active !== false).length}
                 </p>
               </div>
-              <CheckCircle2 className="h-8 w-8 text-green-200" />
+              <CheckCircle2 className="h-6 sm:h-8 w-6 sm:w-8 text-green-200" />
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
+          <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-4 sm:p-6 text-white shadow-lg hover:shadow-2xl hover:scale-105 transition-all duration-300">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">Members</p>
-                <p className="text-3xl font-bold">
+                <p className="text-purple-100 text-xs sm:text-sm font-medium">Members</p>
+                <p className="text-2xl sm:text-3xl font-bold">
                   {users.filter(u => u.membership_status === 'approved').length}
                 </p>
               </div>
-              <Shield className="h-8 w-8 text-purple-200" />
+              <Shield className="h-6 sm:h-8 w-6 sm:w-8 text-purple-200" />
             </div>
           </div>
         </div>
