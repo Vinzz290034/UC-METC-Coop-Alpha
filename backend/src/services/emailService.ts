@@ -237,12 +237,12 @@ class EmailService {
       <body>
         <div class="header">
           <h1 style="margin: 0;">Password Reset Request</h1>
-          <p style="margin: 10px 0 0 0; opacity: 0.9;">UC METC Cooperative Management System</p>
+          <p style="margin: 10px 0 0 0; opacity: 0.9;">UC METC SILMS</p>
         </div>
         <div class="content">
           <p>Hello <strong>${userName}</strong>,</p>
           
-          <p>We received a request to reset the password for your UC METC Cooperative account. Use the code below to complete the reset:</p>
+          <p>We received a request to reset the password for your UC METC SILMS account. Use the code below to complete the reset:</p>
           
           <div class="code-box">
             <div style="color: #6b7280; font-size: 14px; margin-bottom: 10px;">Your Reset Code</div>
@@ -256,7 +256,7 @@ class EmailService {
           </div>
           
           <p>Best regards,<br>
-          <strong>UC METC Cooperative Team</strong></p>
+          <strong>UC METC SILMS Team</strong></p>
         </div>
         <div class="footer">
           <p>This is an automated message from UC METC Sales, Inventory, Locker, and Management System.</p>
@@ -268,7 +268,7 @@ class EmailService {
 
     return this.sendEmail({
       to: email,
-      subject: 'Reset Your Password - UC METC Cooperative',
+      subject: 'Reset Your Password - UC METC SILMS',
       html,
     });
   }
