@@ -287,7 +287,7 @@ export const GlobalSearch: React.FC = () => {
                   <p className="text-sm">
                     Search for pages, products, and more...
                   </p>
-                  <div className="mt-4 flex items-center justify-center gap-2 text-xs">
+                  <div className="mt-4 hidden sm:flex items-center justify-center gap-2 text-xs">
                     <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded">↑↓</kbd>
                     <span>to navigate</span>
                     <kbd className="px-2 py-1 bg-slate-100 border border-slate-200 rounded">↵</kbd>
