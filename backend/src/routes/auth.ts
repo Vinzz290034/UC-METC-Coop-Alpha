@@ -207,8 +207,7 @@ router.post('/register', async (req: Request, res: Response) => {
     res.status(200).json({
       message: 'Please check your email for the verification code to complete registration.',
       requiresVerification: true,
-      email,
-      ...(process.env.NODE_ENV === 'development' && { verificationCode })
+      email
     });
   } catch (err) {
     console.error('[REGISTER ERROR]:', err);
@@ -297,8 +296,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
     }
 
     res.json({ 
-      message: 'New verification code sent! Please check your inbox.',
-      ...(process.env.NODE_ENV === 'development' && { verificationCode })
+      message: 'New verification code sent! Please check your inbox.'
     });
   } catch (err) {
     console.error('[RESEND VERIFICATION ERROR]:', err);
@@ -354,8 +352,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
     }
 
     res.json({ 
-      message: 'Reset code sent to your email! Please check your inbox (and spam folder).',
-      ...(process.env.NODE_ENV === 'development' && { resetCode })
+      message: 'Reset code sent to your email! Please check your inbox (and spam folder).'
     });
   } catch (err) {
     console.error('[FORGOT PASSWORD ERROR]:', err);

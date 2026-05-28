@@ -61,16 +61,9 @@ export const ForgotPasswordPage: React.FC = () => {
       }
 
       // Call API to send reset code
-      const response = await apiClient.forgotPassword(email) as any;
+      await apiClient.forgotPassword(email);
       
       setSuccess('Reset code sent to your email! Please check your inbox.');
-      
-      // Show the reset code in development mode
-      if (response.resetCode) {
-        console.log('Development Mode - Reset Code:', response.resetCode);
-        setSuccess(`Reset code sent to your email! (Dev mode: ${response.resetCode})`);
-      }
-      
       setStep('reset');
     } catch (err: any) {
       console.error('Forgot password error:', err);
