@@ -336,14 +336,14 @@ export const LandingPage: React.FC = () => {
         <nav className={`fixed top-0 w-full z-50 backdrop-blur-md bg-gradient-to-b from-white/40 to-white/10 transition-transform duration-300 ease-in-out ${
           isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
         }`}>
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <img 
                 src={COOP_LOGO_URL}
                 alt="UC METC Logo" 
-                className="w-10 h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
+                className="w-8 h-8 sm:w-10 sm:h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
               />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-lg sm:text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent truncate max-w-[170px] sm:max-w-none">
                 UC METC SILMS
               </h1>
             </div>
@@ -372,21 +372,21 @@ export const LandingPage: React.FC = () => {
                 <span>Login</span>
               </button>
             </div>
-
+ 
             {/* Mobile Menu Button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 text-slate-700 hover:text-green-600 transition-colors"
+              className="lg:hidden p-2 text-slate-700 hover:text-green-600 transition-colors z-50 flex-shrink-0"
             >
-              {mobileMenuOpen ? <X size={28} /> : (
-                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              {mobileMenuOpen ? <X size={24} /> : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               )}
             </button>
           </div>
         </nav>
-
+ 
         {/* Mobile Menu Overlay */}
         {mobileMenuOpen && (
           <div
@@ -394,7 +394,7 @@ export const LandingPage: React.FC = () => {
             onClick={() => setMobileMenuOpen(false)}
           />
         )}
-
+ 
         {/* Mobile Menu Slide-in */}
         <div
           className={`fixed top-0 right-0 h-full w-64 bg-gradient-to-t from-green-500 to-green-600 shadow-2xl z-50 transform transition-transform duration-300 ease-in-out lg:hidden ${
@@ -408,7 +408,7 @@ export const LandingPage: React.FC = () => {
           >
             <X size={28} />
           </button>
-
+ 
           {/* Menu Items */}
           <div className="flex flex-col items-end space-y-8 pt-24 pr-8 text-white">
             <button
@@ -445,7 +445,7 @@ export const LandingPage: React.FC = () => {
             </button>
           </div>
         </div>
-
+ 
         {/* Hero Section */}
         <section className="relative pt-20 sm:pt-32 lg:pt-40 pb-16 sm:pb-24 lg:pb-32 px-4 sm:px-6">
           <div className="max-w-6xl mx-auto relative z-10 fade-in-up-animation">
@@ -455,7 +455,7 @@ export const LandingPage: React.FC = () => {
                   Your One-Stop Shop for UC METC School Essentials
                 </span>
               </div>
-
+ 
               <h1 className="text-3xl sm:text-4xl lg:text-5xl xl:text-6xl 2xl:text-7xl font-bold mb-4 sm:mb-6 leading-tight">
                 <span className="block">Shop Smart,</span>
                 <span className="block bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
@@ -468,31 +468,28 @@ export const LandingPage: React.FC = () => {
                   />
                 </span>
               </h1>
-
+ 
               <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-slate-600 mb-6 sm:mb-12 max-w-2xl mx-auto leading-relaxed">
                 Get your uniforms, equipment, and school supplies in UC Coop Office. Exclusive member discounts, secure lockers, and hassle-free ordering all in one website.
               </p>
-
-              <div className="flex justify-center gap-3 sm:gap-4 lg:gap-6 flex-wrap">
+ 
+              <div className="flex justify-center items-center gap-3 sm:gap-4 lg:gap-6 w-full max-w-md mx-auto px-2">
                 <button
                   onClick={() => setShowVideoModal(true)}
-                  className="inline-flex items-center justify-center space-x-2 sm:space-x-3 bg-gradient-to-r from-green-600 to-green-500 text-white px-4 sm:px-6 lg:px-8 py-2 sm:py-3 lg:py-4 rounded-lg font-semibold text-xs sm:text-sm lg:text-base xl:text-lg group btn-hover-effect btn-glow-green btn-scale-in"
+                  className="flex-1 inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 sm:px-6 py-3 sm:py-3.5 rounded-xl font-semibold text-xs sm:text-sm lg:text-base btn-hover-effect btn-glow-green btn-scale-in border-2 border-transparent shadow-md hover:shadow-lg"
                 >
-                  <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 sm:w-6 h-6 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M8 5v14l11-7z"/>
                   </svg>
-                  <span>Watch Video</span>
+                  <span className="truncate">Watch Video</span>
                 </button>
-
+ 
                 <button
                   onClick={() => navigate('/learn-more')}
-                  className="inline-flex items-center justify-center space-x-3 bg-white text-purple-600 px-8 py-4 rounded-lg font-semibold text-lg border-2 border-transparent hover:border-purple-600 transition-all duration-300 group hover:shadow-lg"
-                  style={{
-                    animation: 'button-scale-in 0.6s ease-out',
-                  }}
+                  className="flex-1 inline-flex items-center justify-center space-x-2 bg-white text-purple-600 px-3 sm:px-6 py-3 sm:py-3.5 rounded-xl font-semibold text-xs sm:text-sm lg:text-base btn-hover-effect border-2 border-purple-200 hover:border-purple-600 btn-scale-in shadow-md hover:shadow-lg"
                 >
-                  <span>Learn More</span>
-                  <ArrowRight size={20} className="group-hover:translate-x-1 transition-all duration-300" />
+                  <span className="truncate">Learn More</span>
+                  <ArrowRight size={18} className="group-hover:translate-x-1 transition-all duration-300 flex-shrink-0" />
                 </button>
               </div>
             </div>
