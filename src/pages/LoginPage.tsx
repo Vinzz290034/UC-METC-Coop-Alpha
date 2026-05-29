@@ -56,11 +56,14 @@ export const LoginPage: React.FC = () => {
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
 
+  const [isMobile, setIsMobile] = useState(false);
+
   // Auto-select student login on mobile
   useEffect(() => {
     const checkMobile = () => {
-      const isMobile = window.innerWidth < 768; // md breakpoint
-      if (isMobile && loginMode === 'selection') {
+      const mobileVal = window.innerWidth < 768; // md breakpoint
+      setIsMobile(mobileVal);
+      if (mobileVal && loginMode === 'selection') {
         setLoginMode('student');
       }
     };
@@ -370,7 +373,7 @@ export const LoginPage: React.FC = () => {
     <div
       className={`min-h-screen flex flex-col items-center p-4 relative ${
         loginMode === 'student' && formType === 'signup'
-          ? 'justify-center pt-14 md:pt-6'
+          ? 'justify-start pt-20 md:justify-center md:pt-6 pb-10'
           : 'justify-start pt-16 md:pt-8'
       }`}
       style={{
@@ -384,23 +387,23 @@ export const LoginPage: React.FC = () => {
       {/* Email Verification OTP Modal */}
       {showVerification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-fade-in" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content-in">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content-in mx-auto">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-6 text-white text-center">
-              <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-3">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-4 sm:p-6 text-white text-center">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-8 sm:h-8"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               </div>
-              <h2 className="text-xl font-bold">Verify Your Email</h2>
-              <p className="text-purple-100 text-sm mt-1">We sent a 6-digit code to</p>
-              <p className="font-semibold text-sm mt-1 bg-white/20 rounded-lg px-3 py-1 inline-block">{verificationEmail}</p>
+              <h2 className="text-lg sm:text-xl font-bold">Verify Your Email</h2>
+              <p className="text-purple-100 text-xs sm:text-sm mt-0.5 sm:mt-1">We sent a 6-digit code to</p>
+              <p className="font-semibold text-xs sm:text-sm mt-1 bg-white/20 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 inline-block">{verificationEmail}</p>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6">
-              <form onSubmit={handleVerifyEmail} className="space-y-4">
+            <div className="p-4 sm:p-6">
+              <form onSubmit={handleVerifyEmail} className="space-y-3 sm:space-y-4">
                 {/* OTP Code Input */}
                 <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2 text-center">Enter Verification Code</label>
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5 sm:mb-2 text-center">Enter Verification Code</label>
                   <input
                     id="otp-verification-code"
                     type="text"
@@ -413,7 +416,7 @@ export const LoginPage: React.FC = () => {
                       setVerificationError('');
                     }}
                     placeholder="000000"
-                    className="w-full text-center text-3xl font-bold tracking-[0.5em] border-2 border-slate-200 rounded-xl px-4 py-4 focus:border-purple-500 focus:outline-none transition-colors text-purple-700"
+                    className="w-full text-center text-2xl sm:text-3xl font-bold tracking-[0.5em] border-2 border-slate-200 rounded-xl px-3 py-2.5 sm:px-4 sm:py-4 focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-200 transition-colors text-purple-700"
                     autoFocus
                     autoComplete="one-time-code"
                   />
@@ -421,14 +424,14 @@ export const LoginPage: React.FC = () => {
 
                 {/* Error */}
                 {verificationError && (
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 text-center">
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm text-red-700 text-center">
                     {verificationError}
                   </div>
                 )}
 
                 {/* Success */}
                 {verificationSuccess && (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 text-center">
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-2.5 sm:p-3 text-xs sm:text-sm text-green-700 text-center">
                     {verificationSuccess}
                   </div>
                 )}
@@ -438,13 +441,13 @@ export const LoginPage: React.FC = () => {
                   id="otp-verify-button"
                   type="submit"
                   disabled={verificationLoading || verificationCode.length !== 6}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-all duration-200 active:scale-95"
+                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-all duration-200 active:scale-95 text-sm sm:text-base"
                 >
                   {verificationLoading ? 'Verifying...' : 'Verify Email'}
                 </button>
 
                 {/* Resend + Cancel */}
-                <div className="flex items-center justify-between text-sm pt-1">
+                <div className="flex items-center justify-between text-xs sm:text-sm pt-0.5 sm:pt-1">
                   <button
                     type="button"
                     onClick={handleResendCode}
@@ -468,7 +471,7 @@ export const LoginPage: React.FC = () => {
                 </div>
               </form>
 
-              <p className="text-xs text-slate-500 text-center mt-4">
+              <p className="text-[10px] sm:text-xs text-slate-500 text-center mt-3 sm:mt-4">
                 Didn't receive the email? Check your spam folder or resend above.
               </p>
             </div>
@@ -513,7 +516,7 @@ export const LoginPage: React.FC = () => {
             setError('');
           }
         }}
-        className={`fixed md:absolute top-4 md:top-6 left-4 md:left-6 flex items-center space-x-2 text-white transition-all group z-50 p-2 rounded-lg shadow-lg ${
+        className={`absolute top-4 md:top-6 left-4 md:left-6 flex items-center space-x-2 text-white transition-all group z-50 p-2 rounded-lg shadow-lg ${
           loginMode === 'admin_staff'
             ? 'bg-slate-700 hover:bg-slate-800'
             : 'bg-purple-600 hover:bg-purple-700'
@@ -529,7 +532,7 @@ export const LoginPage: React.FC = () => {
           : loginMode === 'student' && formType === 'signup'
             ? 'min-h-0'
             : 'mt-4 md:mt-0 min-h-[calc(100vh-8rem)]'
-      } ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-5xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
+      } ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-md md:max-w-5xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
         {/* Selection Screen */}
         {loginMode === 'selection' && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto px-6">
@@ -697,7 +700,7 @@ export const LoginPage: React.FC = () => {
             )}
 
             {/* Form Content */}
-            <div className={`${formType === 'login' ? 'p-4 md:p-7' : formType === 'signup' ? 'p-5 md:p-6' : 'p-5 md:p-8'} ${formType !== 'login' ? 'animate-fadeIn' : ''}`}>
+            <div className={`${formType === 'login' ? 'p-4 md:p-7' : formType === 'signup' ? 'p-4 sm:p-5 md:p-6' : 'p-5 md:p-8'} ${formType !== 'login' ? 'animate-fadeIn' : ''}`}>
             {formType === 'login' ? (
               <>
                 <h2 className="text-lg md:text-xl font-bold text-center text-slate-800 mb-4 md:mb-5">
@@ -816,6 +819,7 @@ export const LoginPage: React.FC = () => {
                         }}
                         inputMode="numeric"
                         required
+                        compact={isMobile}
                       />
                     </div>
 
@@ -826,6 +830,7 @@ export const LoginPage: React.FC = () => {
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
                         required
+                        compact={isMobile}
                       />
                     </div>
                   </div>
@@ -836,12 +841,14 @@ export const LoginPage: React.FC = () => {
                       label="Middle Name"
                       value={middleName}
                       onChange={(e) => setMiddleName(e.target.value)}
+                      compact={isMobile}
                     />
                     <FloatingInput
                       label="Last Name"
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       required
+                      compact={isMobile}
                     />
                   </div>
 
@@ -852,6 +859,7 @@ export const LoginPage: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     type="email"
                     required
+                    compact={isMobile}
                   />
 
                   {/* Course and Year - Side by side on all screens */}
@@ -897,6 +905,7 @@ export const LoginPage: React.FC = () => {
                         showToggle
                         showVisibility={showPassword}
                         onToggleVisibility={() => setShowPassword(!showPassword)}
+                        compact={isMobile}
                       />
                     </div>
 
@@ -911,6 +920,7 @@ export const LoginPage: React.FC = () => {
                         showToggle
                         showVisibility={showConfirmPassword}
                         onToggleVisibility={() => setShowConfirmPassword(!showConfirmPassword)}
+                        compact={isMobile}
                       />
                     </div>
                   </div>
