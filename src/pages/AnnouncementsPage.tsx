@@ -190,21 +190,21 @@ export const AnnouncementsPage: React.FC = () => {
         <nav className={`fixed top-0 w-full z-50 backdrop-blur-md bg-gradient-to-b from-white/40 to-white/10 transition-transform duration-300 ease-in-out ${
           isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
         }`}>
-          <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-3">
+          <div className="max-w-7xl mx-auto px-4 xs:px-6 py-2 sm:py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-2 sm:space-x-3">
               <img 
                 src={COOP_LOGO_URL}
                 alt="UC METC Logo" 
-                className="w-10 h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
+                className="w-7 h-7 xs:w-10 xs:h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
               />
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
+              <h1 className="text-sm xs:text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
                 UC METC SILMS
               </h1>
             </div>
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => navigate('/login')}
-                className="flex items-center space-x-2 bg-gradient-to-r from-green-600 to-green-500 text-white px-6 py-2.5 rounded-lg hover:shadow-lg hover:shadow-green-400/40 transition-all duration-300 font-semibold group"
+                className="flex items-center space-x-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 xs:px-6 py-1.5 xs:py-2.5 rounded-lg hover:shadow-lg hover:shadow-green-400/40 transition-all duration-300 font-semibold min-h-0 min-w-0 text-xs xs:text-base"
               >
                 <span>Login</span>
               </button>
@@ -213,15 +213,15 @@ export const AnnouncementsPage: React.FC = () => {
         </nav>
 
         {/* Page Content */}
-      <div className="relative z-10 pt-32 pb-20 px-6">
+      <div className="relative z-10 pt-16 xs:pt-32 pb-10 sm:pb-20 px-4 xs:px-6">
         <div className="max-w-4xl mx-auto">
           {/* Back Button */}
           <button
             onClick={() => navigate('/')}
-            className="flex items-center space-x-2 text-slate-600 hover:text-green-600 transition-colors mb-8 group font-semibold"
+            className="flex items-center space-x-1 text-slate-600 hover:text-green-600 transition-colors mb-4 sm:mb-8 group font-semibold min-h-0 min-w-0 text-xs xs:text-base px-1 py-0.5"
             title="Back to Landing Page"
           >
-            <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
+            <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform sm:w-6 sm:h-6" />
             <span>Back</span>
           </button>
 
@@ -229,18 +229,18 @@ export const AnnouncementsPage: React.FC = () => {
           <div 
             id="page-header"
             data-animate="true"
-            className={`mb-12 transition-all duration-700 ${
+            className={`mb-6 sm:mb-12 transition-all duration-700 ${
               visibleElements.has('page-header') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
             }`}
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-slate-900 mb-4">Announcements</h2>
-            <p className="text-slate-600 text-lg">
+            <h2 className="text-xl xs:text-4xl md:text-5xl font-bold text-slate-900 mb-1.5 sm:mb-4">Announcements</h2>
+            <p className="text-slate-600 text-xs xs:text-lg">
               Stay updated with the latest news and updates from UC METC SILMS
             </p>
           </div>
 
           {/* Announcements List */}
-          <div className="space-y-6">
+          <div className="space-y-4 xs:space-y-6">
             {loading ? (
               <div className="text-center py-12 bg-white/70 rounded-xl">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto mb-4"></div>
@@ -257,33 +257,33 @@ export const AnnouncementsPage: React.FC = () => {
                   key={announcement.id}
                   id={`announcement-${announcement.id}`}
                   data-animate="true"
-                  className={`announcement-card bg-white/70 border border-white/40 rounded-xl p-8 backdrop-blur-sm hover:bg-white/80 hover:border-green-400 transition-all ${
+                  className={`announcement-card bg-white/70 border border-white/40 rounded-xl p-4 xs:p-8 backdrop-blur-sm hover:bg-white/80 hover:border-green-400 transition-all ${
                     visibleElements.has(`announcement-${announcement.id}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-start justify-between mb-2 xs:mb-4">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <span className="inline-block px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-xs font-semibold">
+                      <div className="flex items-center space-x-3 mb-1.5 xs:mb-2">
+                        <span className="inline-block px-2 xs:px-3 py-0.5 xs:py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] xs:text-xs font-semibold">
                           {announcement.category}
                         </span>
                       </div>
-                      <h3 className="text-2xl font-bold mb-2 text-slate-900 transition-colors">
+                      <h3 className="text-sm xs:text-2xl font-bold mb-1 xs:mb-2 text-slate-900 transition-colors">
                         {announcement.title}
                       </h3>
                     </div>
                   </div>
 
                   {/* Metadata */}
-                  <div className="flex items-center space-x-6 text-slate-500 text-sm mb-4">
-                    <div className="flex items-center space-x-2">
-                      <Calendar size={16} />
+                  <div className="flex items-center space-x-3 xs:space-x-6 text-slate-500 text-[10px] xs:text-sm mb-2 xs:mb-4">
+                    <div className="flex items-center space-x-1.5 xs:space-x-2">
+                      <Calendar className="w-3.5 h-3.5 xs:w-4 xs:h-4 flex-shrink-0" />
                       <span>{new Date(announcement.date).toLocaleDateString()}</span>
                     </div>
-                    <div className="flex items-center space-x-2">
-                      <User size={16} />
+                    <div className="flex items-center space-x-1.5 xs:space-x-2">
+                      <User className="w-3.5 h-3.5 xs:w-4 xs:h-4 flex-shrink-0" />
                       <span>
                         {announcement.author_role && (
                           <span className="capitalize font-semibold">{announcement.author_role} - </span>
@@ -294,7 +294,7 @@ export const AnnouncementsPage: React.FC = () => {
                   </div>
 
                   {/* Content */}
-                  <p className="text-slate-700 leading-relaxed">{announcement.content}</p>
+                  <p className="text-slate-700 text-[10px] xs:text-sm sm:text-base leading-relaxed text-justify">{announcement.content}</p>
                 </div>
               ))
             )}
@@ -302,8 +302,8 @@ export const AnnouncementsPage: React.FC = () => {
 
           {/* No More Announcements */}
           {!loading && announcements.length > 0 && (
-            <div className="text-center mt-12">
-              <p className="text-slate-800 font-medium">
+            <div className="text-center mt-8 xs:mt-12">
+              <p className="text-slate-800 text-xs xs:text-base font-medium">
                 No more announcements to display. Check back soon!
               </p>
             </div>

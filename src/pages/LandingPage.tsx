@@ -435,7 +435,7 @@ export const LandingPage: React.FC = () => {
               className="flex items-center space-x-3 text-xl font-medium hover:text-gray-200 transition-all hover:scale-110 hover:translate-x-[-8px] duration-300 group"
             >
               <Bell size={24} className="group-hover:scale-110 transition-transform" />
-              <span>Event</span>
+              <span>Announcements</span>
             </button>
             
             <button
