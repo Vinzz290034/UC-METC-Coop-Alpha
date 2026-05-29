@@ -517,7 +517,7 @@ export const LandingPage: React.FC = () => {
             </div>
 
             {/* Feature Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 mt-12 sm:mt-16 lg:mt-20">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-4 mt-12 sm:mt-16 lg:mt-20">
               {[
                 { label: 'Products Available', value: statsLoading ? '...' : `${stats.products}+` },
                 { label: 'Registered Students', value: statsLoading ? '...' : `${stats.students}+` },
@@ -527,15 +527,17 @@ export const LandingPage: React.FC = () => {
                   key={idx}
                   id={`stat-${idx}`}
                   data-animate="true"
-                  className={`text-center p-3 sm:p-6 rounded-lg bg-white/70 backdrop-blur-sm border border-white/40 hover:border-green-400 transition-all duration-700 ${
+                  className={`text-center p-2 sm:p-6 rounded-lg bg-white/70 backdrop-blur-sm border border-white/40 hover:border-green-400 transition-all duration-700 ${
                     visibleElements.has(`stat-${idx}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
-                  <div className="text-2xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent mb-1 sm:mb-2">
+                  <div className="text-sm xs:text-xl sm:text-3xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent mb-0.5 sm:mb-2">
                     {stat.value}
                   </div>
-                  <div className="text-slate-600 text-xs sm:text-sm font-medium">{stat.label}</div>
+                  <div className="text-slate-600 text-[8px] xs:text-[10px] sm:text-sm font-medium tracking-tight leading-snug">
+                    {stat.label}
+                  </div>
                 </div>
               ))}
             </div>
