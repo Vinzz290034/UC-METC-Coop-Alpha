@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Menu,
   X,
@@ -53,9 +53,15 @@ interface SidebarItem {
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const { sidebarOpen, setSidebarOpen, setCurrentPage, showNotification } = useUIStore();
   const { user, logout } = useAuth();
+
+  // Close sidebar on screen size or route navigation changes
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname, setSidebarOpen]);
 
   const sidebarItems: SidebarItem[] = [
     {
