@@ -110,7 +110,7 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
   const progress = ((currentStep + 1) / tourSteps.length) * 100;
 
   return (
-    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-start justify-center p-4 pt-8 overflow-y-auto ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`}>
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-start justify-center p-2 pt-4 sm:p-4 sm:pt-8 overflow-y-auto ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`}>
       <div className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden ${isClosing ? 'animate-scale-out' : 'animate-scale-in'}`}>
         {/* Progress Bar */}
         <div className="h-2 bg-slate-200">
@@ -121,38 +121,38 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-slate-200">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-purple-600 rounded-full flex items-center justify-center text-white font-bold text-sm sm:text-base">
               {currentStep + 1}
             </div>
             <div>
-              <p className="text-sm text-slate-600">Step {currentStep + 1} of {tourSteps.length}</p>
-              <p className="text-xs text-slate-500">Getting Started Tour</p>
+              <p className="text-xs sm:text-sm text-slate-600 font-medium">Step {currentStep + 1} of {tourSteps.length}</p>
+              <p className="text-[10px] sm:text-xs text-slate-500">Getting Started Tour</p>
             </div>
           </div>
           <button
             onClick={handleSkip}
-            className="p-2 hover:bg-slate-100 rounded-lg transition"
+            className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-lg transition"
           >
-            <X size={20} className="text-slate-600" />
+            <X size={18} className="text-slate-600" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="p-8 min-h-[400px] flex flex-col items-center justify-center text-center">
+        <div className="p-5 sm:p-8 min-h-[280px] sm:min-h-[400px] flex flex-col items-center justify-center text-center">
           {/* Icon */}
-          <div className="mb-6 animate-bounce-slow">
+          <div className="mb-4 sm:mb-6 animate-bounce-slow">
             {currentTourStep.icon}
           </div>
 
           {/* Title */}
-          <h2 className="text-3xl font-bold text-slate-900 mb-4">
+          <h2 className="text-xl sm:text-3xl font-bold text-slate-900 mb-2 sm:mb-4 px-2">
             {currentTourStep.title}
           </h2>
 
           {/* Description */}
-          <p className="text-lg text-slate-600 max-w-lg mb-6">
+          <p className="text-sm sm:text-lg text-slate-600 max-w-lg mb-4 sm:mb-6 px-4">
             {currentTourStep.description}
           </p>
 
@@ -160,7 +160,7 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
           {currentTourStep.action && (
             <button
               onClick={() => handleActionClick(currentTourStep.action!.path)}
-              className="mb-4 px-6 py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 hover:shadow-lg transition-all"
+              className="mb-2 sm:mb-4 px-5 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 hover:shadow-lg transition-all text-xs sm:text-base"
             >
               {currentTourStep.action.label}
             </button>
@@ -168,28 +168,28 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between p-6 border-t border-slate-200 bg-slate-50">
+        <div className="flex items-center justify-between p-4 sm:p-6 border-t border-slate-200 bg-slate-50">
           <button
             onClick={handlePrevious}
             disabled={currentStep === 0}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition ${
+            className={`flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg font-semibold transition text-xs sm:text-base ${
               currentStep === 0
                 ? 'text-slate-400 cursor-not-allowed'
                 : 'text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={16} className="sm:w-5 sm:h-5" />
             Previous
           </button>
 
-          <div className="flex gap-2">
+          <div className="hidden sm:flex gap-1.5">
             {tourSteps.map((_, index) => (
               <button
                 key={index}
                 onClick={() => setCurrentStep(index)}
-                className={`w-2 h-2 rounded-full transition-all ${
+                className={`w-1.5 h-1.5 rounded-full transition-all ${
                   index === currentStep
-                    ? 'w-8 bg-purple-600'
+                    ? 'w-6 bg-purple-600'
                     : index < currentStep
                     ? 'bg-purple-600'
                     : 'bg-slate-300'
@@ -200,17 +200,17 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
 
           <button
             onClick={handleNext}
-            className="flex items-center gap-2 px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 hover:shadow-lg transition-all"
+            className="flex items-center gap-1 sm:gap-2 px-4 sm:px-6 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 hover:shadow-lg transition-all text-xs sm:text-base"
           >
             {currentStep === tourSteps.length - 1 ? (
               <>
                 Get Started
-                <Check size={20} />
+                <Check size={16} className="sm:w-5 sm:h-5" />
               </>
             ) : (
               <>
                 Next
-                <ChevronRight size={20} />
+                <ChevronRight size={16} className="sm:w-5 sm:h-5" />
               </>
             )}
           </button>
