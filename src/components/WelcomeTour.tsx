@@ -110,7 +110,7 @@ export const WelcomeTour: React.FC<WelcomeTourProps> = ({ userName, onComplete }
   const progress = ((currentStep + 1) / tourSteps.length) * 100;
 
   return (
-    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-start justify-center p-2 pt-4 sm:p-4 sm:pt-8 overflow-y-auto ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`}>
+    <div className={`fixed inset-0 bg-black/60 backdrop-blur-sm z-[9999] flex items-center justify-center p-2 sm:p-4 overflow-y-auto ${isClosing ? 'animate-fade-out' : 'animate-fade-in'}`}>
       <div className={`bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden ${isClosing ? 'animate-scale-out' : 'animate-scale-in'}`}>
         {/* Progress Bar */}
         <div className="h-2 bg-slate-200">
