@@ -7,7 +7,6 @@
     "node": "20.x"
   },
   "scripts": {
-    "preinstall": "rm -rf node_modules/vite",
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview"
