@@ -568,7 +568,7 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 lg:gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-5 lg:gap-6">
               {features.map((feature, idx) => (
                 <div
                   key={idx}
@@ -576,18 +576,18 @@ export const LandingPage: React.FC = () => {
                   data-animate="true"
                   onMouseEnter={() => setHoveredFeature(idx)}
                   onMouseLeave={() => setHoveredFeature(null)}
-                  className={`group relative p-4 sm:p-6 lg:p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
+                  className={`group relative p-3 xs:p-4 sm:p-6 lg:p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
                     visibleElements.has(`feature-${idx}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="relative z-10">
-                    <div className="w-10 sm:w-12 h-10 sm:h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50">
+                    <div className="w-8 xs:w-10 sm:w-12 h-8 xs:h-10 sm:h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50 [&>svg]:w-4 xs:[&>svg]:w-6 [&>svg]:h-4 xs:[&>svg]:h-6">
                       {feature.icon}
                     </div>
-                    <h3 className="text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-slate-900">{feature.title}</h3>
-                    <p className="text-xs sm:text-sm text-slate-600 group-hover:text-slate-700">{feature.description}</p>
+                    <h3 className="text-[13px] xs:text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-slate-900 leading-snug">{feature.title}</h3>
+                    <p className="text-[9px] xs:text-xs sm:text-sm text-slate-600 group-hover:text-slate-700 leading-normal">{feature.description}</p>
                   </div>
                 </div>
               ))}
@@ -610,21 +610,21 @@ export const LandingPage: React.FC = () => {
                   <span className="block mb-1 sm:mb-2">Why Choose</span>
                   <span className="bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">UC METC SILMS</span>
                 </h2>
-                <div className="space-y-2 sm:space-y-3 lg:space-y-4">
+                 <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-1 lg:space-y-4">
                   {benefits.map((benefit, idx) => (
                     <div 
                       key={idx} 
                       id={`benefit-${idx}`}
                       data-animate="true"
-                      className={`flex items-center space-x-2 sm:space-x-4 group transition-all duration-700 ${
+                      className={`flex items-center space-x-1.5 sm:space-x-4 group transition-all duration-700 ${
                         visibleElements.has(`benefit-${idx}`) ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
                       }`}
                       style={{ animationDelay: `${idx * 0.1}s` }}
                     >
-                      <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-green-500 to-green-400 rounded-full flex items-center justify-center shadow-lg shadow-green-400/50 group-hover:scale-110 transition-transform">
-                        <CheckCircle2 size={18} className="text-white" />
+                      <div className="flex-shrink-0 w-5 xs:w-8 h-5 xs:h-8 bg-gradient-to-br from-green-500 to-green-400 rounded-full flex items-center justify-center shadow-lg shadow-green-400/50 group-hover:scale-110 transition-transform [&>svg]:w-3 xs:[&>svg]:w-[18px] [&>svg]:h-3 xs:[&>svg]:h-[18px]">
+                        <CheckCircle2 className="text-white" />
                       </div>
-                      <span className="text-lg text-slate-700 group-hover:text-slate-900 transition-colors">{benefit}</span>
+                      <span className="text-[10px] xs:text-sm sm:text-base lg:text-lg text-slate-700 group-hover:text-slate-900 transition-colors font-medium leading-snug">{benefit}</span>
                     </div>
                   ))}
                 </div>
@@ -655,11 +655,11 @@ export const LandingPage: React.FC = () => {
         <footer className="border-t border-white/20 py-8 sm:py-12 lg:py-14 px-4 sm:px-6 bg-gradient-to-r from-purple-500 to-purple-600">
           <div className="max-w-7xl mx-auto">
 
-            {/* 3-Column Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 lg:gap-12 mb-8 sm:mb-12">
+            {/* 2/3-Column Grid */}
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 lg:gap-12 mb-8 sm:mb-12">
 
-              {/* Col 1 — Brand */}
-              <div>
+              {/* Col 1 — Brand (full width on mobile) */}
+              <div className="col-span-2 lg:col-span-1">
                 <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">UC METC SILMS</h3>
                 <p className="text-purple-100 text-xs sm:text-sm leading-relaxed">
                   UC METC Sales, Inventory, Locker, and Membership System is your one-stop platform for shopping school essentials,
@@ -668,7 +668,7 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* Col 2 — Quick Links */}
-              <div className="sm:pl-4 lg:pl-0">
+              <div className="col-span-1">
                 <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Quick Links</h4>
                 <ul className="space-y-2 sm:space-y-3">
                   {[
@@ -690,7 +690,7 @@ export const LandingPage: React.FC = () => {
               </div>
 
               {/* Col 3 — Get in Touch */}
-              <div className="sm:col-span-2 lg:col-span-1">
+              <div className="col-span-1 lg:col-span-1">
                 <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Get in Touch</h4>
                 <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
                   <li className="flex items-center gap-2 sm:gap-3 text-purple-100 text-xs sm:text-sm">
