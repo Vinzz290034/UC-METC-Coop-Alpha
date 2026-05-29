@@ -568,7 +568,7 @@ export const LandingPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-5 lg:gap-6">
+            <div className="grid grid-cols-3 gap-1.5 sm:gap-5 lg:gap-6">
               {features.map((feature, idx) => (
                 <div
                   key={idx}
@@ -576,18 +576,18 @@ export const LandingPage: React.FC = () => {
                   data-animate="true"
                   onMouseEnter={() => setHoveredFeature(idx)}
                   onMouseLeave={() => setHoveredFeature(null)}
-                  className={`group relative p-3 xs:p-4 sm:p-6 lg:p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
+                  className={`group relative p-2 xs:p-4 sm:p-6 lg:p-8 rounded-xl bg-white/80 border border-white/40 hover:border-green-400 hover:shadow-xl transition-all duration-300 cursor-pointer overflow-hidden ${
                     visibleElements.has(`feature-${idx}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
                   }`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   <div className="absolute inset-0 bg-gradient-to-br from-green-50 to-purple-50 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                   <div className="relative z-10">
-                    <div className="w-8 xs:w-10 sm:w-12 h-8 xs:h-10 sm:h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-2 sm:mb-3 lg:mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50 [&>svg]:w-4 xs:[&>svg]:w-6 [&>svg]:h-4 xs:[&>svg]:h-6">
+                    <div className="w-6 xs:w-10 sm:w-12 h-6 xs:h-10 sm:h-12 bg-gradient-to-br from-green-500 to-green-400 rounded-lg flex items-center justify-center mb-1 sm:mb-3 lg:mb-4 text-white group-hover:scale-110 transition-transform group-hover:shadow-lg group-hover:shadow-green-400/50 [&>svg]:w-3.5 xs:[&>svg]:w-6 [&>svg]:h-3.5 xs:[&>svg]:h-6">
                       {feature.icon}
                     </div>
-                    <h3 className="text-[13px] xs:text-base sm:text-lg font-semibold mb-1 sm:mb-2 text-slate-900 leading-snug">{feature.title}</h3>
-                    <p className="text-[9px] xs:text-xs sm:text-sm text-slate-600 group-hover:text-slate-700 leading-normal">{feature.description}</p>
+                    <h3 className="text-[9px] xs:text-base sm:text-lg font-semibold mb-0.5 sm:mb-2 text-slate-900 leading-tight">{feature.title}</h3>
+                    <p className="text-[7px] xs:text-xs sm:text-sm text-slate-600 group-hover:text-slate-700 leading-snug">{feature.description}</p>
                   </div>
                 </div>
               ))}
@@ -669,8 +669,8 @@ export const LandingPage: React.FC = () => {
 
               {/* Col 2 — Quick Links */}
               <div className="col-span-1">
-                <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Quick Links</h4>
-                <ul className="space-y-2 sm:space-y-3">
+                <h4 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-5">Quick Links</h4>
+                <ul className="space-y-1 sm:space-y-3">
                   {[
                     { label: 'Home', path: '/' },
                     { label: 'Announcements', path: '/announcements' },
@@ -680,7 +680,7 @@ export const LandingPage: React.FC = () => {
                     <li key={link.label}>
                       <button
                         onClick={() => navigate(link.path)}
-                        className="text-purple-100 hover:text-green-300 text-xs sm:text-sm transition-colors duration-200"
+                        className="text-purple-100 hover:text-green-300 text-xs sm:text-sm transition-colors duration-200 min-h-0 min-w-0 py-0.5 text-left"
                       >
                         {link.label}
                       </button>
@@ -691,17 +691,17 @@ export const LandingPage: React.FC = () => {
 
               {/* Col 3 — Get in Touch */}
               <div className="col-span-1 lg:col-span-1">
-                <h4 className="text-base sm:text-lg font-semibold text-white mb-3 sm:mb-5">Get in Touch</h4>
-                <ul className="space-y-2 sm:space-y-3 mb-4 sm:mb-6">
-                  <li className="flex items-center gap-2 sm:gap-3 text-purple-100 text-xs sm:text-sm">
-                    <Mail size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
-                    <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors break-all">
+                <h4 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-5">Get in Touch</h4>
+                <ul className="space-y-1 sm:space-y-3 mb-4 sm:mb-6">
+                  <li className="flex items-center gap-1.5 sm:gap-3 text-purple-100 text-[10px] xs:text-xs sm:text-sm">
+                    <Mail size={13} className="flex-shrink-0 sm:w-4 sm:h-4" />
+                    <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors break-all min-h-0 min-w-0 py-0.5">
                       ucmetc.ecc@gmail.com
                     </a>
                   </li>
-                  <li className="flex items-center gap-2 sm:gap-3 text-purple-100 text-xs sm:text-sm">
-                    <Phone size={14} className="flex-shrink-0 sm:w-4 sm:h-4" />
-                    <span>09695345084</span>
+                  <li className="flex items-center gap-1.5 sm:gap-3 text-purple-100 text-[10px] xs:text-xs sm:text-sm">
+                    <Phone size={13} className="flex-shrink-0 sm:w-4 sm:h-4" />
+                    <span className="min-h-0 min-w-0 py-0.5">09695345084</span>
                   </li>
                 </ul>
                 <div className="flex items-center gap-3 sm:gap-5">
@@ -709,17 +709,17 @@ export const LandingPage: React.FC = () => {
                     href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                    className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
                   >
-                    <Github size={18} className="sm:w-6 sm:h-6" />
+                    <Github size={16} className="sm:w-6 sm:h-6" />
                   </a>
                   <a
                     href="https://www.facebook.com/profile.php?id=61573124552924"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                    className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
                   >
-                    <Facebook size={18} className="sm:w-6 sm:h-6" />
+                    <Facebook size={16} className="sm:w-6 sm:h-6" />
                   </a>
                 </div>
               </div>

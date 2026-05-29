@@ -195,22 +195,22 @@ export const LearnMorePage: React.FC = () => {
       <footer className="border-t border-white/20 py-14 px-6 bg-gradient-to-r from-purple-500 to-purple-600">
         <div className="max-w-7xl mx-auto">
 
-          {/* 3-Column Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+          {/* 2/3-Column Grid */}
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 lg:gap-12 mb-8 sm:mb-12">
 
-            {/* Col 1 — Brand */}
-            <div>
-              <h3 className="text-2xl font-bold text-white mb-4">UC METC SILMS</h3>
-              <p className="text-purple-100 text-sm leading-relaxed">
+            {/* Col 1 — Brand (full width on mobile) */}
+            <div className="col-span-2 lg:col-span-1">
+              <h3 className="text-xl sm:text-2xl font-bold text-white mb-3 sm:mb-4">UC METC SILMS</h3>
+              <p className="text-purple-100 text-xs sm:text-sm leading-relaxed">
                 UC METC Sales, Inventory, Locker, and Membership System is your one-stop platform for shopping school essentials,
                 managing locker rentals, and accessing cooperative member benefits designed exclusively for UC METC students.
               </p>
             </div>
 
             {/* Col 2 — Quick Links */}
-            <div className="md:pl-16">
-              <h4 className="text-lg font-semibold text-white mb-5">Quick Links</h4>
-              <ul className="space-y-3">
+            <div className="col-span-1">
+              <h4 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-5">Quick Links</h4>
+              <ul className="space-y-1 sm:space-y-3">
                 {[
                   { label: 'Home', path: '/' },
                   { label: 'Announcements', path: '/announcements' },
@@ -220,7 +220,7 @@ export const LearnMorePage: React.FC = () => {
                   <li key={link.label}>
                     <button
                       onClick={() => navigate(link.path)}
-                      className="text-purple-100 hover:text-green-300 text-sm transition-colors duration-200"
+                      className="text-purple-100 hover:text-green-300 text-xs sm:text-sm transition-colors duration-200 min-h-0 min-w-0 py-0.5 text-left"
                     >
                       {link.label}
                     </button>
@@ -230,36 +230,36 @@ export const LearnMorePage: React.FC = () => {
             </div>
 
             {/* Col 3 — Get in Touch */}
-            <div>
-              <h4 className="text-lg font-semibold text-white mb-5">Get in Touch</h4>
-              <ul className="space-y-3 mb-6">
-                <li className="flex items-center gap-3 text-purple-100 text-sm">
-                  <Mail size={16} className="flex-shrink-0" />
-                  <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors">
+            <div className="col-span-1 lg:col-span-1">
+              <h4 className="text-base sm:text-lg font-semibold text-white mb-2 sm:mb-5">Get in Touch</h4>
+              <ul className="space-y-1 sm:space-y-3 mb-4 sm:mb-6">
+                <li className="flex items-center gap-1.5 sm:gap-3 text-purple-100 text-[10px] xs:text-xs sm:text-sm">
+                  <Mail size={13} className="flex-shrink-0 sm:w-4 sm:h-4" />
+                  <a href="mailto:ucmetc.ecc@gmail.com" className="hover:text-green-300 transition-colors break-all min-h-0 min-w-0 py-0.5">
                     ucmetc.ecc@gmail.com
                   </a>
                 </li>
-                <li className="flex items-center gap-3 text-purple-100 text-sm">
-                  <Phone size={16} className="flex-shrink-0" />
-                  <span>09695345084</span>
+                <li className="flex items-center gap-1.5 sm:gap-3 text-purple-100 text-[10px] xs:text-xs sm:text-sm">
+                  <Phone size={13} className="flex-shrink-0 sm:w-4 sm:h-4" />
+                  <span className="min-h-0 min-w-0 py-0.5">09695345084</span>
                 </li>
               </ul>
-              <div className="flex items-center gap-5">
+              <div className="flex items-center gap-3 sm:gap-5">
                 <a
                   href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
                 >
-                  <Github size={22} />
+                  <Github size={16} className="sm:w-6 sm:h-6" />
                 </a>
                 <a
                   href="https://www.facebook.com/profile.php?id=61573124552924"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300"
+                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
                 >
-                  <Facebook size={22} />
+                  <Facebook size={16} className="sm:w-6 sm:h-6" />
                 </a>
               </div>
             </div>
@@ -267,8 +267,8 @@ export const LearnMorePage: React.FC = () => {
           </div>
 
           {/* Divider + Copyright */}
-          <div className="border-t border-white/20 pt-8 text-center">
-            <p className="text-purple-100 text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
+          <div className="border-t border-white/20 pt-6 sm:pt-8 text-center">
+            <p className="text-purple-100 text-xs sm:text-sm">© 2026 UC METC SILMS. All rights reserved.</p>
           </div>
 
         </div>
