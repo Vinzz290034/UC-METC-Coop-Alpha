@@ -98,12 +98,12 @@ export const LearnMorePage: React.FC = () => {
         <div className="relative z-10">
       {/* Header */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center">
+        <div className="max-w-6xl mx-auto px-2 xs:px-6 py-2 sm:py-4 flex items-center">
           <button
             onClick={() => navigate('/')}
-            className="flex items-center gap-2 px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all"
+            className="flex items-center gap-1 px-2 xs:px-4 py-1.5 sm:py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-all min-h-0 min-w-0 text-sm sm:text-base font-medium"
           >
-            <ChevronLeft size={20} />
+            <ChevronLeft size={18} className="sm:w-5 sm:h-5" />
             Back
           </button>
         </div>
@@ -111,54 +111,54 @@ export const LearnMorePage: React.FC = () => {
 
       {/* Hero Section */}
       <div 
-        className="text-white py-20 bg-cover bg-center bg-no-repeat relative"
+        className="text-white py-8 xs:py-12 sm:py-20 bg-cover bg-[center_top] bg-no-repeat relative"
         style={{
           backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75)), url(${UC_METC_LOGO_URL})`
         }}
       >
-        <div className="max-w-6xl mx-auto px-6 text-center relative z-10">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">About UC METC SILMS</h1>
-          <p className="text-xl md:text-2xl text-white/90 max-w-2xl mx-auto">
+        <div className="max-w-6xl mx-auto px-4 xs:px-6 text-center relative z-10">
+          <h1 className="text-2xl xs:text-4xl sm:text-5xl md:text-6xl font-bold mb-2 xs:mb-6">About UC METC SILMS</h1>
+          <p className="text-xs xs:text-base sm:text-xl md:text-2xl text-white/90 max-w-2xl mx-auto leading-relaxed">
             The Sales, Inventory, Locker, and Membership (SILMS) platform for the University of Cebu Maritime Education and Training Center.
           </p>
         </div>
       </div>
 
       {/* Mission Section */}
-      <div className="max-w-6xl mx-auto px-6 py-20">
-        <div className="grid md:grid-cols-2 gap-12 items-center">
+      <div className="max-w-6xl mx-auto px-4 xs:px-6 py-10 sm:py-20">
+        <div className="grid grid-cols-2 gap-4 xs:gap-12 items-center">
           <div>
-            <h2 className="text-4xl font-bold text-slate-800 mb-6">What We Do</h2>
-            <p className="text-lg text-slate-600 mb-4 text-justify">
+            <h2 className="text-sm xs:text-2xl sm:text-4xl font-bold text-slate-800 mb-2 xs:mb-6">What We Do</h2>
+            <p className="text-[10px] xs:text-sm sm:text-lg text-slate-600 mb-2 xs:mb-4 text-justify leading-snug">
               UC METC SILMS is your one-stop digital platform for everything you need as a UC METC student. We make it easy for you to shop for school essentials, manage your locker, and stay connected with the campus community.
             </p>
-            <p className="text-lg text-slate-600 mb-4 text-justify">
+            <p className="text-[10px] xs:text-sm sm:text-lg text-slate-600 mb-2 xs:mb-4 text-justify leading-snug">
               Whether you need uniforms, equipment, or supplies, you can browse and order online, then pick up at the Coop office. Plus, become a member to unlock exclusive discounts and special perks!
             </p>
-            <p className="text-lg text-slate-600 text-justify">
+            <p className="text-[10px] xs:text-sm sm:text-lg text-slate-600 text-justify leading-snug">
               We're here to make your student life easier by bringing all cooperative services together in one convenient platform. Shop smart, save time, and focus on what matters most, your education.
             </p>
           </div>
-          <div className="bg-gradient-to-br from-purple-100 to-green-100 rounded-2xl p-12 flex items-center justify-center">
+          <div className="bg-gradient-to-br from-purple-100 to-green-100 rounded-2xl p-4 xs:p-12 flex items-center justify-center">
             <div className="text-center">
-              <img src={COOP_LOGO_URL} alt="UC METC Logo" className="w-32 h-32 rounded-full mx-auto mb-6 shadow-lg" />
-              <h3 className="text-2xl font-bold text-slate-800">UC METC SILMS</h3>
-              <p className="text-slate-600 mt-2">Sales, Inventory, Locker, and <br/> Membership System</p>
-              <p className="text-sm text-slate-500 mt-4">University of Cebu Maritime Education<br/> and Training Center</p>
+              <img src={COOP_LOGO_URL} alt="UC METC Logo" className="w-12 h-12 xs:w-24 xs:h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-2 xs:mb-6 shadow-lg" />
+              <h3 className="text-xs xs:text-xl sm:text-2xl font-bold text-slate-800 leading-tight">UC METC SILMS</h3>
+              <p className="text-[9px] xs:text-sm sm:text-slate-600 mt-1 xs:mt-2 leading-tight">Sales, Inventory, Locker, and <br className="hidden xs:block"/> Membership System</p>
+              <p className="text-[7px] xs:text-xs sm:text-slate-500 mt-1 xs:mt-4 leading-tight">University of Cebu Maritime Education<br className="hidden xs:block"/> and Training Center</p>
             </div>
           </div>
         </div>
       </div>
 
       {/* Highlights Section */}
-      <div className="bg-slate-100 py-16">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">Why Students Love UC METC SILMS</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+      <div className="bg-slate-100 py-10 sm:py-16">
+        <div className="max-w-6xl mx-auto px-2 xs:px-6">
+          <h2 className="text-sm xs:text-2xl sm:text-4xl font-bold text-slate-800 mb-4 sm:mb-12 text-center">Why Students Love UC METC SILMS</h2>
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-6">
             {highlights.map((highlight, idx) => (
-              <div key={idx} className="bg-white p-6 rounded-lg shadow flex items-center space-x-4">
-                <CheckCircle2 size={32} className="text-green-600 flex-shrink-0" />
-                <p className="font-semibold text-slate-800">{highlight}</p>
+              <div key={idx} className="bg-white p-1.5 xs:p-3 sm:p-6 rounded-lg shadow flex items-center space-x-1 sm:space-x-4">
+                <CheckCircle2 className="text-green-600 flex-shrink-0 w-4 h-4 xs:w-6 xs:h-6 sm:w-8 sm:h-8" />
+                <p className="text-[8px] xs:text-xs sm:text-sm font-semibold text-slate-800 leading-tight">{highlight}</p>
               </div>
             ))}
           </div>
@@ -166,21 +166,21 @@ export const LearnMorePage: React.FC = () => {
       </div>
 
       {/* Core Features Section */}
-      <div className="max-w-6xl mx-auto px-6 py-20">
-        <h2 className="text-4xl font-bold text-slate-800 mb-12 text-center">What You Can Do</h2>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <div className="max-w-6xl mx-auto px-2 xs:px-6 py-10 sm:py-20">
+        <h2 className="text-sm xs:text-2xl sm:text-4xl font-bold text-slate-800 mb-4 sm:mb-12 text-center">What You Can Do</h2>
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-8">
           {features.map((feature, idx) => {
             const Icon = feature.icon;
             return (
               <div
                 key={idx}
-                className="bg-white rounded-lg p-8 border border-slate-200 hover:border-green-400 hover:shadow-lg transition-all duration-300"
+                className="bg-white rounded-lg p-2 xs:p-4 sm:p-8 border border-slate-200 hover:border-green-400 hover:shadow-lg transition-all duration-300"
               >
-                <div className="bg-gradient-to-br from-green-100 to-purple-100 w-16 h-16 rounded-lg flex items-center justify-center mb-6">
-                  <Icon size={32} className="text-green-600" />
+                <div className="bg-gradient-to-br from-green-100 to-purple-100 w-6 xs:w-10 sm:w-16 h-6 xs:h-10 sm:h-16 rounded-lg flex items-center justify-center mb-1 xs:mb-6">
+                  <Icon className="w-3.5 h-3.5 xs:w-6 xs:h-6 sm:w-8 sm:h-8 text-green-600" />
                 </div>
-                <h3 className="text-xl font-bold text-slate-800 mb-3">{feature.title}</h3>
-                <p className="text-slate-600">{feature.description}</p>
+                <h3 className="text-[9px] xs:text-base sm:text-xl font-bold text-slate-800 mb-0.5 sm:mb-3 leading-tight">{feature.title}</h3>
+                <p className="text-[7px] xs:text-xs sm:text-sm text-slate-600 leading-snug">{feature.description}</p>
               </div>
             );
           })}
