@@ -52,37 +52,41 @@ export const AccountSettingsPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center space-x-4">
+        <div className="mb-8 flex items-center space-x-2 sm:space-x-4">
           <button
             onClick={handleGoBack}
-            className="p-2 hover:bg-white rounded-lg transition-colors"
+            className="p-2 hover:bg-white/40 active:bg-white/60 active:scale-95 rounded-xl transition-all duration-200 flex items-center justify-center text-slate-800"
+            aria-label="Go back"
           >
-            <ChevronLeft size={24} className="text-slate-700" />
+            <ChevronLeft size={24} />
           </button>
-          <h1 className="text-3xl font-bold text-slate-900">ACCOUNT SETTINGS</h1>
+          <h1 className="text-xl sm:text-3xl font-bold text-slate-900 tracking-tight uppercase leading-none">
+            ACCOUNT SETTINGS
+          </h1>
         </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-lg shadow-lg p-8">
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm p-4 sm:p-8">
           {/* Your Profile Section */}
-          <div className="mb-8">
-            <h2 className="text-xl font-semibold text-slate-900 mb-6">Your Profile</h2>
+          <div>
+            <h2 className="text-base sm:text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
+              <span className="w-1.5 h-4 bg-purple-600 rounded-full"></span>
+              Your Profile
+            </h2>
 
             {/* Profile Picture */}
-            <div className="flex justify-center mb-8">
-              <div className="relative">
-                <div className="w-24 h-24 rounded-full border-4 border-slate-200 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-md">
-                  <User size={48} className="text-slate-400" />
-                </div>
+            <div className="w-full flex justify-center mb-8">
+              <div className="w-24 h-24 rounded-full border-4 border-slate-200 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center shadow-md">
+                <User size={48} className="text-slate-400" />
               </div>
             </div>
 
-            {/* Form Fields */}
-            <div className="space-y-6">
+            {/* Form Fields Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* ID Number - Only for non-admin/staff users */}
               {user?.role !== 'admin' && user?.role !== 'staff' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                     ID Number
                   </label>
                   <input
@@ -91,14 +95,14 @@ export const AccountSettingsPage: React.FC = () => {
                     value={formData.id_number}
                     onChange={handleChange}
                     disabled
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                    className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                   />
                 </div>
               )}
 
               {/* First Name */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                   First Name
                 </label>
                 <input
@@ -107,13 +111,13 @@ export const AccountSettingsPage: React.FC = () => {
                   value={formData.first_name}
                   onChange={handleChange}
                   disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                 />
               </div>
 
               {/* Middle Name */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Middle Name
                 </label>
                 <input
@@ -122,14 +126,14 @@ export const AccountSettingsPage: React.FC = () => {
                   value={formData.middle_name}
                   onChange={handleChange}
                   disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
-                  placeholder=""
+                  className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
+                  placeholder="None"
                 />
               </div>
 
               {/* Last Name */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Last Name
                 </label>
                 <input
@@ -138,14 +142,14 @@ export const AccountSettingsPage: React.FC = () => {
                   value={formData.last_name}
                   onChange={handleChange}
                   disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                 />
               </div>
 
               {/* Email */}
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Email
+              <div className="space-y-1.5">
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  Email Address
                 </label>
                 <input
                   type="email"
@@ -153,15 +157,15 @@ export const AccountSettingsPage: React.FC = () => {
                   value={formData.email}
                   onChange={handleChange}
                   disabled
-                  className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                  className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                 />
               </div>
 
               {/* Course - Only for non-admin/staff users */}
               {user?.role !== 'admin' && user?.role !== 'staff' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Course
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Course / Program
                   </label>
                   <input
                     type="text"
@@ -169,16 +173,16 @@ export const AccountSettingsPage: React.FC = () => {
                     value={formData.course}
                     onChange={handleChange}
                     disabled
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                    className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                   />
                 </div>
               )}
 
               {/* Year - Only for non-admin/staff users */}
               {user?.role !== 'admin' && user?.role !== 'staff' && (
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Year
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    Year Level
                   </label>
                   <input
                     type="text"
@@ -186,20 +190,21 @@ export const AccountSettingsPage: React.FC = () => {
                     value={formData.year}
                     onChange={handleChange}
                     disabled
-                    className="w-full px-4 py-3 border border-slate-300 rounded-lg bg-slate-50 text-slate-700 font-medium cursor-not-allowed"
+                    className="w-full px-4 py-2.5 sm:py-3 border border-slate-200 rounded-xl bg-slate-50/70 text-slate-700 text-sm font-semibold transition-all duration-200 cursor-not-allowed shadow-inner focus:outline-none"
                   />
                 </div>
               )}
-            </div>
 
-            {/* Info Note - Only show for regular users */}
-            {user?.role === 'user' && (
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm text-blue-700">
-                  ℹ️ Your account information is managed by the administration. Please proceed to UC Coop Office if you need to make changes.
-                </p>
-              </div>
-            )}
+              {/* Info Note - Only show for regular users */}
+              {user?.role === 'user' && (
+                <div className="p-4 bg-purple-50/60 border border-purple-100 rounded-xl flex items-start gap-3 md:col-span-2 mt-2">
+                  <span className="text-base sm:text-lg flex-shrink-0 mt-0.5">💡</span>
+                  <p className="text-xs sm:text-sm text-purple-800 font-medium leading-relaxed">
+                    Your account details are managed directly by the UC Coop Administration. If you need to update any information, please proceed to the UC Coop Office.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
