@@ -125,7 +125,7 @@ export const ForgotPasswordPage: React.FC = () => {
       {/* Back Button */}
       <button
         onClick={() => navigate('/login')}
-        className={`absolute top-6 left-6 flex items-center space-x-2 text-white transition-all group z-20 p-2 rounded-lg shadow-lg ${backButtonClass}`}
+        className={`absolute top-4 md:top-6 left-4 md:left-6 flex items-center space-x-2 text-white transition-all group z-50 p-2 rounded-lg shadow-lg ${backButtonClass}`}
         title="Back to Login"
       >
         <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />

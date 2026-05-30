@@ -181,16 +181,17 @@ export const DashboardPage: React.FC = () => {
 
           {/* Mobile Header */}
           <div className="lg:hidden">
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-3 mb-2">
               <button 
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
+                className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+                aria-label="Open menu"
               >
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-xl font-bold text-black">DASHBOARD</h1>
+              <h1 className="text-xl font-bold text-black tracking-wide">DASHBOARD</h1>
             </div>
             <div className="flex justify-end">
               <NotificationBell />

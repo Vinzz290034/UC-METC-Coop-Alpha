@@ -21,6 +21,11 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOp
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        // If clicking the bell button, let the bell's own toggle click handler close it
+        const isBellClick = (event.target as HTMLElement).closest('[aria-label="Notifications"]');
+        if (isBellClick) {
+          return;
+        }
         onClose();
       }
     };
