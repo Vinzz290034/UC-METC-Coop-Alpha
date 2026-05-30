@@ -210,18 +210,29 @@ export const Sidebar: React.FC = () => {
       >
         <div className="h-full flex flex-col">
           {/* Logo */}
-          <div className="p-6 border-b border-purple-600/50 flex items-center space-x-3 bg-gradient-to-r from-purple-800/50 to-purple-700/50">
-            <img 
-              src={COOP_LOGO_URL}
-              alt="UC METC Logo" 
-              className="w-12 h-12 rounded-full"
-            />
-            <div>
-              <h1 className="text-lg font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
-                UC METC
-              </h1>
-              <p className="text-xs text-slate-300 mt-0.5">SILMS</p>
+          <div className="p-6 border-b border-purple-600/50 flex items-center justify-between bg-gradient-to-r from-purple-800/50 to-purple-700/50">
+            <div className="flex items-center space-x-3">
+              <img 
+                src={COOP_LOGO_URL}
+                alt="UC METC Logo" 
+                className="w-10 h-10 rounded-full"
+              />
+              <div className="flex flex-col justify-center">
+                <h1 className="text-[15px] font-bold leading-none bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                  UC METC
+                </h1>
+                <span className="text-[10px] text-slate-300 leading-none mt-1">SILMS</span>
+              </div>
             </div>
+
+            {/* Mobile Close Button - Visible only on mobile/tablet (< lg) */}
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="lg:hidden p-1 rounded-full hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center"
+              aria-label="Close menu"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           {/* User info */}

@@ -6,6 +6,7 @@ import {
   Clock,
   ArrowRight,
   Users,
+  X,
 } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
@@ -36,6 +37,7 @@ export const StudentDashboard: React.FC = () => {
   const [showInsuranceModal, setShowInsuranceModal] = useState(false);
   const [hasPendingInsurance, setHasPendingInsurance] = useState(false);
   const [hasCompletedInsurance, setHasCompletedInsurance] = useState(false);
+  const [selectedAnnouncement, setSelectedAnnouncement] = useState<any>(null);
 
   // Check if user has seen the welcome tour
   useEffect(() => {
@@ -342,6 +344,134 @@ export const StudentDashboard: React.FC = () => {
     return () => clearInterval(timer);
   }, [banners.length]);
 
+  const renderFeaturedCarousel = (isMobile: boolean) => {
+    return (
+      <div className={`relative rounded-2xl overflow-hidden ${isMobile ? 'h-52' : 'h-64'} bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 border border-purple-600/30 shadow-xl group`}>
+        {/* Banner Slides */}
+        <div className="relative w-full h-full">
+          {banners.map((banner, idx) => (
+            <div
+              key={idx}
+              className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
+                idx === currentImageIndex
+                  ? 'translate-x-0'
+                  : idx < currentImageIndex
+                  ? '-translate-x-full'
+                  : 'translate-x-full'
+              }`}
+            >
+              {/* Background Image */}
+              <div 
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: `url(${banner.image})` }}
+              />
+              
+              {/* Dynamic Gradient Overlay */}
+              <div className={`absolute inset-0 bg-gradient-to-r ${banner.overlayColor}`} />
+              
+              {/* Content */}
+              <div className={`relative z-10 h-full flex flex-col justify-center ${isMobile ? 'px-6' : 'px-8'} text-white`}>
+                <div className={`mb-3 inline-flex items-center space-x-2 bg-gradient-to-r from-green-400 to-green-500 text-purple-900 ${isMobile ? 'px-3 py-1.5 text-xs' : 'px-4 py-2 text-sm'} rounded-full w-fit font-semibold shadow-lg`}>
+                  <span>Featured Event</span>
+                </div>
+                <h2 className={`${isMobile ? 'text-xl' : 'text-3xl'} font-bold mb-1`} style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)' }}>
+                  {banner.title}
+                </h2>
+                <p className={`${isMobile ? 'text-sm' : 'text-lg'} text-white mb-3`} style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.6)' }}>
+                  {banner.subtitle}
+                </p>
+                <div className={`flex items-center space-x-4 ${isMobile ? 'text-xs mb-4' : 'text-sm mb-6'} text-white`} style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>
+                  <div className="flex items-center space-x-1.5">
+                    <Calendar size={isMobile ? 14 : 16} />
+                    <span>{banner.date}</span>
+                  </div>
+                  <div className="flex items-center space-x-1.5">
+                    <Clock size={isMobile ? 14 : 16} />
+                    <span>{banner.time}</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={banner.action}
+                  className={`inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 text-white ${isMobile ? 'px-5 py-2 text-sm' : 'px-8 py-3 text-lg'} rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 w-fit group/btn shadow-lg`}
+                >
+                  <span>{banner.cta}</span>
+                  <ArrowRight size={isMobile ? 16 : 18} className="group-hover/btn:translate-x-1 transition-transform" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Carousel Indicators */}
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-1.5 items-center">
+          {banners.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentImageIndex(idx)}
+              className={`rounded-full transition-all duration-300 p-0 border-0 min-w-0 min-h-0 flex-shrink-0 ${
+                isMobile 
+                  ? `${idx === currentImageIndex ? 'bg-white w-4 h-1.5' : 'bg-white/50 w-1.5 h-1.5'}` 
+                  : `${idx === currentImageIndex ? 'bg-white w-8 h-2' : 'bg-white/50 w-2 h-2'}`
+              }`}
+            />
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderMembershipCard = (isMobile: boolean) => {
+    const paddingClass = isMobile ? "p-6" : "p-8";
+    const titleClass = isMobile ? "text-lg" : "text-xl";
+    const bodyClass = isMobile ? "text-xs" : "text-sm";
+    
+    if (user?.membership_status === 'approved') {
+      return (
+        <div className={`relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl ${paddingClass} text-white shadow-xl overflow-hidden group`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+          <div className="relative z-10">
+            <div className="text-3xl mb-3">✓</div>
+            <h3 className={`${titleClass} font-bold mb-2`}>Welcome Member!</h3>
+            <p className={`text-green-50 ${bodyClass}`}>
+              You are now a part of the UC Coop. Enjoy your exclusive benefits and discounts!
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    if (membershipRequested) {
+      return (
+        <div className={`relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl ${paddingClass} text-white shadow-xl overflow-hidden group`}>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+          <div className="relative z-10">
+            <div className="text-3xl mb-3">✓</div>
+            <h3 className={`${titleClass} font-bold mb-2`}>Membership Request Pending</h3>
+            <p className={`text-green-50 ${bodyClass}`}>
+              Your membership request has been successfully submitted. If needed, you can cancel this transaction at the Coop Office.
+            </p>
+          </div>
+        </div>
+      );
+    }
+    
+    return (
+      <div className={`relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl ${paddingClass} text-white shadow-xl overflow-hidden group`}>
+        <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
+        <div className="relative z-10">
+          <Users size={isMobile ? 28 : 32} className="mb-3 group-hover:scale-110 transition-transform duration-300" />
+          <h3 className={`${isMobile ? 'text-md font-bold mb-1.5' : 'text-lg font-bold mb-2'}`}>Become Part of the UC Coop</h3>
+          <p className={`text-green-50 ${bodyClass} mb-4`}>Get exclusive member benefits and special discounts on our products.</p>
+          <button 
+            onClick={() => setShowMembershipModal(true)}
+            className="w-full bg-white text-green-600 py-2.5 rounded-lg font-semibold hover:bg-green-50 transition-all duration-300 flex items-center justify-center space-x-2 hover:scale-105 hover:shadow-lg active:scale-95">
+            <span>Join Now!</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen animate-slide-in-right">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
@@ -421,8 +551,54 @@ export const StudentDashboard: React.FC = () => {
                   hasPendingInsurance || hasCompletedInsurance ? 'opacity-90' : 'hover:from-purple-700 hover:to-purple-600'
                 }`}
               >
-                {hasCompletedInsurance ? '✓ Insured' : hasPendingInsurance ? 'Pending' : 'I-CARD'}
+                {hasCompletedInsurance 
+                  ? '✓ Insured' 
+                  : hasPendingInsurance 
+                    ? 'Pending Order' 
+                    : 'I-CARD Insurance is now Available!'}
               </button>
+
+              {/* Row 3: Current Office Status Card (Mobile version) */}
+              <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm flex items-center justify-between mt-1">
+                <span className="font-semibold text-slate-800 text-sm">Current Office Status</span>
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold text-white ${
+                  isOfficeOpen 
+                    ? 'bg-[#22c55e] shadow-sm shadow-green-500/20' 
+                    : 'bg-slate-400'
+                }`}>
+                  {isOfficeOpen ? 'Open' : 'Closed'}
+                </span>
+              </div>
+
+              {/* Row 4: Featured Banner Carousel (Mobile version) */}
+              <div className="mt-1">
+                {renderFeaturedCarousel(true)}
+              </div>
+
+              {/* Row 5: Membership Status Card (Mobile version) */}
+              <div className="mt-1">
+                {renderMembershipCard(true)}
+              </div>
+
+              {/* Row 6: Quick Links (Mobile version) - Compact side-by-side horizontal row */}
+              {user?.membership_status === 'approved' && (
+                <div className="grid grid-cols-2 gap-3 mt-1">
+                  <button 
+                    onClick={() => navigate('/locker')}
+                    className="py-2.5 px-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 text-slate-800 font-bold text-xs flex items-center justify-between active:scale-[0.98] group"
+                  >
+                    <span>My Locker</span>
+                    <ArrowRight size={14} className="text-purple-500 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                  <button 
+                    onClick={() => navigate('/billing-history')}
+                    className="py-2.5 px-4 rounded-xl bg-white border border-slate-200 shadow-sm hover:shadow-md transition-all duration-200 text-slate-800 font-bold text-xs flex items-center justify-between active:scale-[0.98] group"
+                  >
+                    <span>Billing History</span>
+                    <ArrowRight size={14} className="text-purple-500 group-hover:translate-x-0.5 transition-transform" />
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -432,82 +608,19 @@ export const StudentDashboard: React.FC = () => {
           {/* Left Column - Featured Banner & Events */}
           <div className="lg:col-span-2 space-y-6">
             {/* Featured Banner Carousel */}
-            <div className="relative rounded-2xl overflow-hidden h-64 bg-gradient-to-br from-purple-900 via-purple-800 to-purple-900 border border-purple-600/30 shadow-xl group">
-              {/* Banner Slides */}
-              <div className="relative w-full h-full">
-                {banners.map((banner, idx) => (
-                  <div
-                    key={idx}
-                    className={`absolute inset-0 transition-transform duration-700 ease-in-out ${
-                      idx === currentImageIndex
-                        ? 'translate-x-0'
-                        : idx < currentImageIndex
-                        ? '-translate-x-full'
-                        : 'translate-x-full'
-                    }`}
-                  >
-                    {/* Background Image */}
-                    <div 
-                      className="absolute inset-0 bg-cover bg-center"
-                      style={{ backgroundImage: `url(${banner.image})` }}
-                    />
-                    
-                    {/* Dynamic Gradient Overlay */}
-                    <div className={`absolute inset-0 bg-gradient-to-r ${banner.overlayColor}`} />
-                    
-                    {/* Content */}
-                    <div className="relative z-10 h-full flex flex-col justify-center px-8 text-white">
-                      <div className="mb-4 inline-flex items-center space-x-2 bg-gradient-to-r from-green-400 to-green-500 text-purple-900 px-4 py-2 rounded-full w-fit font-semibold text-sm shadow-lg">
-                        <span>Featured Event</span>
-                      </div>
-                      <h2 className="text-3xl font-bold mb-2" style={{ textShadow: '2px 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.6)' }}>
-                        {banner.title}
-                      </h2>
-                      <p className="text-white text-lg mb-4" style={{ textShadow: '2px 2px 6px rgba(0,0,0,0.8), 0 0 15px rgba(0,0,0,0.6)' }}>
-                        {banner.subtitle}
-                      </p>
-                      <div className="flex items-center space-x-6 text-sm text-white mb-6" style={{ textShadow: '1px 1px 4px rgba(0,0,0,0.8)' }}>
-                        <div className="flex items-center space-x-2">
-                          <Calendar size={16} />
-                          <span>{banner.date}</span>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Clock size={16} />
-                          <span>{banner.time}</span>
-                        </div>
-                      </div>
-                      <button 
-                        onClick={banner.action}
-                        className="inline-flex items-center justify-center space-x-2 bg-gradient-to-r from-green-500 to-green-600 text-white px-8 py-3 rounded-lg font-semibold hover:from-green-600 hover:to-green-700 transition-all duration-300 w-fit group/btn shadow-lg"
-                      >
-                        <span>{banner.cta}</span>
-                        <ArrowRight size={18} className="group-hover/btn:translate-x-1 transition-transform" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Carousel Indicators */}
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-2">
-                {banners.map((_, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setCurrentImageIndex(idx)}
-                    className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                      idx === currentImageIndex ? 'bg-white w-8' : 'bg-white/50 hover:bg-white/75'
-                    }`}
-                  />
-                ))}
-              </div>
+            <div className="hidden lg:block">
+              {renderFeaturedCarousel(false)}
             </div>
 
-            {/* Announcements Section */}
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-6">
+             {/* Announcements Section */}
+            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-8 border border-white/50 shadow-lg">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-4 sm:mb-6">
                 Announcements
               </h2>
-              <div className="space-y-4">
+              <div 
+                className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible snap-x snap-mandatory gap-4 pb-3 lg:pb-0 lg:space-y-4"
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
                 {announcements.slice(0, 3).map((announcement) => {
                   // Category color mapping
                   const categoryColors: { [key: string]: string } = {
@@ -521,7 +634,8 @@ export const StudentDashboard: React.FC = () => {
                   return (
                     <div
                       key={announcement.id}
-                      className={`border-l-4 ${borderColor} rounded-lg p-5 hover:shadow-md transition-all duration-300 group cursor-pointer`}
+                      onClick={() => setSelectedAnnouncement(announcement)}
+                      className={`border-l-4 ${borderColor} rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-300 group cursor-pointer flex-shrink-0 w-[82vw] sm:w-[350px] lg:w-full snap-center`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -554,8 +668,8 @@ export const StudentDashboard: React.FC = () => {
             </div>
 
             {/* Recent Activities Section */}
-            <div id="recent-activities" className="bg-white/90 backdrop-blur-md rounded-2xl p-8 border border-white/50 shadow-lg">
-              <div className="text-center mb-8">
+            <div id="recent-activities" className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-8 border border-white/50 shadow-lg">
+              <div className="text-center mb-5 sm:mb-8">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 via-purple-500 to-violet-500 bg-clip-text text-transparent mb-2">
                   Recent Activities
                 </h2>
@@ -567,7 +681,7 @@ export const StudentDashboard: React.FC = () => {
                 return (
                   <div key={activity.id} className="space-y-3">
                     {/* Activity Content Card */}
-                    <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-8 text-white overflow-hidden">
+                    <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-5 sm:p-8 text-white overflow-hidden">
                       {/* Decorative Circle Elements */}
                       <div className="absolute -top-20 -right-20 w-40 h-40 bg-white/10 rounded-full"></div>
                       <div className="absolute -top-10 -right-10 w-32 h-32 bg-white/10 rounded-full"></div>
@@ -580,21 +694,21 @@ export const StudentDashboard: React.FC = () => {
                       
                       {/* Content */}
                       <div className="relative z-10">
-                        <h3 className="text-3xl font-bold mb-2">{activity.title}</h3>
-                        <p className="text-green-100 text-lg mb-4">{activity.subtitle}</p>
+                        <h3 className="text-xl sm:text-3xl font-bold mb-2">{activity.title}</h3>
+                        <p className="text-green-100 text-sm sm:text-lg mb-3 sm:mb-4">{activity.subtitle}</p>
                         
-                        <div className="text-white leading-relaxed mb-6 text-justify">
+                        <div className="text-white text-xs sm:text-base leading-relaxed mb-4 sm:mb-6 text-justify">
                           {showFullText ? activity.fullDescription : activity.shortDescription}
                         </div>
                         
                         <button 
                           onClick={() => setShowFullText(!showFullText)}
-                          className="text-white font-semibold underline hover:no-underline transition-all"
+                          className="text-white font-semibold text-xs sm:text-sm underline hover:no-underline transition-all"
                         >
                           {showFullText ? 'See less' : 'See more'}
                         </button>
                         
-                        <div className="mt-4 text-green-100 text-sm space-y-1">
+                        <div className="mt-4 text-green-100 text-[10px] sm:text-sm space-y-0.5 sm:space-y-1">
                           <div>Photo By | Vince Andrew Santoya</div>
                           <div>Photo By | Kisses Peñera</div>
                           <div>Edited By | Vince Andrew Santoya</div>
@@ -606,7 +720,7 @@ export const StudentDashboard: React.FC = () => {
                     {activity.galleryImages && activity.galleryImages.length > 0 && (
                       <div className="relative w-full rounded-xl overflow-hidden shadow-2xl bg-gradient-to-br from-purple-100 to-green-100">
                         {/* Main Image */}
-                        <div className="relative h-[500px] bg-white">
+                        <div className="relative h-[250px] sm:h-[500px] bg-white">
                           {activity.galleryImages.map((img, idx) => (
                             <img 
                               key={idx}
@@ -624,15 +738,15 @@ export const StudentDashboard: React.FC = () => {
                         </div>
                         
                         {/* Dot Indicators */}
-                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-1.5 bg-black/30 backdrop-blur-sm px-3 py-1.5 rounded-full">
+                        <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-1 bg-black/30 backdrop-blur-sm px-2.5 py-1 rounded-full items-center max-w-[92%] overflow-x-auto scrollbar-none">
                           {activity.galleryImages.map((_, idx) => (
                             <button
                               key={idx}
                               onClick={() => setCurrentGalleryIndex(idx)}
-                              className={`transition-all duration-300 rounded-full ${
+                              className={`transition-all duration-300 rounded-full p-0 border-0 min-w-0 min-h-0 flex-shrink-0 ${
                                 idx === currentGalleryIndex
-                                  ? 'bg-green-500 w-6 h-2.5'
-                                  : 'bg-white/50 hover:bg-white/75 w-2.5 h-2.5'
+                                  ? 'bg-green-500 w-3 h-1 sm:w-6 sm:h-2'
+                                  : 'bg-white/50 hover:bg-white/75 w-1 h-1 sm:w-2 sm:h-2'
                               }`}
                             />
                           ))}
@@ -648,7 +762,7 @@ export const StudentDashboard: React.FC = () => {
           {/* Right Column - Important Info & Quick Actions */}
           <div className="space-y-6">
             {/* Important Info */}
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-lg">
+            <div className="hidden lg:block bg-white/90 backdrop-blur-md rounded-2xl p-4 border border-white/50 shadow-lg">
               {/* Current Office Status Card */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -681,47 +795,13 @@ export const StudentDashboard: React.FC = () => {
             </div>
 
             {/* Membership Card */}
-            {user?.membership_status === 'approved' ? (
-              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
-                <div className="relative z-10">
-                  <div className="text-4xl mb-4">✓</div>
-                  <h3 className="text-xl font-bold mb-3">Welcome Member!</h3>
-                  <p className="text-green-50 text-sm">
-                    You are now a part of the UC Coop. Enjoy your exclusive benefits and discounts!
-                  </p>
-                </div>
-              </div>
-            ) : membershipRequested ? (
-              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
-                <div className="relative z-10">
-                  <div className="text-4xl mb-4">✓</div>
-                  <h3 className="text-xl font-bold mb-3">Membership Request Pending</h3>
-                  <p className="text-green-50 text-sm">
-                    Your membership request has been successfully submitted. If needed, you can cancel this transaction at the Coop Office.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <div className="relative bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-8 text-white shadow-xl overflow-hidden group">
-                <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform duration-300"></div>
-                <div className="relative z-10">
-                  <Users size={32} className="mb-4 group-hover:scale-110 transition-transform duration-300" />
-                  <h3 className="text-lg font-bold mb-2">Become Part of the UC Coop</h3>
-                  <p className="text-green-50 text-sm mb-6">Get exclusive member benefits and special discounts on our products.</p>
-                  <button 
-                    onClick={() => setShowMembershipModal(true)}
-                    className="w-full bg-white text-green-600 py-3 rounded-lg font-semibold hover:bg-green-50 transition-all duration-300 flex items-center justify-center space-x-2 animate-bounce-in hover:scale-105 hover:shadow-lg active:scale-95">
-                    <span>Join Now!</span>
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="hidden lg:block">
+              {renderMembershipCard(false)}
+            </div>
 
             {/* Quick Links - Only for approved members */}
             {user?.membership_status === 'approved' && (
-            <div className="bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-white/50 shadow-lg">
+            <div className="hidden lg:block bg-white/90 backdrop-blur-md rounded-2xl p-6 border border-white/50 shadow-lg">
               <h3 className="text-lg font-semibold text-slate-900 mb-4">Quick Links</h3>
               <div className="space-y-3">
                 <button 
@@ -835,6 +915,71 @@ export const StudentDashboard: React.FC = () => {
       {/* Insurance Modal */}
       {showInsuranceModal && (
         <InsuranceModal onClose={() => setShowInsuranceModal(false)} />
+      )}
+
+      {/* Announcement Detail Modal */}
+      {selectedAnnouncement && createPortal(
+        <div 
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+          style={{ zIndex: Z_INDEX.MEMBERSHIP_MODAL + 10 }}
+          onClick={() => setSelectedAnnouncement(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl p-6 xs:p-8 max-w-lg w-full animate-scale-in relative border border-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedAnnouncement(null)}
+              className="absolute top-4 right-4 p-2 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label="Close modal"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Announcement Category & Date */}
+            <div className="flex items-center gap-2.5 mb-4">
+              <span className="px-2.5 py-1 text-xs font-bold text-purple-600 bg-purple-100 rounded-full">
+                {selectedAnnouncement.category}
+              </span>
+              <span className="text-xs text-slate-400 font-medium">
+                {new Date(selectedAnnouncement.date).toLocaleDateString(undefined, {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                })}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">
+              {selectedAnnouncement.title}
+            </h2>
+
+            {/* Divider */}
+            <div className="w-12 h-1 bg-purple-600 rounded-full mb-5"></div>
+
+            {/* Content */}
+            <div className="text-slate-600 text-sm xs:text-base leading-relaxed mb-6 whitespace-pre-line text-justify max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin">
+              {selectedAnnouncement.content}
+            </div>
+
+            {/* Footer / Author */}
+            <div className="flex items-center gap-3 pt-4 border-t border-slate-100">
+              <div className="w-9 h-9 rounded-full bg-purple-50 flex items-center justify-center text-purple-600 font-bold text-sm">
+                {selectedAnnouncement.author_name.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-xs text-slate-400 leading-none">Published by</p>
+                <p className="text-sm font-semibold text-slate-800 mt-1 capitalize">
+                  {selectedAnnouncement.author_role ? `${selectedAnnouncement.author_role} - ` : ''}
+                  {selectedAnnouncement.author_name}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
