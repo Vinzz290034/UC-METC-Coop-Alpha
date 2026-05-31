@@ -7,14 +7,27 @@ import { FloatingInput } from '../components/FloatingInput';
 import { LoginTransition } from '../components/PageTransition';
 import { COOP_LOGO_URL, BACKGROUND_IMAGE_URL } from '../constants/cloudinaryAssets';
 
-import { UserIcon, ChevronLeft, UserPlus } from 'lucide-react';
+import { UserIcon, ChevronLeft, UserPlus, ChevronDown } from 'lucide-react';
 
 
 const COURSES = ['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM', 'SHS', 'JHS'];
 
-const COLLEGE_YEARS = ['1st', '2nd', '3rd', '4th'];
-const SHS_YEARS = ['11th', '12th'];
-const JHS_YEARS = ['10th', '9th', '8th', '7th'];
+const getValidYearsForCourse = (courseName: string): string[] => {
+  if (!courseName) return [];
+  if (['BSMT', 'BSMARE', 'BSNAME'].includes(courseName)) {
+    return ['1st', '2nd', '3rd'];
+  }
+  if (['HM', 'TOURISM'].includes(courseName)) {
+    return ['1st', '2nd', '3rd', '4th'];
+  }
+  if (courseName === 'SHS') {
+    return ['11th', '12th'];
+  }
+  if (courseName === 'JHS') {
+    return ['7th', '8th', '9th', '10th'];
+  }
+  return [];
+};
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -330,40 +343,60 @@ export const LoginPage: React.FC = () => {
     value,
     onChange,
     options,
-    required = false,
   }: {
     label: string;
     value: string;
-    onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
+    onChange: (e: any) => void;
     options: string[];
-    required?: boolean;
   }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const hasOptions = options.length > 0;
+
     return (
-      <div>
-        <label className="block text-xs font-medium text-slate-700 mb-1">
+      <div className="relative">
+        <label className="block text-xs font-semibold text-slate-700 mb-1">
           {label}
         </label>
-        <div className="relative">
-          <select
-            value={value}
-            onChange={onChange}
-            className="w-full px-3 py-2 border-2 border-slate-300 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 appearance-none cursor-pointer transition-all duration-200 hover:border-slate-400"
-            style={{
-              backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231e293b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 0.6rem center',
-              backgroundSize: '1.2em 1.2em',
-              paddingRight: '2rem',
-            } as React.CSSProperties}
-            required={required}
+        <div>
+          <button
+            type="button"
+            disabled={!hasOptions}
+            onClick={() => setIsOpen(!isOpen)}
+            className={`w-full flex items-center justify-between px-3 py-2 border-2 border-slate-300 rounded-lg text-sm text-slate-900 bg-white focus:outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200 text-left font-semibold hover:border-slate-400 transition-all duration-200 ${
+              !hasOptions ? 'opacity-60 cursor-not-allowed bg-slate-50' : ''
+            }`}
           >
-            <option value="" disabled>Select an option</option>
-            {options.map((opt) => (
-              <option key={opt} value={opt}>
-                {opt}
-              </option>
-            ))}
-          </select>
+            <span className={value ? 'text-slate-900 font-semibold' : 'text-slate-400 font-medium'}>
+              {!hasOptions ? 'Select course first' : (value || 'Select an option')}
+            </span>
+            <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {isOpen && hasOptions && (
+            <>
+              {/* Overlay to close the dropdown */}
+              <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
+              <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-xl z-20 py-1 max-h-48 overflow-y-auto animate-scale-in">
+                {options.map((opt) => (
+                  <button
+                    key={opt}
+                    type="button"
+                    onClick={() => {
+                      onChange({ target: { value: opt } });
+                      setIsOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-1.5 text-sm transition-colors duration-150 ${
+                      value === opt
+                        ? 'bg-purple-50 text-purple-700 font-bold'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    {opt}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     );
@@ -881,9 +914,15 @@ export const LoginPage: React.FC = () => {
                         <FloatingSelect
                           label="Course"
                           value={course}
-                          onChange={(e) => setCourse(e.target.value)}
+                          onChange={(e) => {
+                            const newCourse = e.target.value;
+                            setCourse(newCourse);
+                            const validYears = getValidYearsForCourse(newCourse);
+                            if (!validYears.includes(year)) {
+                              setYear(''); // Auto-correct to empty to force alignment!
+                            }
+                          }}
                           options={COURSES}
-                          required
                         />
                       </div>
 
@@ -893,12 +932,7 @@ export const LoginPage: React.FC = () => {
                           label="Year"
                           value={year}
                           onChange={(e) => setYear(e.target.value)}
-                          options={
-                            course === 'SHS' ? SHS_YEARS :
-                            course === 'JHS' ? JHS_YEARS :
-                            COLLEGE_YEARS
-                          }
-                          required
+                          options={getValidYearsForCourse(course)}
                         />
                       </div>
                     </div>

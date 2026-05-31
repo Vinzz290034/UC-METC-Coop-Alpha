@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Mail, Send, Trash2, Star, X, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Mail, Send, Trash2, Star, X, Plus, ChevronLeft, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../store/authContext';
@@ -17,6 +18,7 @@ interface SystemUser {
 }
 
 export const InboxPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { messages, removeMessage, markAsRead, toggleFavorite } = useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
@@ -33,6 +35,8 @@ export const InboxPage: React.FC = () => {
     subject: '',
     content: '',
   });
+  const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
+  const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
 
   // Load all users on mount for name lookups
   useEffect(() => {
@@ -278,75 +282,84 @@ export const InboxPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 p-6 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-4 sm:py-8 px-4 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           {/* Desktop Header */}
           <div className="hidden lg:flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <h1 className="text-4xl font-bold text-black">Inbox</h1>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={() => navigate(-1)}
+                className="p-2 hover:bg-white rounded-xl transition-all duration-200 active:scale-95"
+                aria-label="Go back"
+              >
+                <ChevronLeft size={24} className="text-slate-700" />
+              </button>
+              <div>
+                <h1 className="text-3xl font-black text-slate-900 tracking-wide uppercase">INBOX</h1>
+                <p className="text-slate-700 font-medium">
+                  {activeTab === 'inbox' ? `${unreadCount} unread messages` : `${sentMessages.length} sent messages`}
+                </p>
               </div>
-              <p className="text-black">
-                {activeTab === 'inbox' ? `${unreadCount} unread messages` : `${sentMessages.length} sent messages`}
-              </p>
             </div>
             <button
               onClick={() => setShowCompose(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-white text-purple-600 rounded-lg font-semibold hover:bg-white/90 transition-all hover:scale-105 shadow-lg"
+              className="flex items-center gap-2 px-6 py-2.5 bg-white text-purple-600 rounded-xl font-bold hover:bg-purple-50 transition-all duration-200 active:scale-95 shadow-sm border border-purple-100"
             >
-              <Plus size={20} />
+              <Plus size={18} />
               Compose
             </button>
           </div>
 
           {/* Mobile Header */}
-          <div className="lg:hidden">
-            <div className="flex items-center gap-2 mb-2">
+          <div className="lg:hidden flex items-center justify-between gap-3 mb-4">
+            <div className="flex items-center gap-3">
               <button 
                 onClick={() => setSidebarOpen(true)}
-                className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
+                className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+                aria-label="Open menu"
               >
-                <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
               </button>
-              <h1 className="text-xl font-bold text-black">Inbox</h1>
+              <div>
+                <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-none">INBOX</h1>
+                <p className="text-[11px] text-slate-700 mt-1">
+                  {activeTab === 'inbox' ? `${unreadCount} unread` : `${sentMessages.length} sent`} messages
+                </p>
+              </div>
             </div>
-            <p className="text-black text-sm mb-3">
-              {activeTab === 'inbox' ? `${unreadCount} unread messages` : `${sentMessages.length} sent messages`}
-            </p>
-            <div className="flex justify-end">
-              <button
-                onClick={() => setShowCompose(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold hover:bg-white/90 transition-all shadow-lg text-sm"
-              >
-                <Plus size={18} />
-                Compose
-              </button>
-            </div>
+            
+            <button
+              onClick={() => setShowCompose(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95 text-xs font-bold text-purple-600"
+            >
+              <Plus size={16} />
+              Compose
+            </button>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="mb-6 flex gap-4">
+        <div className="mb-6 flex gap-3 sm:gap-4">
           <button
             onClick={() => setActiveTab('inbox')}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 shadow-sm ${
               activeTab === 'inbox'
-                ? 'bg-white text-purple-600 shadow-lg'
-                : 'bg-white/20 text-white hover:bg-white/30'
+                ? 'bg-white text-purple-600 border border-purple-50/50'
+                : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
             }`}
           >
             Inbox
           </button>
           <button
             onClick={() => setActiveTab('sent')}
-            className={`px-6 py-2 rounded-lg font-semibold transition-all ${
+            className={`px-5 py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 shadow-sm ${
               activeTab === 'sent'
-                ? 'bg-white text-purple-600 shadow-lg'
-                : 'bg-white/20 text-white hover:bg-white/30'
+                ? 'bg-white text-purple-600 border border-purple-50/50'
+                : 'bg-white/20 text-white hover:bg-white/30 backdrop-blur-sm'
             }`}
           >
             Sent
@@ -356,15 +369,15 @@ export const InboxPage: React.FC = () => {
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Messages List */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-lg overflow-hidden">
+          <div className={`lg:col-span-1 ${selectedMessage ? 'hidden lg:block' : 'block'}`}>
+            <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md overflow-hidden">
               {displayMessages.length === 0 ? (
-                <div className="p-6 text-center text-slate-500">
-                  <Mail className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                  <p>{activeTab === 'inbox' ? 'No messages' : 'No sent messages'}</p>
+                <div className="p-12 text-center text-slate-500">
+                  <Mail className="w-12 h-12 mx-auto mb-3 opacity-30 text-purple-400" />
+                  <p className="font-semibold text-slate-500 text-sm sm:text-base">{activeTab === 'inbox' ? 'No messages' : 'No sent messages'}</p>
                 </div>
               ) : (
-                <div className="divide-y divide-slate-200">
+                <div className="divide-y divide-slate-100">
                   {displayMessages.map((message) => (
                     <div
                       key={message.id}
@@ -374,19 +387,19 @@ export const InboxPage: React.FC = () => {
                           handleMarkAsRead(message.id);
                         }
                       }}
-                      className={`p-4 cursor-pointer hover:bg-slate-50 transition ${
+                      className={`p-3.5 sm:p-4 cursor-pointer hover:bg-slate-50 transition-all duration-200 ${
                         selectedMessage?.id === message.id
-                          ? 'bg-purple-50 border-l-4 border-purple-600'
+                          ? 'bg-purple-50/80 border-l-4 border-purple-600'
                           : ''
-                      } ${!message.isRead && activeTab === 'inbox' ? 'bg-blue-50' : ''}`}
+                      } ${!message.isRead && activeTab === 'inbox' ? 'bg-blue-50/60' : ''}`}
                     >
                       <div className="flex items-start gap-3">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center justify-between gap-2 mb-1">
                             <p
-                              className={`font-semibold truncate ${
-                                !message.isRead
-                                  ? 'text-slate-900'
+                              className={`text-xs sm:text-sm font-bold truncate ${
+                                !message.isRead && activeTab === 'inbox'
+                                  ? 'text-slate-900 font-extrabold'
                                   : 'text-slate-700'
                               }`}
                             >
@@ -408,17 +421,22 @@ export const InboxPage: React.FC = () => {
                                     }
                                     return message.recipientRole || 'Unknown';
                                   })()
-                              }
+                                }
                             </p>
-                            {message.isFavorite && (
-                              <Star className="w-4 h-4 fill-yellow-400 text-yellow-400 flex-shrink-0" />
-                            )}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {message.isFavorite && (
+                                <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                              )}
+                              <p className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                {formatDate(message.timestamp)}
+                              </p>
+                            </div>
                           </div>
-                          <p className="text-sm text-slate-600 truncate">
+                          <p className="text-xs sm:text-sm text-slate-600 truncate font-semibold">
                             {message.subject}
                           </p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {formatDate(message.timestamp)}
+                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                            {message.content}
                           </p>
                         </div>
                       </div>
@@ -430,13 +448,22 @@ export const InboxPage: React.FC = () => {
           </div>
 
           {/* Message Content */}
-          <div className="lg:col-span-2">
+          <div className={`lg:col-span-2 ${selectedMessage ? 'block' : 'hidden lg:block'}`}>
             {selectedMessage ? (
-              <div className="bg-white rounded-lg shadow-lg p-8">
+              <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-4 sm:p-6 md:p-8 flex flex-col">
+                {/* Mobile Back Button */}
+                <button
+                  onClick={() => setSelectedMessage(null)}
+                  className="lg:hidden mb-4 self-start flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl text-xs font-bold text-slate-700 transition-all duration-200 shadow-sm border border-slate-200/30"
+                >
+                  <ChevronLeft size={15} />
+                  Back to Messages
+                </button>
+
                 {/* Message Header */}
-                <div className="mb-6 pb-6 border-b border-slate-200">
-                  <div className="flex items-start justify-between mb-4">
-                    <div>
+                <div className="mb-6 pb-6 border-b border-slate-100">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
                       {(() => {
                         // Helper to get recipient/sender name
                         let displayName = '';
@@ -464,22 +491,25 @@ export const InboxPage: React.FC = () => {
                         }
                         return (
                           <>
-                            <h2 className="text-2xl font-bold text-slate-900 mb-2">
+                            <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 mb-2 leading-snug break-words">
                               {selectedMessage.subject}
                             </h2>
-                            <p className="text-slate-600 mb-1">
-                              {activeTab === 'sent' ? 'To:' : 'From:'} <span className="font-semibold">
+                            <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                              {activeTab === 'sent' ? 'To:' : 'From:'} <span className="font-bold text-slate-800">
                                 {displayName}
                               </span>
-                              <span className="text-xs text-slate-500 ml-2">({activeTab === 'sent' ? selectedMessage.recipientRole : selectedMessage.senderRole})</span>
+                              <span className="text-[10px] sm:text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg ml-2 uppercase font-bold tracking-wider">
+                                {activeTab === 'sent' ? selectedMessage.recipientRole : selectedMessage.senderRole}
+                              </span>
                             </p>
-                            <p className="text-sm text-slate-500">
+                            <p className="text-[11px] sm:text-xs text-slate-500">
                               {new Date(selectedMessage.timestamp).toLocaleString()}
                             </p>
                           </>
                         );
                       })()}
                     </div>
+                    
                     <button
                       onClick={async () => {
                         if (!user?.id || !selectedMessage) return;
@@ -502,7 +532,7 @@ export const InboxPage: React.FC = () => {
                           setAnimatingStarId(null);
                         }
                       }}
-                      className="p-2 hover:bg-slate-100 rounded-lg transition"
+                      className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200 active:scale-90 flex-shrink-0"
                     >
                       <motion.div
                         animate={
@@ -513,7 +543,7 @@ export const InboxPage: React.FC = () => {
                         transition={{ duration: 0.6, ease: 'easeInOut' }}
                       >
                         <Star
-                          className={`w-6 h-6 ${
+                          className={`w-5.5 h-5.5 ${
                             selectedMessage.isFavorite
                               ? 'fill-yellow-400 text-yellow-400'
                               : 'text-slate-400'
@@ -525,34 +555,34 @@ export const InboxPage: React.FC = () => {
                 </div>
 
                 {/* Message Body */}
-                <div className="mb-6">
-                  <p className="text-slate-700 leading-relaxed whitespace-pre-wrap">
+                <div className="mb-6 flex-1 min-h-[150px]">
+                  <p className="text-xs sm:text-sm md:text-base text-slate-700 leading-relaxed whitespace-pre-wrap">
                     {selectedMessage.content}
                   </p>
                 </div>
 
                 {/* Actions */}
-                <div className="flex gap-3 pt-6 border-t border-slate-200">
+                <div className="flex gap-3 pt-6 border-t border-slate-100 mt-auto">
                   <button
                     onClick={() => setReplyingToMessageId(selectedMessage.id)}
-                    className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all hover:scale-105"
+                    className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs sm:text-sm rounded-xl font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
                   >
-                    <Send className="w-4 h-4" />
+                    <Send className="w-3.5 h-3.5" />
                     Reply
                   </button>
                   <button
                     onClick={() => handleDelete(selectedMessage.id)}
-                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition"
+                    className="flex items-center gap-1.5 px-4 py-2 text-red-600 hover:bg-red-50 active:scale-95 text-xs sm:text-sm rounded-xl font-bold transition-all duration-200"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-3.5 h-3.5" />
                     Delete
                   </button>
                 </div>
 
                 {/* Reply Form */}
                 {replyingToMessageId === selectedMessage.id && (
-                  <div className="mt-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h3 className="font-semibold text-slate-900 mb-4">
+                  <div className="mt-6 p-4 bg-purple-50/70 rounded-2xl border border-purple-100">
+                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 mb-3">
                       Reply to {(() => {
                         if (selectedMessage.senderId) {
                           const sender = allUsers.find(u => u.id === selectedMessage.senderId);
@@ -566,22 +596,22 @@ export const InboxPage: React.FC = () => {
                       onChange={(e) => setReplyData({ ...replyData, content: e.target.value })}
                       placeholder="Type your reply here..."
                       rows={4}
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none mb-4"
+                      className="w-full px-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none mb-3 bg-white"
                     />
-                    <div className="flex gap-3">
+                    <div className="flex gap-2">
                       <button
                         onClick={handleReply}
-                        className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                        className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
                       >
-                        <Send className="w-4 h-4" />
-                        Send
+                        <Send className="w-3.5 h-3.5" />
+                        Send Reply
                       </button>
                       <button
                         onClick={() => {
                           setReplyingToMessageId(null);
                           setReplyData({ subject: '', content: '' });
                         }}
-                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
+                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold active:scale-95 transition-all duration-200"
                       >
                         Cancel
                       </button>
@@ -590,9 +620,9 @@ export const InboxPage: React.FC = () => {
                 )}
               </div>
             ) : (
-              <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-                <Mail className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-                <p className="text-slate-500 text-lg">
+              <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-12 text-center flex flex-col items-center justify-center min-h-[300px]">
+                <Mail className="w-16 h-16 mb-4 text-purple-200 animate-pulse" />
+                <p className="text-slate-500 font-semibold text-base sm:text-lg">
                   {displayMessages.length === 0
                     ? 'No messages to display'
                     : 'Select a message to read'}
@@ -608,84 +638,152 @@ export const InboxPage: React.FC = () => {
         <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-scale-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Header */}
-            <div className="sticky top-0 flex items-center justify-between p-6 border-b border-slate-200 bg-gradient-to-r from-purple-600 to-purple-700">
-              <h2 className="text-2xl font-bold text-white">Compose Message</h2>
+            <div className="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-purple-600 to-purple-700">
+              <h2 className="text-xl sm:text-2xl font-bold text-white">Compose Message</h2>
               <button
                 onClick={() => setShowCompose(false)}
-                className="p-1 hover:bg-white/20 rounded-lg transition"
+                className="w-9 h-9 flex items-center justify-center hover:bg-white/20 rounded-full transition-all duration-200 active:scale-90"
               >
-                <X className="w-6 h-6 text-white" />
+                <X className="w-5.5 h-5.5 text-white" />
               </button>
             </div>
 
             {/* Modal Body */}
-            <div className="p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4">
               {/* Recipient */}
-              <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
+              <div className="relative">
+                <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                   Send to:
                 </label>
-                <select
-                  value={composeData.recipientType}
-                  onChange={(e) =>
-                    setComposeData({
-                      ...composeData,
-                      recipientType: e.target.value as any,
-                      recipientId: '',
-                    })
-                  }
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                <button
+                  type="button"
+                  onClick={() => setRecipientDropdownOpen(!recipientDropdownOpen)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-xs sm:text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 text-left font-semibold text-slate-700"
                 >
-                  {user?.role === 'admin' || user?.role === 'staff' ? (
-                    <>
-                      <option value="admin">Admin</option>
-                      <option value="staff">Staff</option>
-                      <option value="all_users">All Users</option>
-                      <option value="all_members">All Members</option>
-                      <option value="all_both">All Users & Members</option>
-                      <option value="specific_person">Specific Person...</option>
-                    </>
-                  ) : (
-                    <>
-                      <option value="admin">Admin</option>
-                      <option value="staff">Staff</option>
-                      <option value="specific_person">Specific Person...</option>
-                    </>
-                  )}
-                </select>
+                  <span>
+                    {(() => {
+                      switch (composeData.recipientType) {
+                        case 'admin': return 'Admin';
+                        case 'staff': return 'Staff';
+                        case 'all_users': return 'All Users';
+                        case 'all_members': return 'All Members';
+                        case 'all_both': return 'All Users & Members';
+                        case 'specific_person': return 'Specific Person...';
+                        default: return 'Select recipient type';
+                      }
+                    })()}
+                  </span>
+                  <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${recipientDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+
+                {recipientDropdownOpen && (
+                  <>
+                    {/* Overlay to close the dropdown */}
+                    <div className="fixed inset-0 z-10" onClick={() => setRecipientDropdownOpen(false)} />
+                    <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200/80 rounded-xl shadow-xl z-20 py-1.5 animate-scale-in max-h-60 overflow-y-auto">
+                      {(user?.role === 'admin' || user?.role === 'staff'
+                        ? [
+                            { value: 'admin', label: 'Admin' },
+                            { value: 'staff', label: 'Staff' },
+                            { value: 'all_users', label: 'All Users' },
+                            { value: 'all_members', label: 'All Members' },
+                            { value: 'all_both', label: 'All Users & Members' },
+                            { value: 'specific_person', label: 'Specific Person...' }
+                          ]
+                        : [
+                            { value: 'admin', label: 'Admin' },
+                            { value: 'staff', label: 'Staff' },
+                            { value: 'specific_person', label: 'Specific Person...' }
+                          ]
+                      ).map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => {
+                            setComposeData({
+                              ...composeData,
+                              recipientType: option.value as any,
+                              recipientId: '',
+                            });
+                            setRecipientDropdownOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs sm:text-sm transition-colors duration-150 ${
+                            composeData.recipientType === option.value
+                              ? 'bg-purple-50 text-purple-700 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
               </div>
 
               {/* Specific Person Selector */}
               {composeData.recipientType === 'specific_person' && (
-                <div>
-                  <label className="block text-sm font-semibold text-slate-900 mb-2">
+                <div className="relative">
+                  <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                     Select Recipient:
                   </label>
-                  <select
-                    value={composeData.recipientId}
-                    onChange={(e) =>
-                      setComposeData({
-                        ...composeData,
-                        recipientId: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  <button
+                    type="button"
+                    onClick={() => setPersonDropdownOpen(!personDropdownOpen)}
+                    className="w-full flex items-center justify-between px-4 py-2.5 text-xs sm:text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 text-left font-semibold text-slate-700"
                   >
-                    <option value="">-- Select a person --</option>
-                    {(() => {
-                      const filteredUsers = allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff');
-                      console.log('[InboxPage] All users:', allUsers.length, allUsers);
-                      console.log('[InboxPage] Current user:', user?.id, user?.role);
-                      console.log('[InboxPage] Filtered users for dropdown:', filteredUsers.length, filteredUsers);
-                      return filteredUsers.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.first_name} {u.last_name}
-                        </option>
-                      ));
-                    })()}
-                  </select>
+                    <span>
+                      {(() => {
+                        const recipient = allUsers.find(u => u.id === composeData.recipientId);
+                        return recipient ? `${recipient.first_name} ${recipient.last_name}` : '-- Select a person --';
+                      })()}
+                    </span>
+                    <ChevronDown size={16} className={`text-slate-500 transition-transform duration-200 ${personDropdownOpen ? 'rotate-180' : ''}`} />
+                  </button>
+
+                  {personDropdownOpen && (
+                    <>
+                      {/* Overlay to close the dropdown */}
+                      <div className="fixed inset-0 z-10" onClick={() => setPersonDropdownOpen(false)} />
+                      <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200/80 rounded-xl shadow-xl z-20 py-1.5 animate-scale-in max-h-60 overflow-y-auto">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setComposeData({ ...composeData, recipientId: '' });
+                            setPersonDropdownOpen(false);
+                          }}
+                          className="w-full text-left px-4 py-2 text-xs sm:text-sm text-slate-400 hover:bg-slate-50 font-medium"
+                        >
+                          -- Select a person --
+                        </button>
+                        {(() => {
+                          const filteredUsers = allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff');
+                          return filteredUsers.map((u) => (
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => {
+                                setComposeData({
+                                  ...composeData,
+                                  recipientId: u.id,
+                                });
+                                setPersonDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2 text-xs sm:text-sm transition-colors duration-150 ${
+                                composeData.recipientId === u.id
+                                  ? 'bg-purple-50 text-purple-700 font-bold'
+                                  : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {u.first_name} {u.last_name}
+                            </button>
+                          ));
+                        })()}
+                      </div>
+                    </>
+                  )}
                   {allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff').length === 0 && (
-                    <p className="text-sm text-red-600 mt-2">
+                    <p className="text-xs text-red-600 mt-2 font-medium">
                       No users or members available. Please create user accounts first.
                     </p>
                   )}
@@ -694,7 +792,7 @@ export const InboxPage: React.FC = () => {
 
               {/* Subject */}
               <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                   Subject:
                 </label>
                 <input
@@ -704,13 +802,13 @@ export const InboxPage: React.FC = () => {
                     setComposeData({ ...composeData, subject: e.target.value })
                   }
                   placeholder="Enter message subject"
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600"
+                  className="w-full px-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 bg-white"
                 />
               </div>
 
               {/* Content */}
               <div>
-                <label className="block text-sm font-semibold text-slate-900 mb-2">
+                <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
                   Message:
                 </label>
                 <textarea
@@ -720,24 +818,24 @@ export const InboxPage: React.FC = () => {
                   }
                   placeholder="Type your message here..."
                   rows={6}
-                  className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none"
+                  className="w-full px-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none bg-white"
                 />
               </div>
             </div>
 
             {/* Modal Footer */}
-            <div className="flex gap-3 p-6 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+            <div className="flex gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
               <button
                 onClick={() => setShowCompose(false)}
-                className="flex-1 px-4 py-2 bg-slate-200 text-slate-900 rounded-lg font-semibold hover:bg-slate-300 transition"
+                className="flex-1 px-4 py-2 bg-slate-200 text-slate-900 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-300 active:scale-95 transition-all duration-200"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSendMessage}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all hover:scale-105"
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
               >
-                <Send className="w-4 h-4" />
+                <Send className="w-3.5 h-3.5" />
                 Send Message
               </button>
             </div>
