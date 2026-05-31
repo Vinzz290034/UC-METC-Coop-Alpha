@@ -8,11 +8,13 @@ import { AppDataSync } from '../store/appDataSync';
 import { Toast } from '../components/Toast';
 import domtoimage from 'dom-to-image';
 import { Z_INDEX } from '../constants/zIndex';
+import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { COOP_LOGO_URL, GCASH_URL } from '../constants/cloudinaryAssets';
 
 export const TransactionPage: React.FC = () => {
   const navigate = useNavigate();
+  const { setSidebarOpen } = useUIStore();
   const { sales } = useAppStore();
   const { user } = useAuth();
   const [selectedTransaction, setSelectedTransaction] = useState<any>(null);
@@ -360,33 +362,53 @@ export const TransactionPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-4 sm:py-8 px-4 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8 flex items-center space-x-4">
-          <button
-            onClick={() => navigate(-1)}
-            className="p-2 hover:bg-white rounded-lg transition-colors"
-          >
-            <ChevronLeft size={24} className="text-slate-700" />
-          </button>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-900">TRANSACTION HISTORY</h1>
-            <p className="text-slate-700">View your past purchases and receipts</p>
+        <div className="mb-6 sm:mb-8">
+          {/* Desktop Header */}
+          <div className="hidden lg:flex items-center space-x-4">
+            <button
+              onClick={() => navigate(-1)}
+              className="p-2 hover:bg-white rounded-lg transition-colors"
+            >
+              <ChevronLeft size={24} className="text-slate-700" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-slate-900">TRANSACTION HISTORY</h1>
+              <p className="text-slate-700">View your past purchases and receipts</p>
+            </div>
+          </div>
+
+          {/* Mobile Header */}
+          <div className="lg:hidden flex items-center gap-3 mb-4">
+            <button 
+              onClick={() => setSidebarOpen(true)}
+              className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+              aria-label="Open menu"
+            >
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-none">TRANSACTIONS</h1>
+              <p className="text-[11px] text-slate-700 mt-1">View your past purchases</p>
+            </div>
           </div>
         </div>
 
         {/* Filter Buttons */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-8">
-          <h2 className="text-lg font-semibold text-slate-900 mb-4">Filter by Status</h2>
-          <div className="flex flex-wrap gap-3">
+        <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-4 sm:p-6 mb-6 sm:mb-8">
+          <h2 className="text-sm sm:text-base font-bold text-slate-900 mb-3 sm:mb-4">Filter by Status</h2>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             {availableStatuses.map((status) => (
               <button
                 key={status}
                 onClick={() => setFilterStatus(status as any)}
-                className={`px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                className={`px-4 py-2 sm:px-6 sm:py-2 text-xs sm:text-sm font-semibold rounded-xl transition-all duration-200 active:scale-95 ${
                   filterStatus === status
-                    ? 'bg-purple-600 text-white shadow-lg'
+                    ? 'bg-purple-600 text-white shadow-md'
                     : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                 }`}
               >
@@ -399,8 +421,8 @@ export const TransactionPage: React.FC = () => {
         {/* Transactions List */}
         <div className="space-y-4">
           {filteredTransactions.length === 0 ? (
-            <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-              <p className="text-slate-600 text-lg">
+            <div className="bg-white rounded-2xl border border-purple-50/50 shadow-md p-12 text-center">
+              <p className="text-slate-500 font-medium text-base sm:text-lg">
                 {filterStatus === 'pending'
                   ? 'No pending orders'
                   : 'No transactions found'}
@@ -413,28 +435,29 @@ export const TransactionPage: React.FC = () => {
               return (
                 <div
                   key={transaction.id}
-                  className="bg-white rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden"
+                  className="bg-white rounded-2xl border border-slate-100/50 shadow-md hover:shadow-lg transition-all duration-300 overflow-hidden"
                 >
-                  <div className="p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-4 mb-2">
-                          <div className={`p-3 rounded-lg ${statusConfig[status]?.color || 'bg-gray-100'}`}>
-                            <StatusIcon className={`${statusConfig[status]?.textColor || 'text-gray-800'}`} size={24} />
+                  <div className="p-4 sm:p-6">
+                    <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                      {/* Left Column: Icon and Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3.5 mb-2">
+                          <div className={`p-2.5 sm:p-3 rounded-xl flex-shrink-0 ${statusConfig[status]?.color || 'bg-gray-100'}`}>
+                            <StatusIcon className={`${statusConfig[status]?.textColor || 'text-gray-800'}`} size={22} />
                           </div>
-                          <div>
+                          <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h3 className="text-lg font-semibold text-slate-900">
+                              <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 leading-snug truncate">
                                 {transaction.description}
                               </h3>
                               {/* Balance Payment Badge */}
                               {transaction.receiptNumber && transaction.receiptNumber.startsWith('BAL-') && (
-                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-lg text-[10px] font-bold">
                                   BALANCE
                                 </span>
                               )}
                             </div>
-                            <p className="text-sm text-slate-600">
+                            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
                               {new Date(transaction.date).toLocaleDateString('en-US', {
                                 year: 'numeric',
                                 month: 'long',
@@ -445,7 +468,7 @@ export const TransactionPage: React.FC = () => {
                         </div>
 
                         {/* Items List with Details */}
-                        <div className="ml-16 space-y-2 mb-3">
+                        <div className="ml-0 sm:ml-14 space-y-2 mb-4 mt-3 pl-4 sm:pl-2 border-l-2 border-purple-100 sm:border-l-0">
                           {transaction.items.map((item: any, idx: number) => {
                             // Calculate balance for downpayment items
                             const isDownpayment = item.paymentType === 'downpayment' || 
@@ -471,22 +494,22 @@ export const TransactionPage: React.FC = () => {
                             }
                             
                             return (
-                              <div key={idx} className="text-sm text-slate-600">
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">• {formatProductNameWithVariants(item)} (Qty: {item.quantity})</p>
+                              <div key={idx} className="text-xs sm:text-sm text-slate-600">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <p className="font-medium text-slate-700">• {formatProductNameWithVariants(item)} (Qty: {item.quantity})</p>
                                   {item.paymentType === 'downpayment' && (
-                                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">DOWNPAYMENT</span>
+                                    <span className="bg-orange-50 text-orange-600 border border-orange-100 px-1.5 py-0.2 rounded text-[9px] font-bold">DOWNPAYMENT</span>
                                   )}
                                   {item.orderType === 'preorder' && (
-                                    <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">PRE-ORDER</span>
+                                    <span className="bg-purple-50 text-purple-600 border border-purple-100 px-1.5 py-0.2 rounded text-[9px] font-bold">PRE-ORDER</span>
                                   )}
                                 </div>
                                 {filterStatus === 'balance-due' && isDownpayment ? (
-                                  <p className="text-xs text-slate-500 ml-4">
-                                    Paid: ₱{Number(item.subtotal || 0).toLocaleString()} | Balance: <span className="font-semibold text-orange-600">₱{(balance * item.quantity).toLocaleString()}</span>
+                                  <p className="text-[11px] sm:text-xs text-slate-500 ml-4 mt-0.5">
+                                    Paid: ₱{Number(item.subtotal || 0).toLocaleString()} | Balance: <span className="font-bold text-orange-600">₱{(balance * item.quantity).toLocaleString()}</span>
                                   </p>
                                 ) : (
-                                  <p className="text-xs text-slate-500 ml-4">₱{Number(item.unitPrice || 0).toLocaleString()} × {item.quantity} = ₱{Number(item.subtotal || 0).toLocaleString()}</p>
+                                  <p className="text-[11px] sm:text-xs text-slate-500 ml-4 mt-0.5">₱{Number(item.unitPrice || 0).toLocaleString()} × {item.quantity} = ₱{Number(item.subtotal || 0).toLocaleString()}</p>
                                 )}
                               </div>
                             );
@@ -494,61 +517,65 @@ export const TransactionPage: React.FC = () => {
                         </div>
 
                         {/* Payment Method */}
-                        <div className="ml-16">
-                          <p className="text-xs text-slate-500">
-                            Payment Method: <span className="font-medium">{transaction.paymentMethod}</span>
-                          </p>
+                        <div className="ml-0 sm:ml-14 pl-4 sm:pl-2 text-xs text-slate-500">
+                          Payment Method: <span className="font-semibold text-slate-700">{transaction.paymentMethod}</span>
                         </div>
                       </div>
 
-                      {/* Amount and Actions */}
-                      <div className="text-right">
-                        <p className="text-2xl font-bold text-slate-900 mb-4">
-                          ₱{filterStatus === 'balance-due' ? 
-                            // Calculate total balance for balance-due view
-                            transaction.items.reduce((sum: number, item: any) => {
-                              const isDownpayment = item.paymentType === 'downpayment' || 
-                                (item.productName?.includes('Gala') && item.subtotal === 500) ||
-                                ((item.productName?.includes('Type A & B Uniform') || item.productName?.includes('BSNAME Uniform')) && item.subtotal === 1500);
-                              
-                              if (!isDownpayment) return sum;
-                              
-                              const paidAmount = parseFloat(item.subtotal || 0);
-                              let fullPrice = item.fullPrice || item.full_price;
-                              
-                              if (!fullPrice) {
-                                const productName = item.productName || '';
-                                if (productName.includes('Gala')) {
-                                  const isMember = productName.includes('Member');
-                                  fullPrice = isMember ? 1150 : 1200;
-                                } else if (productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) {
-                                  fullPrice = 3000;
+                      {/* Right Column: Price and Action buttons */}
+                      <div className="flex md:flex-col items-center md:items-end justify-between md:justify-start gap-4 pt-4 md:pt-0 border-t border-slate-100 md:border-t-0 flex-shrink-0">
+                        <div className="text-left md:text-right">
+                          <p className="text-[11px] text-slate-500 mb-0.5">
+                            {filterStatus === 'balance-due' ? 'Balance Due' : 'Amount Paid'}
+                          </p>
+                          <p className="text-xl sm:text-2xl font-black text-slate-900">
+                            ₱{filterStatus === 'balance-due' ? 
+                              // Calculate total balance for balance-due view
+                              transaction.items.reduce((sum: number, item: any) => {
+                                const isDownpayment = item.paymentType === 'downpayment' || 
+                                  (item.productName?.includes('Gala') && item.subtotal === 500) ||
+                                  ((item.productName?.includes('Type A & B Uniform') || item.productName?.includes('BSNAME Uniform')) && item.subtotal === 1500);
+                                
+                                if (!isDownpayment) return sum;
+                                
+                                const paidAmount = parseFloat(item.subtotal || 0);
+                                let fullPrice = item.fullPrice || item.full_price;
+                                
+                                if (!fullPrice) {
+                                  const productName = item.productName || '';
+                                  if (productName.includes('Gala')) {
+                                    const isMember = productName.includes('Member');
+                                    fullPrice = isMember ? 1150 : 1200;
+                                  } else if (productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) {
+                                    fullPrice = 3000;
+                                  }
                                 }
-                              }
-                              
-                              const balance = (fullPrice || 0) - paidAmount;
-                              return sum + (balance * item.quantity);
-                            }, 0).toLocaleString()
-                            : Number(transaction.amount || 0).toLocaleString()
-                          }
-                        </p>
-                        <div className="flex space-x-2">
+                                
+                                const balance = (fullPrice || 0) - paidAmount;
+                                return sum + (balance * item.quantity);
+                              }, 0).toLocaleString()
+                              : Number(transaction.amount || 0).toLocaleString()
+                            }
+                          </p>
+                        </div>
+                        
+                        <div className="flex items-center gap-2">
                           {transaction.status === 'completed' && (
                             <button
                               onClick={() => {
                                 setSelectedTransaction(transaction);
                                 setShowReceiptActions(true);
                               }}
-                              className="p-2 text-purple-600 hover:bg-purple-100 rounded-lg transition-colors"
+                              className="w-10 h-10 flex items-center justify-center text-purple-600 bg-purple-50 hover:bg-purple-100 rounded-xl transition-all duration-200 active:scale-90"
                               title="View Receipt"
                             >
-                              <Eye size={20} />
+                              <Eye size={18} />
                             </button>
                           )}
                           {transaction.status === 'pending' && !isStaffOrAdmin && (
                             <button
                               onClick={() => setConfirmingOrderId(transaction.id)}
-                              className="px-3 py-2 text-sm font-semibold text-white bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+                              className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-red-600 hover:bg-red-700 active:scale-95 rounded-xl shadow-sm hover:shadow transition-all duration-200"
                               title="Cancel Order"
                             >
                               Cancel Order
@@ -557,10 +584,10 @@ export const TransactionPage: React.FC = () => {
                           {(transaction.status === 'completed' || isStaffOrAdmin) && filterStatus !== 'balance-due' && (
                             <button
                               onClick={() => downloadReceiptDirectly(transaction)}
-                              className="p-2 text-green-600 hover:bg-green-100 rounded-lg transition-colors"
+                              className="w-10 h-10 flex items-center justify-center text-green-600 bg-green-50 hover:bg-green-100 rounded-xl transition-all duration-200 active:scale-90"
                               title="Download Receipt"
                             >
-                              <Download size={20} />
+                              <Download size={18} />
                             </button>
                           )}
                           {filterStatus === 'balance-due' && transaction.status === 'completed' && (
@@ -573,7 +600,7 @@ export const TransactionPage: React.FC = () => {
                                 setShowQRCode(false);
                                 setConfirmedNoRefund(false);
                               }}
-                              className="px-4 py-2 text-sm font-semibold text-white bg-orange-600 hover:bg-orange-700 rounded-lg transition-colors"
+                              className="px-4 py-2 text-xs sm:text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 active:scale-95 rounded-xl shadow-sm hover:shadow transition-all duration-200"
                               title="Pay Remaining Balance"
                             >
                               Pay Balance
@@ -584,8 +611,8 @@ export const TransactionPage: React.FC = () => {
                     </div>
 
                     {/* Status Badge */}
-                    <div className="flex justify-end">
-                      <span className={`px-4 py-1 rounded-full text-sm font-medium ${statusConfig[status]?.color || 'bg-gray-100'} ${statusConfig[status]?.textColor || 'text-gray-800'}`}>
+                    <div className="flex justify-end mt-4 border-t border-slate-100/70 pt-3">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${statusConfig[status]?.color || 'bg-gray-100'} ${statusConfig[status]?.textColor || 'text-gray-800'}`}>
                         {statusConfig[status]?.label || 'Unknown'}
                       </span>
                     </div>
@@ -608,16 +635,16 @@ export const TransactionPage: React.FC = () => {
         >
           <div 
             ref={receiptRef} 
-            className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full animate-scale-in flex flex-col max-h-[90vh] relative"
+            className="bg-white rounded-2xl shadow-2xl p-4 sm:p-6 max-w-md w-full animate-scale-in flex flex-col max-h-[90vh] relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close X Button */}
             <button
               onClick={() => setSelectedTransaction(null)}
-              className="absolute top-4 right-4 z-10 p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 hover:scale-110"
+              className="absolute top-4 right-4 z-10 w-9 h-9 flex items-center justify-center bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 hover:scale-110 active:scale-95"
               aria-label="Close modal"
             >
-              <X size={20} className="text-slate-700" />
+              <X size={18} className="text-slate-700" />
             </button>
             {/* Receipt Header with Logo */}
             <div className="text-center mb-4 pb-4 border-b-2 border-slate-300">
@@ -880,7 +907,7 @@ export const TransactionPage: React.FC = () => {
           }}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full animate-scale-in max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl p-5 sm:p-8 max-w-lg w-full animate-scale-in max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {(() => {

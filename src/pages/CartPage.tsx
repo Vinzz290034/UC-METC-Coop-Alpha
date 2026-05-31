@@ -90,10 +90,10 @@ export const CartPage: React.FC = () => {
   const ewalletFee = calculateEWalletFee(total);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-4 sm:py-8 px-4 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
+        <div className="mb-6 sm:mb-8">
           {/* Desktop Header */}
           <div className="hidden lg:flex items-center space-x-4">
             <button
@@ -106,16 +106,17 @@ export const CartPage: React.FC = () => {
           </div>
 
           {/* Mobile Header */}
-          <div className="lg:hidden flex items-center gap-2">
+          <div className="lg:hidden flex items-center gap-3">
             <button 
               onClick={() => setSidebarOpen(true)}
-              className="p-2 hover:bg-purple-50 rounded-lg transition-colors"
+              className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+              aria-label="Open menu"
             >
-              <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
-            <h1 className="text-xl font-bold text-slate-900">YOUR CART</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-wide">YOUR CART</h1>
           </div>
         </div>
 
@@ -123,12 +124,14 @@ export const CartPage: React.FC = () => {
           {/* Cart Items */}
           <div className="lg:col-span-2">
             {cart.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-lg p-12 text-center">
-                <ShoppingCart size={48} className="mx-auto text-slate-400 mb-4" />
-                <p className="text-slate-600 text-lg mb-4">Your cart is empty</p>
+              <div className="bg-white rounded-2xl shadow-xl p-8 sm:p-12 text-center border border-purple-50/50">
+                <div className="w-16 h-16 bg-purple-50 text-purple-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                  <ShoppingCart size={28} />
+                </div>
+                <p className="text-slate-600 text-lg mb-6 font-medium">Your cart is empty</p>
                 <button
                   onClick={() => navigate('/merchandise')}
-                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-6 py-2 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all"
+                  className="bg-gradient-to-r from-purple-600 to-purple-700 text-white px-8 py-3 rounded-xl font-semibold hover:from-purple-700 hover:to-purple-800 active:scale-95 transition-all shadow-md"
                 >
                   Continue Shopping
                 </button>
@@ -138,74 +141,84 @@ export const CartPage: React.FC = () => {
                 {cart.map((item) => (
                   <div
                     key={item.id}
-                    className="bg-white rounded-lg shadow-lg p-6 hover:shadow-xl transition-all duration-300"
+                    className="bg-white rounded-2xl shadow-md p-4 sm:p-6 hover:shadow-lg transition-all duration-300 border border-slate-100"
                   >
-                    <div className="flex items-center space-x-6">
-                      {/* Product Image */}
-                      <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-green-100 rounded-lg flex items-center justify-center overflow-hidden">
-                        {item.image && typeof item.image === 'string' && item.image !== '📦' && (item.image.startsWith('/') || item.image.includes('assets') || item.image.includes('.jpeg') || item.image.includes('.jpg') || item.image.includes('.png') || item.image.startsWith('data:') || item.image.startsWith('http')) ? (
-                          <img 
-                            src={item.image} 
-                            alt={item.name}
-                            className={`w-full h-full ${item.name === 'Lanyard' ? 'object-contain' : 'object-cover'}`}
-                            onError={(e) => {
-                              // Fallback to emoji if image fails to load
-                              e.currentTarget.style.display = 'none';
-                              e.currentTarget.parentElement!.innerHTML = '<span class="text-5xl">📦</span>';
-                            }}
-                          />
-                        ) : (
-                          <span className="text-5xl">{item.image || '📦'}</span>
-                        )}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6">
+                      {/* Top Row: Image & Info */}
+                      <div className="flex items-center space-x-4 sm:space-x-6 flex-1">
+                        {/* Product Image */}
+                        <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-purple-100 to-green-100 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
+                          {item.image && typeof item.image === 'string' && item.image !== '📦' && (item.image.startsWith('/') || item.image.includes('assets') || item.image.includes('.jpeg') || item.image.includes('.jpg') || item.image.includes('.png') || item.image.startsWith('data:') || item.image.startsWith('http')) ? (
+                            <img 
+                              src={item.image} 
+                              alt={item.name}
+                              className={`w-full h-full ${item.name === 'Lanyard' ? 'object-contain p-1' : 'object-cover'}`}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                                e.currentTarget.parentElement!.innerHTML = '<span class="text-3xl">📦</span>';
+                              }}
+                            />
+                          ) : (
+                            <span className="text-3xl">{item.image || '📦'}</span>
+                          )}
+                        </div>
+
+                        {/* Product Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 line-clamp-2 leading-snug">
+                            {formatProductName(item.name, item.selectedOptions, item.price)}
+                          </h3>
+                          <p className="text-base sm:text-lg font-bold text-purple-600 mt-1">
+                            ₱{item.price.toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
                       </div>
 
-                      {/* Product Info */}
-                      <div className="flex-1">
-                        <h3 className="text-lg font-semibold text-slate-900 mb-2">
-                          {formatProductName(item.name, item.selectedOptions, item.price)}
-                        </h3>
-                        <p className="text-2xl font-bold text-purple-600">₱{item.price.toLocaleString('en-US', {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}</p>
-                      </div>
+                      {/* Bottom Row: Controls & Subtotal */}
+                      <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 pt-3 sm:pt-0 border-t border-slate-100 sm:border-t-0">
+                        {/* Quantity Controls & Remove Action */}
+                        <div className="flex items-center space-x-2 sm:space-x-3">
+                          <div className="flex items-center border border-slate-300 rounded-xl bg-slate-50/50 shadow-sm">
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-l-xl transition-colors active:bg-slate-200"
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus size={16} className="text-slate-600" />
+                            </button>
+                            <span className="px-3 sm:px-4 py-1 sm:py-1.5 font-semibold text-sm sm:text-base text-slate-800 min-w-[24px] text-center">{item.quantity}</span>
+                            <button
+                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-r-xl transition-colors active:bg-slate-200"
+                              aria-label="Increase quantity"
+                            >
+                              <Plus size={16} className="text-slate-600" />
+                            </button>
+                          </div>
 
-                      {/* Quantity Controls */}
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center border border-slate-300 rounded-lg">
+                          {/* Remove Button */}
                           <button
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            className="p-2 hover:bg-slate-100 transition-colors"
+                            onClick={() => removeItem(item.id)}
+                            className="p-2 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 active:scale-90"
+                            aria-label="Remove item"
                           >
-                            <Minus size={18} className="text-slate-600" />
-                          </button>
-                          <span className="px-4 py-2 font-semibold">{item.quantity}</span>
-                          <button
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            className="p-2 hover:bg-slate-100 transition-colors"
-                          >
-                            <Plus size={18} className="text-slate-600" />
+                            <Trash2 size={18} />
                           </button>
                         </div>
 
-                        {/* Remove Button */}
-                        <button
-                          onClick={() => removeItem(item.id)}
-                          className="p-2 text-red-600 hover:bg-red-100 rounded-lg transition-colors"
-                        >
-                          <Trash2 size={20} />
-                        </button>
-                      </div>
-
-                      {/* Subtotal */}
-                      <div className="text-right">
-                        <p className="text-sm text-slate-600 mb-1">Subtotal</p>
-                        <p className="text-2xl font-bold text-slate-900">
-                          ₱{(item.price * item.quantity).toLocaleString('en-US', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2,
-                          })}
-                        </p>
+                        {/* Subtotal */}
+                        <div className="text-right flex-shrink-0">
+                          <p className="text-xs text-slate-500 mb-0.5">Subtotal</p>
+                          <p className="text-base sm:text-lg md:text-xl font-black text-slate-900">
+                            ₱{(item.price * item.quantity).toLocaleString('en-US', {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -214,7 +227,7 @@ export const CartPage: React.FC = () => {
                 {/* Continue Shopping */}
                 <button
                   onClick={() => navigate('/merchandise')}
-                  className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3 rounded-lg font-semibold hover:from-purple-700 hover:to-purple-800 transition-all shadow-lg"
+                  className="w-full bg-gradient-to-r from-purple-600 to-purple-700 text-white py-3.5 rounded-xl font-bold hover:from-purple-700 hover:to-purple-800 active:scale-[0.98] transition-all shadow-lg"
                 >
                   Continue Shopping
                 </button>
