@@ -403,7 +403,7 @@ export const StudentDashboard: React.FC = () => {
         </div>
 
         {/* Carousel Indicators */}
-        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-20 flex space-x-1.5 items-center">
+        <div className="absolute bottom-4 right-6 sm:left-1/2 sm:right-auto sm:transform sm:-translate-x-1/2 z-20 flex space-x-1.5 items-center">
           {banners.map((_, idx) => (
             <button
               key={idx}

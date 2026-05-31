@@ -712,7 +712,18 @@ export const LoginPage: React.FC = () => {
                   <FloatingInput
                     label="ID Number"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.replace(/\D/g, '').slice(0, 8))}
+                    maxLength={8}
+                    onKeyDown={(e) => {
+                      // Allow: backspace, delete, tab, escape, enter, arrows, home, end
+                      const allowed = ['Backspace', 'Delete', 'Tab', 'Escape', 'Enter', 'ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Home', 'End'];
+                      if (allowed.includes(e.key)) return;
+                      // Allow Ctrl/Cmd+A, C, V, X
+                      if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) return;
+                      // Block anything that isn't a digit
+                      if (!/^\d$/.test(e.key)) e.preventDefault();
+                    }}
+                    inputMode="numeric"
                     focusColor="purple"
                     required
                   />

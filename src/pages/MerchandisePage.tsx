@@ -515,33 +515,33 @@ export const MerchandisePage: React.FC = () => {
 
           {/* Mobile Header */}
           <div className="lg:hidden">
-            <div className="flex items-center gap-3 mb-2">
-              <button 
-                onClick={() => setSidebarOpen(true)}
-                className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
-                aria-label="Open menu"
-              >
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </button>
-              <h1 className="text-xl font-bold text-slate-900 tracking-wide">MERCHANDISE</h1>
-            </div>
-            <p className="text-slate-600 text-sm mb-3">Discover UC Coop's exclusive products</p>
-            <div className="flex justify-end">
+            <div className="flex items-center justify-between gap-3 mb-2">
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setSidebarOpen(true)}
+                  className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+                  aria-label="Open menu"
+                >
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-none">MERCHANDISE</h1>
+              </div>
               <button
                 ref={cartButtonRef}
                 onClick={() => {
                   setSelectedProduct(null);
                   navigate('/cart');
                 }}
-                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 transition-all duration-300 ${
+                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 active:scale-95 transition-all duration-200 ${
                   cartAnimating ? 'cart-animate' : ''
                 }`}
               >
                 <ShoppingCart size={20} />
               </button>
             </div>
+            <p className="text-slate-600 text-sm mb-3">Discover UC Coop's exclusive products</p>
           </div>
         </div>
 
@@ -613,14 +613,14 @@ export const MerchandisePage: React.FC = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
           {filteredProducts.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-lg shadow-md hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-200 flex flex-col"
+              className="bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden border border-slate-200 flex flex-col hover:scale-[1.02]"
             >
               {/* Product Image */}
-              <div className="h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center text-6xl relative overflow-hidden group">
+              <div className="h-32 sm:h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center relative overflow-hidden group">
                 {product.name === 'Type A & B Uniform' && typeABUniformImage ? (
                   <img 
                     src={typeABUniformImage} 
@@ -808,13 +808,13 @@ export const MerchandisePage: React.FC = () => {
               </div>
 
               {/* Product Info */}
-              <div className="p-4 flex flex-col flex-1">
-                <h3 className="font-semibold text-slate-900 mb-2 line-clamp-2 text-sm">
+              <div className="p-3 sm:p-4 flex flex-col flex-1">
+                <h3 className="font-semibold text-slate-900 mb-1 sm:mb-2 line-clamp-2 text-xs sm:text-sm h-8 sm:h-10 leading-tight">
                   {product.name}
                 </h3>
 
                 {/* Price */}
-                <div className="mb-3">
+                <div className="mb-2 sm:mb-3">
                   {(() => {
                     const isMember = user?.membership_status === 'approved';
                     const availablePrices = getAvailablePrices(product);
@@ -854,15 +854,15 @@ export const MerchandisePage: React.FC = () => {
                     // If member and has member pricing, show both ranges
                     if (isMember && hasMemberPricing && regularMin !== null && regularMax !== null && memberMin !== null && memberMax !== null) {
                       return (
-                        <div className="flex flex-col gap-1">
-                          <p className="text-sm font-bold text-slate-400 line-through">
+                        <div className="flex flex-col gap-0.5">
+                          <p className="text-[10px] sm:text-xs font-bold text-slate-400 line-through">
                             ₱{regularMin.toLocaleString()}-{regularMax.toLocaleString()}
                           </p>
-                          <div className="flex items-center gap-2">
-                            <p className="text-lg font-bold text-green-600">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-xs sm:text-base font-bold text-green-600">
                               ₱{memberMin.toLocaleString()}-{memberMax.toLocaleString()}
                             </p>
-                            <span className="bg-green-100 text-green-700 px-1.5 py-0.5 rounded text-xs font-semibold">
+                            <span className="bg-green-100 text-green-700 px-1 py-0.2 rounded text-[8px] sm:text-[10px] font-semibold leading-none">
                               ₱50 OFF
                             </span>
                           </div>
@@ -873,25 +873,25 @@ export const MerchandisePage: React.FC = () => {
                     if (availablePrices) {
                       // If min and max are the same, display single price
                       if (availablePrices.min === availablePrices.max) {
-                        return <p className="text-lg font-bold text-slate-900">₱{availablePrices.min}</p>;
+                        return <p className="text-xs sm:text-base font-bold text-slate-900">₱{availablePrices.min}</p>;
                       }
-                      return <p className="text-lg font-bold text-slate-900">₱{availablePrices.min}-{availablePrices.max}</p>;
+                      return <p className="text-xs sm:text-base font-bold text-slate-900">₱{availablePrices.min}-{availablePrices.max}</p>;
                     }
-                    return <p className="text-lg font-bold text-slate-900">₱{product.price.toLocaleString()}</p>;
+                    return <p className="text-xs sm:text-base font-bold text-slate-900">₱{product.price.toLocaleString()}</p>;
                   })()}
                 </div>
 
                 {/* Stock */}
                 {product.name !== 'Type A & B Uniform' && product.name !== 'Hard Bound' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && (
-                  <div className="mb-4">
-                    <p className="text-xs text-slate-600">
+                  <div className="mb-2 sm:mb-4">
+                    <p className="text-[10px] sm:text-xs text-slate-600 leading-none">
                       Stock: <span className={product.stock > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
                         {product.stock}
                       </span>
                     </p>
                     {product.stock <= 0 && (
-                      <p className="text-xs text-purple-600 font-semibold mt-1">
-                        ✓ Pre-Order Available
+                      <p className="text-[9px] sm:text-xs text-purple-600 font-semibold mt-0.5 sm:mt-1 leading-none">
+                        ✓ Pre-Order
                       </p>
                     )}
                   </div>
@@ -911,10 +911,9 @@ export const MerchandisePage: React.FC = () => {
                     const isOutOfStock = !isMadeToOrder && product.stock <= 0;
                     setOrderType(isOutOfStock ? 'preorder' : 'regular');
                   }}
-
-                  className="w-full bg-purple-900 text-white py-2 rounded-lg font-semibold hover:bg-purple-950 transition-all duration-300 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-purple-900 text-white py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold hover:bg-purple-950 active:scale-[0.97] transition-all duration-200 flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <Eye size={18} />
+                  <Eye size={16} />
                   <span>View</span>
                 </button>
               </div>
@@ -941,39 +940,39 @@ export const MerchandisePage: React.FC = () => {
           }}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full animate-scale-in max-h-[90vh] flex flex-row relative overflow-hidden"
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full animate-scale-in max-h-[90vh] md:max-h-[85vh] flex flex-col md:flex-row relative"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close X Button */}
             <button
               onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 z-10 p-2 bg-slate-100 hover:bg-slate-200 rounded-full transition-all duration-200 hover:scale-110"
+              className="absolute top-3 right-3 z-30 w-9 h-9 flex items-center justify-center bg-slate-100/95 backdrop-blur-sm hover:bg-slate-200 active:scale-90 rounded-full shadow-md transition-all duration-200 hover:scale-110"
               aria-label="Close modal"
             >
               <X size={20} className="text-slate-700" />
             </button>
             
             {/* Modal content - reuse the same content structure */}
-            <div className="w-2/5 bg-slate-200 flex items-center justify-center p-8">
+            <div className="w-full md:w-2/5 bg-slate-200 flex items-center justify-center p-4 md:p-8 flex-shrink-0 rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none">
               {(selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'Type C Uniform' || selectedProduct.name === 'Lanyard' || selectedProduct.name === 'Hard Hat' || selectedProduct.name === 'Pershing Cap' || selectedProduct.name === 'Cover All' || selectedProduct.name === 'Belt' || selectedProduct.name === 'Shoulder Board' || selectedProduct.name === 'Gala' || selectedProduct.name === 'ROTC Manual') ? (
                 <img 
                   key={getProductImage(selectedProduct, selectedOptions)}
                   src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
                   alt={selectedProduct.name} 
-                  className={`w-full h-auto rounded-xl shadow-2xl animate-slide-in-right ${
-                    selectedProduct.name === 'Gala' ? 'max-h-[600px] object-cover' : 'max-h-[500px] object-contain'
+                  className={`w-auto md:w-full h-32 md:h-auto rounded-xl shadow-md md:shadow-2xl animate-slide-in-right object-contain ${
+                    selectedProduct.name === 'Gala' ? 'max-h-[140px] md:max-h-[600px]' : 'max-h-[140px] md:max-h-[500px]'
                   }`}
                 />
               ) : (
                 <img 
                   src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
                   alt={selectedProduct.name} 
-                  className="w-full h-auto max-h-[500px] object-contain rounded-xl shadow-2xl"
+                  className="w-auto md:w-full h-32 md:h-auto max-h-[140px] md:max-h-[500px] object-contain rounded-xl shadow-md md:shadow-2xl"
                 />
               )}
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-white flex flex-col">
+            <div className="flex-1 overflow-y-auto p-6 bg-white flex flex-col rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none">
               <h2 className="text-2xl font-bold text-slate-900 mb-4 pr-8">
                 {selectedProduct.name}
               </h2>

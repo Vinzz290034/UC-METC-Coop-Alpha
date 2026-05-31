@@ -30,7 +30,7 @@ export const PRODUCT_IMAGES = {
   'Cover All BLUE': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Cover_All_BLUE_wkqw8a.jpg',
   'Gloves': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411915/Gloves_wq9ufb.jpg',
   'Hardhat-Yellow': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411917/Hardhat-Yellow_vdors7.jpg',
-  'Hardhat-Blue': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Cover_All_BLUE_wkqw8a.jpg',
+  'Hardhat-Blue': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411917/Hardhat-Blue_yft4az.jpg',
   'PE Shirt': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411926/PE_Shirt_txjj9z.jpg',
   'PE Pants': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411926/PE_Pants_ig4xw6.jpg',
   'Pershing Cap': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411926/Pershing_Cap_djqnr3.jpg',
