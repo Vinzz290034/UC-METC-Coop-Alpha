@@ -233,7 +233,7 @@ export const AnnouncementsPage: React.FC = () => {
               visibleElements.has('page-header') ? 'fade-in-up-animation' : 'opacity-0 translate-y-10'
             }`}
           >
-            <h2 className="text-xl xs:text-4xl md:text-5xl font-bold text-slate-900 mb-1.5 sm:mb-4">Announcements</h2>
+            <h2 className="text-2xl xs:text-4xl md:text-5xl font-bold text-slate-900 mb-1.5 sm:mb-4">Announcements</h2>
             <p className="text-slate-600 text-xs xs:text-lg">
               Stay updated with the latest news and updates from UC METC SILMS
             </p>
@@ -257,33 +257,31 @@ export const AnnouncementsPage: React.FC = () => {
                   key={announcement.id}
                   id={`announcement-${announcement.id}`}
                   data-animate="true"
-                  className={`announcement-card bg-white/70 border border-white/40 rounded-xl p-4 xs:p-8 backdrop-blur-sm hover:bg-white/80 hover:border-green-400 transition-all ${
-                    visibleElements.has(`announcement-${announcement.id}`) ? 'zoom-in-animation' : 'opacity-0 scale-75'
-                  }`}
+                  className={`announcement-card bg-white/80 border border-white/50 rounded-xl p-5 xs:p-8 backdrop-blur-sm hover:bg-white/90 hover:border-green-400 transition-all shadow-sm`}
                   style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-2 xs:mb-4">
                     <div className="flex-1">
                       <div className="flex items-center space-x-3 mb-1.5 xs:mb-2">
-                        <span className="inline-block px-2 xs:px-3 py-0.5 xs:py-1 bg-purple-100 text-purple-700 rounded-full text-[10px] xs:text-xs font-semibold">
+                        <span className="inline-block px-2.5 xs:px-3 py-0.5 xs:py-1 bg-purple-100 text-purple-700 rounded-full text-[11px] xs:text-xs font-semibold">
                           {announcement.category}
                         </span>
                       </div>
-                      <h3 className="text-sm xs:text-2xl font-bold mb-1 xs:mb-2 text-slate-900 transition-colors">
+                      <h3 className="text-base xs:text-2xl font-bold mb-1.5 xs:mb-2 text-slate-900 transition-colors">
                         {announcement.title}
                       </h3>
                     </div>
                   </div>
 
                   {/* Metadata */}
-                  <div className="flex items-center space-x-3 xs:space-x-6 text-slate-500 text-[10px] xs:text-sm mb-2 xs:mb-4">
+                  <div className="flex flex-wrap items-center gap-y-1 gap-x-3 xs:gap-x-6 text-slate-500 text-xs xs:text-sm mb-3 xs:mb-4">
                     <div className="flex items-center space-x-1.5 xs:space-x-2">
-                      <Calendar className="w-3.5 h-3.5 xs:w-4 xs:h-4 flex-shrink-0" />
+                      <Calendar className="w-4 h-4 flex-shrink-0" />
                       <span>{new Date(announcement.date).toLocaleDateString()}</span>
                     </div>
                     <div className="flex items-center space-x-1.5 xs:space-x-2">
-                      <User className="w-3.5 h-3.5 xs:w-4 xs:h-4 flex-shrink-0" />
+                      <User className="w-4 h-4 flex-shrink-0" />
                       <span>
                         {announcement.author_role && (
                           <span className="capitalize font-semibold">{announcement.author_role} - </span>
@@ -294,7 +292,7 @@ export const AnnouncementsPage: React.FC = () => {
                   </div>
 
                   {/* Content */}
-                  <p className="text-slate-700 text-[10px] xs:text-sm sm:text-base leading-relaxed text-justify">{announcement.content}</p>
+                  <p className="text-slate-700 text-sm sm:text-base leading-relaxed text-justify">{announcement.content}</p>
                 </div>
               ))
             )}
@@ -303,7 +301,7 @@ export const AnnouncementsPage: React.FC = () => {
           {/* No More Announcements */}
           {!loading && announcements.length > 0 && (
             <div className="text-center mt-8 xs:mt-12">
-              <p className="text-slate-800 text-xs xs:text-base font-medium">
+              <p className="text-slate-800 text-sm xs:text-base font-medium">
                 No more announcements to display. Check back soon!
               </p>
             </div>

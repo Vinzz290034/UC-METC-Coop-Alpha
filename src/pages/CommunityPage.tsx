@@ -142,10 +142,10 @@ export const CommunityPage: React.FC = () => {
 
             {/* Page Header */}
             <div className="mb-6 sm:mb-12 text-center fade-in-up">
-              <h2 className="text-sm xs:text-5xl md:text-6xl font-bold mb-1 sm:mb-4 text-slate-900">
+              <h2 className="text-2xl xs:text-5xl md:text-6xl font-bold mb-1.5 sm:mb-4 text-slate-900">
                 Community <span className="text-purple-600">Events</span>
               </h2>
-              <p className="text-slate-600 text-[10px] xs:text-xl max-w-2xl mx-auto">
+              <p className="text-slate-600 text-xs xs:text-xl max-w-2xl mx-auto px-4">
                 Celebrating our cooperative's milestones and community achievements
               </p>
             </div>
@@ -155,7 +155,7 @@ export const CommunityPage: React.FC = () => {
               <div className="bg-white/60 backdrop-blur-xl rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden border border-white/30 fade-in-up">
                 
                 {/* Event Header */}
-                <div className="bg-gradient-to-r from-purple-600 to-green-600 p-3 xs:p-8 text-white relative overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-600 to-green-600 p-5 xs:p-8 text-white relative overflow-hidden">
                   
                   {/* Static Bubbly Background */}
                   <div className="absolute inset-0 bg-green-500">
@@ -165,51 +165,51 @@ export const CommunityPage: React.FC = () => {
 
                   <div className="relative z-10">
                     <div className="flex items-center justify-between mb-2 xs:mb-4">
-                      <span className="bg-white/20 px-2 xs:px-4 py-1 xs:py-2 rounded-full text-[9px] xs:text-sm font-semibold">
+                      <span className="bg-white/20 px-3 xs:px-4 py-1.5 xs:py-2 rounded-full text-xs xs:text-sm font-semibold">
                         {selectedEvent.status === 'completed' ? 'Recent Event' : 'Upcoming Event'}
                       </span>
                     </div>
                     
-                    <h1 className="text-sm xs:text-3xl sm:text-5xl font-bold mb-1 xs:mb-2">{selectedEvent.title}</h1>
-                    <p className="text-[10px] xs:text-base sm:text-xl text-white/90 mb-2 xs:mb-4">{selectedEvent.subtitle}</p>
+                    <h1 className="text-lg xs:text-3xl sm:text-5xl font-bold mb-1.5 xs:mb-2">{selectedEvent.title}</h1>
+                    <p className="text-xs xs:text-base sm:text-xl text-white/90 mb-3 xs:mb-4">{selectedEvent.subtitle}</p>
                     
-                    <div className="flex flex-wrap items-center gap-2 xs:gap-6 text-white/90">
-                      <div className="flex items-center space-x-1 xs:space-x-2 text-[9px] xs:text-sm">
-                        <Calendar className="w-3.5 h-3.5 xs:w-5 xs:h-5 flex-shrink-0" />
+                    <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 xs:gap-6 text-white/90">
+                      <div className="flex items-center space-x-2 text-xs xs:text-sm">
+                        <Calendar className="w-4 h-4 xs:w-5 xs:h-5 flex-shrink-0" />
                         <span className="font-medium">{selectedEvent.date}</span>
                       </div>
-                      <div className="flex items-center space-x-1 xs:space-x-2 text-[9px] xs:text-sm">
-                        <Clock className="w-3.5 h-3.5 xs:w-5 xs:h-5 flex-shrink-0" />
+                      <div className="flex items-center space-x-2 text-xs xs:text-sm">
+                        <Clock className="w-4 h-4 xs:w-5 xs:h-5 flex-shrink-0" />
                         <span className="font-medium">{selectedEvent.time}</span>
                       </div>
-                      <div className="flex items-center space-x-1 xs:space-x-2 text-[9px] xs:text-sm">
-                        <MapPin className="w-3.5 h-3.5 xs:w-5 xs:h-5 flex-shrink-0" />
+                      <div className="flex items-center space-x-2 text-xs xs:text-sm">
+                        <MapPin className="w-4 h-4 xs:w-5 xs:h-5 flex-shrink-0" />
                         <span className="font-medium">{selectedEvent.location}</span>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Event Content (Horizontal 12-Column Grid) */}
-                <div className="p-3 xs:p-8">
-                  <div className="grid grid-cols-12 gap-4 xs:gap-8">
+                {/* Event Content (Stacked on mobile, 2 columns on desktop) */}
+                <div className="p-5 xs:p-8">
+                  <div className="flex flex-col md:grid md:grid-cols-12 gap-6 md:gap-8">
                     
                     {/* Event Description & Key Highlights */}
-                    <div className="col-span-5 lg:col-span-6">
+                    <div className="md:col-span-6">
                       <div className="hidden sm:block">
-                        <h3 className="text-xs xs:text-2xl font-bold text-slate-900 mb-1.5 xs:mb-4">About the Event</h3>
-                        <p className="text-slate-600 text-[10px] xs:text-lg leading-snug mb-3 xs:mb-6 text-justify">
+                        <h3 className="text-lg xs:text-2xl font-bold text-slate-900 mb-1.5 xs:mb-4">About the Event</h3>
+                        <p className="text-slate-600 text-sm xs:text-lg leading-snug mb-3 xs:mb-6 text-justify">
                           {selectedEvent.shortDescription}
                         </p>
                       </div>
 
                       <div className="mt-0 sm:mt-6">
-                        <h4 className="text-[11px] xs:text-xl lg:text-2xl font-bold text-slate-900 mb-1.5 xs:mb-4">Key Highlights</h4>
-                        <ul className="space-y-1.5 xs:space-y-3 lg:space-y-4">
+                        <h4 className="text-sm xs:text-xl lg:text-2xl font-bold text-slate-900 mb-2 xs:mb-4">Key Highlights</h4>
+                        <ul className="space-y-2 xs:space-y-3 lg:space-y-4">
                           {selectedEvent.highlights.map((highlight, index) => (
-                            <li key={index} className="flex items-start space-x-1.5 xs:space-x-3">
-                              <div className="w-1.5 h-1.5 lg:w-2 lg:h-2 bg-gradient-to-r from-purple-500 to-green-500 rounded-full mt-1.5 lg:mt-2.5 flex-shrink-0"></div>
-                              <span className="text-slate-600 text-[9px] xs:text-sm lg:text-lg leading-tight lg:leading-relaxed text-left">{highlight}</span>
+                            <li key={index} className="flex items-start space-x-2 xs:space-x-3">
+                              <div className="w-2 h-2 bg-gradient-to-r from-purple-500 to-green-500 rounded-full mt-2 flex-shrink-0"></div>
+                              <span className="text-slate-600 text-xs xs:text-sm lg:text-lg leading-tight lg:leading-relaxed text-left">{highlight}</span>
                             </li>
                           ))}
                         </ul>
@@ -217,10 +217,10 @@ export const CommunityPage: React.FC = () => {
                     </div>
 
                     {/* Event Images */}
-                    <div className="col-span-7 lg:col-span-6">
-                      <h3 className="text-xs xs:text-2xl font-bold text-slate-900 mb-1.5 xs:mb-4">Event Gallery</h3>
+                    <div className="md:col-span-6">
+                      <h3 className="text-sm xs:text-2xl font-bold text-slate-900 mb-2 xs:mb-4">Event Gallery</h3>
                       <div className="relative mt-2 xs:mt-4 sm:mt-0">
-                        <div className="aspect-video rounded-lg sm:rounded-2xl overflow-hidden shadow-xl">
+                        <div className="aspect-video rounded-xl overflow-hidden shadow-xl border border-slate-100">
                           <img 
                             src={selectedEvent.images[currentImageIndex]} 
                             alt={`${selectedEvent.title} - Image ${currentImageIndex + 1}`}
@@ -229,12 +229,12 @@ export const CommunityPage: React.FC = () => {
                         </div>
                         
                         {/* Image Indicators */}
-                        <div className="flex justify-center mt-2 xs:mt-4 space-x-1 xs:space-x-2">
+                        <div className="flex justify-center mt-3 xs:mt-4 space-x-1.5 xs:space-x-2">
                           {selectedEvent.images.map((_, index) => (
                             <button
                               key={index}
                               onClick={() => setCurrentImageIndex(index)}
-                              className={`w-1.5 h-1.5 xs:w-3 xs:h-3 rounded-full transition-all duration-300 min-h-0 min-w-0 ${
+                              className={`w-2.5 h-2.5 rounded-full transition-all duration-300 min-h-0 min-w-0 ${
                                 index === currentImageIndex
                                   ? 'bg-green-500 scale-125'
                                   : 'bg-slate-300 hover:bg-slate-400'
