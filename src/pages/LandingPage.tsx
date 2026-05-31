@@ -18,7 +18,6 @@ import {
   Package,
   Mail,
   Facebook,
-  Github,
   Lock,
   X,
   Phone,
@@ -705,14 +704,6 @@ export const LandingPage: React.FC = () => {
                   </li>
                 </ul>
                 <div className="flex items-center gap-3 sm:gap-5">
-                  <a
-                    href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
-                  >
-                    <Github size={16} className="sm:w-6 sm:h-6" />
-                  </a>
                   <a
                     href="https://www.facebook.com/profile.php?id=61573124552924"
                     target="_blank"

@@ -33,8 +33,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     const validateSession = async () => {
       try {
-        const storedToken = localStorage.getItem('token');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = sessionStorage.getItem('token');
+        const storedUser = sessionStorage.getItem('user');
         
         if (!storedToken || !storedUser) {
           console.log('[AUTH CONTEXT] No stored session found');
@@ -60,9 +60,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         useNotificationStore.getState().initialize(storedToken, response.id);
       } catch (err: any) {
         // Token is invalid, expired, or backend rejected it
-        console.warn('[AUTH CONTEXT] Session validation failed, clearing localStorage:', err?.message);
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        console.warn('[AUTH CONTEXT] Session validation failed, clearing sessionStorage:', err?.message);
+        sessionStorage.removeItem('token');
+        sessionStorage.removeItem('user');
         setToken(null);
         setUser(null);
       } finally {
@@ -89,8 +89,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: new Date().toISOString()
       });
 
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
 
       setToken(token);
       setUser(user);
@@ -134,7 +134,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const updatedUser = await apiClient.getCurrentUser() as any;
       setUser(updatedUser);
-      localStorage.setItem('user', JSON.stringify(updatedUser));
+      sessionStorage.setItem('user', JSON.stringify(updatedUser));
       console.log('[AUTH CONTEXT] User data refreshed:', {
         userId: updatedUser.id,
         membershipStatus: updatedUser.membership_status,
@@ -151,9 +151,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Cleanup notification system
     useNotificationStore.getState().cleanup();
     
-    // Clear localStorage first
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    // Clear sessionStorage first
+    sessionStorage.removeItem('token');
+    sessionStorage.removeItem('user');
     sessionStorage.clear();
     
     // Use flushSync to force immediate state updates (not batched)

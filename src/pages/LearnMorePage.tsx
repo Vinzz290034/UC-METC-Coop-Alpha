@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, CheckCircle2, Users, Zap, BarChart3, Lock, ShoppingCart, Bell, Facebook, Mail, Github, Phone } from 'lucide-react';
+import { ChevronLeft, CheckCircle2, Users, Zap, BarChart3, Lock, ShoppingCart, Bell, Facebook, Mail, Phone } from 'lucide-react';
 import { COOP_LOGO_URL, UC_METC_LOGO_URL } from '../constants/cloudinaryAssets';
 
 const styles = `
@@ -245,14 +245,6 @@ export const LearnMorePage: React.FC = () => {
                 </li>
               </ul>
               <div className="flex items-center gap-3 sm:gap-5">
-                <a
-                  href="https://github.com/Vinzz290034/UC-METC-Coop-Alpha.git"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-white hover:text-green-300 transition-colors hover:scale-110 duration-300 min-h-0 min-w-0"
-                >
-                  <Github size={16} className="sm:w-6 sm:h-6" />
-                </a>
                 <a
                   href="https://www.facebook.com/profile.php?id=61573124552924"
                   target="_blank"

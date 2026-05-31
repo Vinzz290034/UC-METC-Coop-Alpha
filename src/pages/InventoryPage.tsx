@@ -59,7 +59,7 @@ export const InventoryPage: React.FC = () => {
 
   const loadStockIntakeRecords = async () => {
     try {
-      const userStr = localStorage.getItem('user');
+      const userStr = sessionStorage.getItem('user');
       if (!userStr) return;
       
       const user = JSON.parse(userStr);
@@ -1240,7 +1240,7 @@ export const InventoryPage: React.FC = () => {
                     }
                     
                     try {
-                      const userStr = localStorage.getItem('user');
+                      const userStr = sessionStorage.getItem('user');
                       if (!userStr) {
                         showNotification('User not authenticated', 'error');
                         return;

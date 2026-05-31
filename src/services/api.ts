@@ -15,7 +15,7 @@ class ApiClient {
   }
 
   private getAuthToken(): string | null {
-    return localStorage.getItem('token');
+    return sessionStorage.getItem('token');
   }
 
   private async request<T>(
@@ -63,9 +63,9 @@ class ApiClient {
 
         // Handle 403 - Account deactivated
         if (response.status === 403 && errorDetail.accountStatus === 'inactive') {
-          // Clear local storage and reload to login page
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
+          // Clear session storage and reload to login page
+          sessionStorage.removeItem('token');
+          sessionStorage.removeItem('user');
           sessionStorage.clear();
           window.location.href = '/login?deactivated=true';
           throw {

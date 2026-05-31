@@ -29,8 +29,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = response;
 
       // Store token
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
 
       set({
         user,
@@ -55,8 +55,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const { token, user } = response;
 
       // Store token
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('token', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
 
       set({
         user,
@@ -76,16 +76,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
 
   logout: () => {
     set({ user: null, isAuthenticated: false, token: null });
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('token');
   },
 
   setUser: (user: User | null) => {
     set({ user, isAuthenticated: !!user });
     if (user) {
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('user', JSON.stringify(user));
     } else {
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('user');
     }
   },
 

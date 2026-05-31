@@ -310,8 +310,8 @@ export const LoginPage: React.FC = () => {
       // Call backend API with email parameter
       await login(adminStaffEmail, adminStaffPassword);
       
-      // Check user role from localStorage (which was just set by login)
-      const storedUser = localStorage.getItem('user');
+      // Check user role from sessionStorage (which was just set by login)
+      const storedUser = sessionStorage.getItem('user');
       if (storedUser) {
         const userData = JSON.parse(storedUser);
         if (!['admin', 'staff'].includes(userData.role)) {
