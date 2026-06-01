@@ -2280,6 +2280,51 @@ export const SalesPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
+
+                        {/* Coverage Details Section */}
+                        {(() => {
+                          const details = order.items?.[0]?.selectedOptions;
+                          if (!details || Object.keys(details).length === 0) return null;
+                          
+                          let formattedBirthday = details.birthday;
+                          try {
+                            if (details.birthday) {
+                              formattedBirthday = new Date(details.birthday).toLocaleDateString('en-US', {
+                                month: 'long',
+                                day: 'numeric',
+                                year: 'numeric'
+                              });
+                            }
+                          } catch (e) {
+                            console.error(e);
+                          }
+
+                          return (
+                            <div className="border-t border-slate-200 pt-4 mt-4 bg-purple-50/50 -mx-6 -mb-6 p-6 rounded-b-lg">
+                              <h5 className="text-xs font-bold text-purple-900 uppercase tracking-wider mb-3">
+                                Coverage & Beneficiary Details
+                              </h5>
+                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-6 text-sm">
+                                <div>
+                                  <p className="text-slate-600 text-xs">Insured Full Name:</p>
+                                  <p className="font-semibold text-slate-900">{details.fullName || `${order.first_name} ${order.last_name}`}</p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-600 text-xs">Birthday & Age:</p>
+                                  <p className="font-semibold text-slate-900">
+                                    {formattedBirthday} {details.age ? `(${details.age} years old)` : ''}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-slate-600 text-xs">Beneficiary:</p>
+                                  <p className="font-semibold text-slate-900">
+                                    {details.beneficiary} <span className="text-xs text-purple-700 font-medium">({details.relation})</span>
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     ))}
                   </div>

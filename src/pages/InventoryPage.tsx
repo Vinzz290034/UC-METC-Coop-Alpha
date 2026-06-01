@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { AppDataSync } from '../store/appDataSync';
@@ -142,6 +142,212 @@ export const InventoryPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to load stock intake records:', error);
     }
+  };
+
+  const handleExportToExcel = () => {
+    // 1. Prepare data rows
+    const rows: Array<{
+      name: string;
+      variant: string;
+      category: string;
+      sku: string;
+      price: number;
+      stock: number;
+      preorder: string;
+      status: string;
+    }> = [];
+
+    products.forEach((product) => {
+      const hasVariants = product.variants && Object.keys(product.variants).length > 0;
+      const categoryName = product.category 
+        ? product.category.charAt(0).toUpperCase() + product.category.slice(1)
+        : 'N/A';
+      
+      const allowPreorderVal = product.allowPreorder !== false; // defaults to true
+
+      if (!hasVariants) {
+        // Simple product
+        rows.push({
+          name: product.name,
+          variant: 'N/A (Simple Product)',
+          category: categoryName,
+          sku: product.sku || 'N/A',
+          price: product.price || 0,
+          stock: product.stock || 0,
+          preorder: allowPreorderVal ? 'Yes' : 'No',
+          status: (product.stock || 0) === 0 
+            ? 'Out of Stock' 
+            : (product.stock || 0) <= 5 
+              ? 'Low Stock' 
+              : 'Good Stock'
+        });
+      } else {
+        // Product with variants
+        Object.values(product.variants!).forEach((variantData) => {
+          // Format variant description beautifully, e.g. "Size: XL | Type: SHS"
+          const variantDesc = Object.entries(variantData.options)
+            .map(([optKey, optVal]) => `${optKey.toUpperCase()}: ${optVal}`)
+            .join(' | ');
+
+          // Format variant SKU (e.g. parent-sku + variant-suffix or customized)
+          const variantSuffix = Object.values(variantData.options).join('-');
+          const variantSku = product.sku ? `${product.sku}-${variantSuffix}` : 'N/A';
+
+          rows.push({
+            name: product.name,
+            variant: variantDesc,
+            category: categoryName,
+            sku: variantSku,
+            price: product.price || 0,
+            stock: variantData.stock || 0,
+            preorder: allowPreorderVal ? 'Yes' : 'No',
+            status: (variantData.stock || 0) === 0 
+              ? 'Out of Stock' 
+              : (variantData.stock || 0) <= 5 
+                ? 'Low Stock' 
+                : 'Good Stock'
+          });
+        });
+      }
+    });
+
+    // 2. Generate HTML Spreadsheet with beautiful corporate styling
+    const tableHeader = `
+      <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 220px;">Product Name</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 200px;">Variant Option</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Unit Price</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 90px;">Stock Qty</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Stock Value</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Pre-Order</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 130px;">Stock Status</th>
+      </tr>
+    `;
+
+    const tableRows = rows.map((row, index) => {
+      // Alternating row background colors for supreme readability
+      const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      
+      // Stock status cell colors
+      let statusColor = '#0f172a'; // dark
+      let statusBg = '#f1f5f9';
+      if (row.status === 'Out of Stock') {
+        statusColor = '#991b1b'; // red text
+        statusBg = '#fee2e2'; // light red bg
+      } else if (row.status === 'Low Stock') {
+        statusColor = '#9a3412'; // orange text
+        statusBg = '#ffedd5'; // light orange bg
+      } else if (row.status === 'Good Stock') {
+        statusColor = '#166534'; // green text
+        statusBg = '#dcfce7'; // light green bg
+      }
+
+      // Pre-order status cell colors
+      const preorderColor = row.preorder === 'Yes' ? '#166534' : '#475569';
+      const preorderBg = row.preorder === 'Yes' ? '#dcfce7' : '#f1f5f9';
+
+      const totalValue = row.price * row.stock;
+
+      return `
+        <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.variant}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.stock}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #0f172a;">₱${totalValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${preorderColor}; background-color: ${preorderBg};">${row.preorder}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${statusColor}; background-color: ${statusBg};">${row.status}</td>
+        </tr>
+      `;
+    }).join('');
+
+    // Summary calculations
+    const totalItems = rows.length;
+    const totalStock = rows.reduce((sum, r) => sum + r.stock, 0);
+    const totalInventoryValue = rows.reduce((sum, r) => sum + (r.price * r.stock), 0);
+
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Inventory Report</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+      </head>
+      <body>
+        <!-- Header Info Table -->
+        <table style="margin-bottom: 20px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          <tr>
+            <td colspan="4" style="font-size: 20px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
+              UC-METC Cooperative - Official Inventory Report
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="font-size: 12px; color: #64748b; padding-bottom: 20px;">
+              Generated on: ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}
+            </td>
+          </tr>
+          
+          <!-- Key Performance Cards inside Excel -->
+          <tr style="height: 40px;">
+            <td style="background-color: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #6d28d9; font-weight: bold; text-transform: uppercase;">Total Products/Variants</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${totalItems}</span>
+            </td>
+            <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #047857; font-weight: bold; text-transform: uppercase;">Total Stock Count</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${totalStock}</span>
+            </td>
+            <td colspan="2" style="background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #1d4ed8; font-weight: bold; text-transform: uppercase;">Total Inventory Value</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">₱${totalInventoryValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Main Data Table -->
+        <table style="border-collapse: collapse; border: 1px solid #cbd5e1;">
+          <thead>
+            ${tableHeader}
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    // 3. Create blob and trigger download
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    const dateStr = new Date().toISOString().split('T')[0];
+    link.download = `UC_Coop_Inventory_${dateStr}.xls`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Inventory successfully exported to Excel!', 'success');
   };
 
   const [formData, setFormData] = useState<{
@@ -413,13 +619,22 @@ export const InventoryPage: React.FC = () => {
               <p className="text-xs sm:text-sm text-slate-600 mt-2">Manage products and stock levels</p>
             </div>
             {activeTab === 'inventory' && (
-              <button
-                onClick={() => setShowForm(true)}
-                className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all"
-              >
-                <Plus size={20} />
-                <span>Add Product</span>
-              </button>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleExportToExcel}
+                  className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 hover:shadow-lg transition-all font-semibold"
+                >
+                  <Download size={20} />
+                  <span>Export Excel</span>
+                </button>
+                <button
+                  onClick={() => setShowForm(true)}
+                  className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all font-semibold"
+                >
+                  <Plus size={20} />
+                  <span>Add Product</span>
+                </button>
+              </div>
             )}
             {activeTab === 'stock-intake' && (
               <button
@@ -446,20 +661,29 @@ export const InventoryPage: React.FC = () => {
               <h1 className="text-lg sm:text-xl font-bold text-slate-900">Inventory</h1>
             </div>
             <p className="text-xs sm:text-sm text-slate-600 mb-3">Manage products and stock levels</p>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
               {activeTab === 'inventory' && (
-                <button
-                  onClick={() => setShowForm(true)}
-                  className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-all text-xs sm:text-sm"
-                >
-                  <Plus size={16} className="sm:w-5 sm:h-5" />
-                  <span>Add</span>
-                </button>
+                <>
+                  <button
+                    onClick={handleExportToExcel}
+                    className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
+                  >
+                    <Download size={16} className="sm:w-5 sm:h-5" />
+                    <span>Export Excel</span>
+                  </button>
+                  <button
+                    onClick={() => setShowForm(true)}
+                    className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
+                  >
+                    <Plus size={16} className="sm:w-5 sm:h-5" />
+                    <span>Add</span>
+                  </button>
+                </>
               )}
               {activeTab === 'stock-intake' && (
                 <button
                   onClick={() => setShowStockIntakeForm(true)}
-                  className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm"
+                  className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
                 >
                   <Plus size={16} className="sm:w-5 sm:h-5" />
                   <span>Record</span>

@@ -42,7 +42,7 @@ export const FloatingInput = React.memo(({
     setIsFocused(false);
   };
 
-  const isActive = isFocused || value.length > 0;
+  const isActive = isFocused || value.length > 0 || type === 'date';
 
   const labelColorClass = focusColor === 'green'
     ? isActive ? 'text-green-600' : 'text-slate-500'
