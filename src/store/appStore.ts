@@ -40,7 +40,7 @@ const createDefaultProducts = (): Product[] => {
     { name: 'PE Pants', sku: 'UNI-005', price: 260, stock: 35, category: 'uniform', available: true, image: '👖', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱260)', 'Medium (₱260)', 'Large (₱260)', 'XL (₱280)', '2XL (₱280)', '3XL (₱320)'] }] },
     { name: 'Pershing Cap', sku: 'ACC-004', price: 350, stock: 30, category: 'accessory', available: true, image: '🧢', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [
       { id: 'course', label: 'Course', choices: ['BSMT', 'BSMARE'] },
-      { id: 'size', label: 'Size', choices: ['4 (₱350)', '5 (₱350)', '6 (₱350)', '7 (₱350)', '8 (₱350)', '9 (₱350)'] }
+      { id: 'size', label: 'Size', choices: ['4', '5', '6', '7', '8', '9'] }
     ] },
     { name: 'Plotting Sheet', sku: 'SS-001', price: 20, stock: 100, category: 'equipment', available: true, image: '📄' },
     { name: 'Gala', sku: 'UNI-002', price: 1200, stock: 999, category: 'uniform', available: true, image: '👗', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [
@@ -48,19 +48,19 @@ const createDefaultProducts = (): Product[] => {
       { id: 'bundle', label: 'Bundle', choices: ['Bundle A (₱1,200 / ₱1,150 Member)', 'Bundle B (₱1,700 / ₱1,650 Member)', 'Bundle C (₱2,030 / ₱1,980 Member)', 'Bundle D (₱2,180 / ₱2,130 Member)', 'Bundle E (₱2,710 / ₱2,660 Member)', 'Bundle F (₱2,230 / ₱2,180 Member)', 'Bundle G (₱2,550 / ₱2,500 Member)', 'Bundle H - Girls Only (₱1,980 / ₱1,930 Member)', 'Bundle I - Girls Only (₱1,450 / ₱1,400 Member)'] }
     ] },
     { name: 'BSNAME Uniform', sku: 'UNI-006', price: 3150, stock: 999, category: 'uniform', available: true, image: '👕', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.' },
-    { name: 'PE Short', sku: 'UNI-007', price: 280, stock: 40, category: 'uniform', available: true, image: '🩳', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱280)', 'Medium (₱280)', 'Large (₱280)', 'XL (₱280)', '2XL (₱280)', '3XL (₱280)'] }] },
+    { name: 'PE Short', sku: 'UNI-007', price: 280, stock: 40, category: 'uniform', available: true, image: '🩳', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL', '2XL', '3XL'] }] },
     { name: 'Buttons', sku: 'ACC-005', price: 15, stock: 100, category: 'accessory', available: true, image: '🔘' },
     { name: 'Anchor Pins', sku: 'ACC-006', price: 30, stock: 100, category: 'accessory', available: true, image: '📍' },
     { name: 'Propeller Pins', sku: 'ACC-007', price: 40, stock: 100, category: 'accessory', available: true, image: '📍' },
     { name: 'Shoulder Board', sku: 'ACC-008', price: 140, stock: 100, category: 'accessory', available: true, image: '🎖️', options: [
       { id: 'course', label: 'Course', choices: ['BSMT', 'BSMARE'] }
     ] },
-    { name: 'Swimming Set', sku: 'UNI-008', price: 320, stock: 40, category: 'uniform', available: true, image: '🩱', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱320)', 'Medium (₱320)', 'Large (₱320)', 'XL (₱320)', '2XL (₱320)', '3XL (₱320)'] }] },
-    { name: 'CWTS Shirt', sku: 'UNI-009', price: 250, stock: 40, category: 'uniform', available: true, image: '👕', note: 'Note: Sizes for CWTS Shirt is the same on PE Tshirt.', options: [{ id: 'size', label: 'Size', choices: ['Small (₱250)', 'Medium (₱250)', 'Large (₱250)', 'XL (₱250)', '2XL (₱250)'] }] },
-    { name: 'ROTC Manual', sku: 'EQUIP-007', price: 150, stock: 50, category: 'equipment', available: true, image: '📘', options: [{ id: 'part', label: 'Part', choices: ['Part 1 (₱150)', 'Part 2 (₱150)'] }] },
-    { name: 'Belt', sku: 'ACC-009', price: 150, stock: 50, category: 'accessory', available: true, image: '🪣', options: [{ id: 'color', label: 'Color', choices: ['Black (₱150)', 'White (₱150)'] }] },
+    { name: 'Swimming Set', sku: 'UNI-008', price: 320, stock: 40, category: 'uniform', available: true, image: '🩱', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL', '2XL', '3XL'] }] },
+    { name: 'CWTS Shirt', sku: 'UNI-009', price: 250, stock: 40, category: 'uniform', available: true, image: '👕', note: 'Note: Sizes for CWTS Shirt is the same on PE Tshirt.', options: [{ id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL', '2XL'] }] },
+    { name: 'ROTC Manual', sku: 'EQUIP-007', price: 150, stock: 50, category: 'equipment', available: true, image: '📘', options: [{ id: 'part', label: 'Part', choices: ['Part 1', 'Part 2'] }] },
+    { name: 'Belt', sku: 'ACC-009', price: 150, stock: 50, category: 'accessory', available: true, image: '🪣', options: [{ id: 'color', label: 'Color', choices: ['Black', 'White'] }] },
     { name: 'Swimming Cap', sku: 'ACC-010', price: 100, stock: 50, category: 'accessory', available: true, image: '🧢' },
-    { name: 'White Shoes', sku: 'EQUIP-008', price: 550, stock: 30, category: 'equipment', available: true, image: '👟', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['4 (₱550)', '5 (₱550)', '6 (₱550)', '7 (₱550)', '8 (₱550)', '9 (₱550)', '10 (₱550)', '11 (₱550)', '12 (₱550)'] }] },
+    { name: 'White Shoes', sku: 'EQUIP-008', price: 550, stock: 30, category: 'equipment', available: true, image: '👟', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size.', options: [{ id: 'size', label: 'Size', choices: ['4', '5', '6', '7', '8', '9', '10', '11', '12'] }] },
     { name: 'Rope', sku: 'EQUIP-009', price: 200, stock: 50, category: 'equipment', available: true, image: '🪢' },
   ];
 

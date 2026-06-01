@@ -32,6 +32,7 @@ export const InventoryPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [variantStocks, setVariantStocks] = useState<Record<string, number>>({});
+  const [optionInputs, setOptionInputs] = useState<Record<string, string>>({});
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; product: Product | null }>({ show: false, product: null });
   const [searchQuery, setSearchQuery] = useState('');
   
@@ -49,6 +50,79 @@ export const InventoryPage: React.FC = () => {
     dateReceived: new Date().toISOString().split('T')[0],
     selectedVariant: {} as Record<string, string>, // For variant options like course, size, color
   });
+
+  // Synchronize and migrate variant stocks when options are modified
+  useEffect(() => {
+    if (!editingProduct) return;
+    
+    const generateCombinations = (options: any[]) => {
+      if (options.length === 0) return [{}];
+      if (options.length === 1) {
+        return options[0].choices.map((choice: string) => ({
+          [options[0].id]: choice
+        }));
+      }
+      
+      const [first, ...rest] = options;
+      const restCombinations = generateCombinations(rest);
+      const combinations: any[] = [];
+      
+      first.choices.forEach((choice: string) => {
+        restCombinations.forEach((restCombo: any) => {
+          combinations.push({
+            [first.id]: choice,
+            ...restCombo
+          });
+        });
+      });
+      
+      return combinations;
+    };
+
+    const newCombinations = generateCombinations(editingProduct.options || []);
+    const newVariantStocks: Record<string, number> = {};
+    
+    newCombinations.forEach((combo: Record<string, string>) => {
+      const variantKey = Object.entries(combo)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, val]) => `${key}:${val}`)
+        .join('|');
+      
+      // If we already have stock for this exact key, keep it!
+      if (variantStocks[variantKey] !== undefined) {
+        newVariantStocks[variantKey] = variantStocks[variantKey];
+      } else {
+        // Otherwise, try to find an old key that is a subset of this new key, or vice-versa!
+        const newKeyParts = variantKey.split('|');
+        
+        const matchingOldKey = Object.keys(variantStocks).find(oldKey => {
+          const oldKeyParts = oldKey.split('|');
+          // Check if all parts of oldKey are in newKeyParts
+          return oldKeyParts.every(part => newKeyParts.includes(part));
+        });
+        
+        if (matchingOldKey !== undefined) {
+          newVariantStocks[variantKey] = variantStocks[matchingOldKey];
+        } else {
+          // If no matching subset, but there's a simple product stock or previous variant, try to fallback
+          // E.g. if we are converting from a simple product to a variant product, use editingProduct.stock
+          if (Object.keys(variantStocks).length === 0) {
+            newVariantStocks[variantKey] = editingProduct.stock || 0;
+          } else {
+            newVariantStocks[variantKey] = 0;
+          }
+        }
+      }
+    });
+    
+    // Check if the stocks record has actually changed to prevent infinite loops
+    const hasChanged = Object.keys(newVariantStocks).length !== Object.keys(variantStocks).length ||
+      Object.keys(newVariantStocks).some(k => newVariantStocks[k] !== variantStocks[k]);
+      
+    if (hasChanged) {
+      setVariantStocks(newVariantStocks);
+    }
+  }, [editingProduct?.options, editingProduct?.stock]);
 
   // Load stock intake records when Stock Intake tab is active
   useEffect(() => {
@@ -83,6 +157,7 @@ export const InventoryPage: React.FC = () => {
       label: string;
       choices: string[];
     }>;
+    allowPreorder?: boolean;
   }>({
     name: '',
     price: 0,
@@ -92,6 +167,7 @@ export const InventoryPage: React.FC = () => {
     note: '',
     image: '',
     options: [],
+    allowPreorder: true,
   });
   const [newVariantStocks, setNewVariantStocks] = useState<Record<string, number>>({});
 
@@ -146,6 +222,7 @@ export const InventoryPage: React.FC = () => {
         note: formData.note,
         image: formData.image,
         options: formData.options && formData.options.length > 0 ? formData.options : undefined,
+        allowPreorder: formData.allowPreorder !== false,
         createdAt: new Date().toISOString(),
       };
 
@@ -182,6 +259,7 @@ export const InventoryPage: React.FC = () => {
         const variants: Record<string, { stock: number; options: Record<string, string> }> = {};
         combinations.forEach((combo: Record<string, string>) => {
           const variantKey = Object.entries(combo)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
             .map(([key, val]) => `${key}:${val}`)
             .join('|');
           
@@ -210,6 +288,7 @@ export const InventoryPage: React.FC = () => {
         note: '',
         image: '',
         options: [],
+        allowPreorder: true,
       });
       setNewVariantStocks({});
       setShowForm(false);
@@ -219,6 +298,14 @@ export const InventoryPage: React.FC = () => {
 
   const handleEditProduct = (product: Product) => {
     setEditingProduct({ ...product });
+    
+    // Initialize option inputs state for perfect comma-separated list typing
+    const inputs: Record<string, string> = {};
+    product.options?.forEach(opt => {
+      inputs[opt.id] = opt.choices.join(', ');
+    });
+    setOptionInputs(inputs);
+
     // Initialize variant stocks from product data
     if (product.variants) {
       setVariantStocks(
@@ -238,6 +325,8 @@ export const InventoryPage: React.FC = () => {
       const updates: Partial<Product> = {
         price: editingProduct.price,
         note: editingProduct.note,
+        options: editingProduct.options,
+        allowPreorder: editingProduct.allowPreorder !== false,
       };
 
       // If product has variants, save variant stocks
@@ -273,6 +362,7 @@ export const InventoryPage: React.FC = () => {
         const variants: Record<string, { stock: number; options: Record<string, string> }> = {};
         combinations.forEach((combo: Record<string, string>) => {
           const variantKey = Object.entries(combo)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
             .map(([key, val]) => `${key}:${val}`)
             .join('|');
           
@@ -289,6 +379,7 @@ export const InventoryPage: React.FC = () => {
       } else {
         // For products without variants, use the simple stock value
         updates.stock = editingProduct.stock;
+        updates.variants = {}; // Clear variants if no options are defined
       }
 
       updateProduct(editingProduct.id, updates);
@@ -301,6 +392,7 @@ export const InventoryPage: React.FC = () => {
       setShowEditModal(false);
       setEditingProduct(null);
       setVariantStocks({});
+      setOptionInputs({});
     }
   };
 
@@ -576,6 +668,23 @@ export const InventoryPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Pre-Order Toggle */}
+                <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
+                    <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.allowPreorder !== false}
+                      onChange={(e) => setFormData({ ...formData, allowPreorder: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
                 {/* Variant Options Section */}
                 <div className="mb-6 p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex items-center justify-between mb-3">
@@ -688,6 +797,7 @@ export const InventoryPage: React.FC = () => {
                         
                         return combinations.map((combo: Record<string, string>, idx: number) => {
                           const variantKey = Object.entries(combo)
+                            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
                             .map(([key, val]) => `${key}:${val}`)
                             .join('|');
                           
@@ -1537,6 +1647,132 @@ export const InventoryPage: React.FC = () => {
                     </p>
                   </div>
 
+                  {/* Pre-Order Toggle */}
+                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
+                      <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={editingProduct.allowPreorder !== false}
+                        onChange={(e) => setEditingProduct({ ...editingProduct, allowPreorder: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  {/* Manage Variants & Options Section */}
+                  {!['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(editingProduct.name) && (
+                    <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm">Product Options & Variants</h4>
+                          <p className="text-xs text-slate-500">Configure sizes, courses, colors, or categories</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newOption = {
+                              id: `option-${Date.now()}`,
+                              label: '',
+                              choices: []
+                            };
+                            setEditingProduct({
+                              ...editingProduct,
+                              options: [...(editingProduct.options || []), newOption]
+                            });
+                          }}
+                          className="text-xs bg-purple-600 hover:bg-purple-700 text-white font-semibold px-3 py-1.5 rounded-lg transition-all active:scale-95 flex items-center gap-1 shadow-sm hover:shadow"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                          </svg>
+                          Add Option
+                        </button>
+                      </div>
+
+                      {editingProduct.options && editingProduct.options.length > 0 ? (
+                        <div className="space-y-3">
+                          {editingProduct.options.map((option, optionIndex) => (
+                            <div key={option.id} className="bg-white p-3 rounded-lg border border-slate-200 space-y-2 shadow-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <label className="block text-xs font-semibold text-slate-500 mb-1">Option Name</label>
+                                  <input
+                                    type="text"
+                                    placeholder="e.g., Size, Course, Color"
+                                    value={option.label}
+                                    onChange={(e) => {
+                                      const newOptions = [...(editingProduct.options || [])];
+                                      newOptions[optionIndex] = {
+                                        ...newOptions[optionIndex],
+                                        label: e.target.value
+                                      };
+                                      setEditingProduct({ ...editingProduct, options: newOptions });
+                                    }}
+                                    className="w-full border border-slate-200 hover:border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all font-medium text-slate-800"
+                                  />
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const newOptions = editingProduct.options?.filter((_, i) => i !== optionIndex) || [];
+                                    setEditingProduct({ ...editingProduct, options: newOptions });
+                                    setOptionInputs(prev => {
+                                      const next = { ...prev };
+                                      delete next[option.id];
+                                      return next;
+                                    });
+                                  }}
+                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-2 rounded-lg mt-5 transition-all duration-300"
+                                  title="Remove option"
+                                >
+                                  <X size={16} />
+                                </button>
+                              </div>
+                              <div>
+                                <label className="block text-xs font-semibold text-slate-500 mb-1">Option Choices</label>
+                                <input
+                                  type="text"
+                                  placeholder="Type choices separated by commas (e.g. Small, Medium, Large)"
+                                  value={optionInputs[option.id] !== undefined ? optionInputs[option.id] : option.choices.join(', ')}
+                                  onChange={(e) => {
+                                    const inputValue = e.target.value;
+                                    setOptionInputs(prev => ({
+                                      ...prev,
+                                      [option.id]: inputValue
+                                    }));
+                                    
+                                    const parsedChoices = inputValue
+                                      .split(',')
+                                      .map(c => c.trim())
+                                      .filter(c => c.length > 0);
+                                      
+                                    const newOptions = [...(editingProduct.options || [])];
+                                    newOptions[optionIndex] = {
+                                      ...newOptions[optionIndex],
+                                      choices: parsedChoices
+                                    };
+                                    setEditingProduct({ ...editingProduct, options: newOptions });
+                                  }}
+                                  className="w-full border border-slate-200 hover:border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-slate-700"
+                                />
+                                <span className="text-[10px] text-slate-400 mt-1 block">Separating choices with commas automatically registers them.</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-5 bg-slate-100/50 rounded-lg border border-dashed border-slate-300">
+                          <p className="text-sm font-medium text-slate-600">No options defined</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Click "Add Option" to configure custom sizes, courses, or colors.</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                 </div>
 
@@ -1622,6 +1858,7 @@ export const InventoryPage: React.FC = () => {
                           <div className="space-y-3">
                             {combinations.map((combo: Record<string, string>, idx: number) => {
                               const variantKey = Object.entries(combo)
+                                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
                                 .map(([key, val]) => `${key}:${val}`)
                                 .join('|');
                               
@@ -1697,6 +1934,7 @@ export const InventoryPage: React.FC = () => {
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingProduct(null);
+                    setOptionInputs({});
                   }}
                   className="px-6 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all"
                 >

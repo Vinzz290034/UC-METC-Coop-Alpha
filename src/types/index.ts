@@ -74,6 +74,7 @@ export interface Product {
   category: 'uniform' | 'accessory' | 'equipment' | 'service';
   createdAt: string;
   available?: boolean;
+  allowPreorder?: boolean;
   image?: string;
   note?: string;
   options?: Array<{

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { ShoppingBag, ShoppingCart, Filter, X, Eye } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -102,16 +102,101 @@ export const MerchandisePage: React.FC = () => {
   const { products, addToCart } = useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
 
+  // Dynamically normalize products' options when the database prices are edited
+  const normalizedProducts = useMemo(() => {
+    return products.map(product => {
+      if (!product.options || product.options.length === 0) return product;
+      
+      const newOptions = product.options.map(option => {
+        // Extract all prices from the choices of this option
+        const prices = option.choices
+          .map(c => {
+            const match = c.match(/₱([\d,]+)/);
+            return match ? parseInt(match[1].replace(/,/g, '')) : null;
+          })
+          .filter((p): p is number => p !== null);
+          
+        const uniquePrices = Array.from(new Set(prices));
+        const isConstantPrice = uniquePrices.length === 1;
+        
+        if (isConstantPrice) {
+          const oldPrice = uniquePrices[0];
+          const newPrice = product.price;
+          
+          if (oldPrice !== newPrice) {
+            const newChoices = option.choices.map(choice => {
+              const oldPriceStr = oldPrice.toLocaleString();
+              const newPriceStr = newPrice.toLocaleString();
+              return choice.replace(new RegExp(`₱${oldPriceStr}`, 'g'), `₱${newPriceStr}`);
+            });
+            
+            return {
+              ...option,
+              choices: newChoices
+            };
+          }
+        }
+        
+        return option;
+      });
+      
+      // Also check variants keys and values, and normalize them!
+      let newVariants = product.variants;
+      if (product.variants && Object.keys(product.variants).length > 0) {
+        newVariants = {};
+        Object.entries(product.variants).forEach(([key, variant]) => {
+          let newKey = key;
+          const newVariantOptions = { ...variant.options };
+          
+          product.options!.forEach(opt => {
+            const prices = opt.choices
+              .map(c => {
+                const match = c.match(/₱([\d,]+)/);
+                return match ? parseInt(match[1].replace(/,/g, '')) : null;
+              })
+              .filter((p): p is number => p !== null);
+              
+            const uniquePrices = Array.from(new Set(prices));
+            if (uniquePrices.length === 1 && uniquePrices[0] !== product.price) {
+              const oldPriceStr = uniquePrices[0].toLocaleString();
+              const newPriceStr = product.price.toLocaleString();
+              
+              newKey = newKey.replace(new RegExp(`₱${oldPriceStr}`, 'g'), `₱${newPriceStr}`);
+              if (newVariantOptions[opt.id]) {
+                newVariantOptions[opt.id] = newVariantOptions[opt.id].replace(
+                  new RegExp(`₱${oldPriceStr}`, 'g'),
+                  `₱${newPriceStr}`
+                );
+              }
+            }
+          });
+          
+          newVariants![newKey] = {
+            ...variant,
+            options: newVariantOptions
+          };
+        });
+      }
+      
+      return {
+        ...product,
+        options: newOptions,
+        variants: newVariants
+      };
+    });
+  }, [products]);
+
   // Check for product from navigation state (from GlobalSearch)
   useEffect(() => {
     if (location.state?.selectedProduct) {
-      setSelectedProduct(location.state.selectedProduct);
+      const found = normalizedProducts.find(p => p.sku === location.state.selectedProduct.sku);
+      setSelectedProduct(found || location.state.selectedProduct);
       setSelectedOptions({});
       setPaymentType('full');
       // Clear the state so it doesn't reopen on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state]);
+  }, [location.state, normalizedProducts]);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -148,7 +233,7 @@ export const MerchandisePage: React.FC = () => {
     { value: 'equipment', label: 'Equipment' },
   ];
 
-  const filteredProducts = products.filter(p => {
+  const filteredProducts = normalizedProducts.filter(p => {
     const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          p.sku.toLowerCase().includes(searchQuery.toLowerCase());
@@ -374,6 +459,36 @@ export const MerchandisePage: React.FC = () => {
     
     // Determine if this is a tailored product
     const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(product.name);
+    
+    // Strict Pre-Order Gate Check
+    const isProductOutOfStock = (() => {
+      // Skip for made-to-order products
+      if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name)) {
+        return false;
+      }
+      
+      // For products with variants
+      if (product.variants && Object.keys(product.variants).length > 0 && product.options && product.options.length > 0) {
+        const allOptionsSelected = product.options.every(opt => selectedOptions[opt.id]);
+        if (allOptionsSelected) {
+          const variantKey = Object.entries(selectedOptions)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+            .map(([key, value]) => `${key}:${value}`)
+            .join('|');
+          const variant = product.variants[variantKey];
+          return !variant || variant.stock <= 0;
+        }
+        return false;
+      }
+      
+      // For simple products
+      return product.stock <= 0;
+    })();
+
+    if (isProductOutOfStock && product.allowPreorder === false) {
+      showNotification('Pre-orders are disabled for this product.', 'error');
+      return;
+    }
     
     // Get the actual full price based on selected options (if any)
     const fullPrice = getSelectedPrice(product, selectedOptions) || product.price;
@@ -609,7 +724,7 @@ export const MerchandisePage: React.FC = () => {
 
         {/* Results Info */}
         <div className="mb-6 text-sm text-slate-600">
-          Showing {filteredProducts.length} of {products.length} products
+          Showing {filteredProducts.length} of {normalizedProducts.length} products
         </div>
 
         {/* Products Grid */}
@@ -906,10 +1021,11 @@ export const MerchandisePage: React.FC = () => {
                     setSelectedProduct(product);
                     setSelectedOptions({});
                     setPaymentType('full');
-                    // Automatically set to pre-order if product is out of stock (excluding made-to-order products)
+                    // Automatically set to pre-order if product is out of stock (excluding made-to-order products) and pre-order is allowed
                     const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
                     const isOutOfStock = !isMadeToOrder && product.stock <= 0;
-                    setOrderType(isOutOfStock ? 'preorder' : 'regular');
+                    const canPreorder = product.allowPreorder !== false;
+                    setOrderType((isOutOfStock && canPreorder) ? 'preorder' : 'regular');
                   }}
                   className="w-full bg-purple-900 text-white py-1.5 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold hover:bg-purple-950 active:scale-[0.97] transition-all duration-200 flex items-center justify-center space-x-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -1276,6 +1392,24 @@ export const MerchandisePage: React.FC = () => {
                   })();
 
                   if (isOutOfStock) {
+                    if (selectedProduct.allowPreorder === false) {
+                      return (
+                        <div className="pt-4 border-t border-slate-200">
+                          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700">
+                            <p className="text-sm font-semibold flex items-center gap-1.5">
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                              </svg>
+                              Out of Stock
+                            </p>
+                            <p className="text-xs text-red-500 mt-1">
+                              This item is currently out of stock and pre-orders is not currently available.
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    }
+
                     return (
                       <div className="pt-4 border-t border-slate-200">
                         <p className="text-sm text-slate-600 mb-3 font-semibold">Order Type</p>
