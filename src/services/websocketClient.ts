@@ -28,11 +28,11 @@ class WebSocketClient {
 
     this.socket = io(BACKEND_URL, {
       auth: { token },
-      transports: ['polling', 'websocket'],
+      transports: ['websocket', 'polling'], // Prioritize native WebSocket first to bypass sticky routing issues on Railway
       reconnection: true,
       reconnectionDelay: this.reconnectDelay,
       reconnectionDelayMax: 10000,
-      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionAttempts: Infinity, // Never give up trying to reconnect
     });
 
     this.setupEventHandlers();
@@ -67,8 +67,9 @@ class WebSocketClient {
     }
     this.listeners.get(event)!.add(callback);
 
-    // If socket is already connected, attach the listener
+    // If socket is already connected, attach the listener safely without duplicates
     if (this.socket) {
+      this.socket.off(event, callback as any);
       this.socket.on(event, callback as any);
     }
   }
@@ -114,9 +115,10 @@ class WebSocketClient {
       this.reconnectAttempts = 0;
       this.reconnectDelay = 1000;
 
-      // Re-attach all listeners
+      // Re-attach all listeners safely without duplicates
       for (const [event, callbacks] of this.listeners.entries()) {
         callbacks.forEach(callback => {
+          this.socket!.off(event, callback as any);
           this.socket!.on(event, callback as any);
         });
       }

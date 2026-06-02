@@ -285,11 +285,27 @@ class NotificationService {
    * Deliver notification to user via WebSocket
    */
   private deliverNotification(notification: Notification): void {
-    if (connectionManager.isUserOnline(notification.user_id)) {
-      connectionManager.emitToUser(notification.user_id, 'new_notification', notification);
-      console.log(`[NotificationService] Delivered notification ${notification.id} to user ${notification.user_id} via WebSocket`);
-    } else {
-      console.log(`[NotificationService] User ${notification.user_id} is offline, notification stored for later`);
+    try {
+      console.log(`[WebSocket Debug] deliverNotification called for user ${notification.user_id}. Details:`, {
+        id: notification.id,
+        type: notification.type,
+        title: notification.title,
+        user_id: notification.user_id
+      });
+      
+      const isOnline = connectionManager.isUserOnline(notification.user_id);
+      const onlineUsers = connectionManager.getOnlineUserIds();
+      
+      console.log(`[WebSocket Debug] User ${notification.user_id} online status: ${isOnline}. Currently connected user IDs:`, onlineUsers);
+      
+      if (isOnline) {
+        connectionManager.emitToUser(notification.user_id, 'new_notification', notification);
+        console.log(`[NotificationService] Delivered notification ${notification.id} to user ${notification.user_id} via WebSocket`);
+      } else {
+        console.log(`[NotificationService] User ${notification.user_id} is offline, notification stored for later`);
+      }
+    } catch (deliveryErr) {
+      console.error(`[WebSocket Debug] Error in deliverNotification:`, deliveryErr);
     }
   }
 
