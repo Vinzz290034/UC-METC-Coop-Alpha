@@ -419,6 +419,12 @@ class ApiClient {
     }, userId);
   }
 
+  async deleteOrderAsAdmin(orderId: string, userId: string) {
+    return this.request<any>(`/orders/admin/${orderId}`, {
+      method: 'DELETE',
+    }, userId);
+  }
+
   async getPendingOrders(userId: string) {
     return this.request<any>(`/orders/pending/list`, {}, userId);
   }

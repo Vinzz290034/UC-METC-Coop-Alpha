@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -104,6 +104,8 @@ export const SalesPage: React.FC = () => {
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
   const [fulfillmentSearchQuery, setFulfillmentSearchQuery] = useState<string>('');
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
 
   // Load pending orders
   useEffect(() => {
@@ -267,6 +269,30 @@ export const SalesPage: React.FC = () => {
       setDailyOrders(todayOrders);
     } catch (err) {
       console.error('Failed to load daily summary:', err);
+    }
+  };
+
+  const handleDeleteOrder = (orderId: string, receiptNo: string) => {
+    setOrderToDelete({ id: orderId, receiptNo });
+  };
+
+  const confirmDeleteOrder = async () => {
+    if (!orderToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      await apiClient.deleteOrderAsAdmin(orderToDelete.id, user?.id || '');
+      showNotification(`Order #${orderToDelete.receiptNo} deleted successfully`, 'success');
+      setOrderToDelete(null);
+      
+      // Reload summaries to update the tables and stats immediately
+      loadDailySummary();
+      loadHistorySummary();
+    } catch (error: any) {
+      console.error('Failed to delete order:', error);
+      showNotification(error?.message || 'Failed to delete order', 'error');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -888,6 +914,66 @@ export const SalesPage: React.FC = () => {
           </div>
         )}
 
+        {/* Friendly Delete Confirmation Modal */}
+        {orderToDelete && (
+          <div
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={() => setOrderToDelete(null)}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-md animate-scale-in overflow-hidden border border-slate-100"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="p-6 pb-4 flex flex-col items-center text-center">
+                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-4 animate-bounce">
+                  <Trash2 size={32} />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900">Delete Order</h3>
+                <p className="text-slate-500 mt-2 text-sm">
+                  Are you sure you want to completely delete order <span className="font-semibold text-slate-800">#{orderToDelete.receiptNo}</span>?
+                </p>
+              </div>
+
+              {/* Warning box */}
+              <div className="mx-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-start gap-2.5">
+                <span className="text-base mt-0.5">⚠️</span>
+                <div>
+                  <p className="font-semibold">Important Notice:</p>
+                  <p className="mt-0.5 leading-relaxed text-amber-700">
+                    This action is permanent and cannot be undone. All items associated with this receipt will be deleted, and the inventory stock will be automatically restored.
+                  </p>
+                </div>
+              </div>
+
+              {/* Actions Footer */}
+              <div className="p-6 flex gap-3">
+                <button
+                  onClick={() => setOrderToDelete(null)}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 px-4 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteOrder}
+                  disabled={isDeleting}
+                  className="flex-1 py-3 px-4 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-all duration-200 active:scale-95 shadow-md shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isDeleting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      Deleting...
+                    </>
+                  ) : (
+                    'Yes, Delete Order'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Daily Summary Tab */}
         {activeTab === 'daily' && (
           <div className="space-y-6">
@@ -1032,6 +1118,7 @@ export const SalesPage: React.FC = () => {
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Time</th>
+                        <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1080,7 +1167,7 @@ export const SalesPage: React.FC = () => {
                                   order?.status === 'completed' 
                                     ? 'bg-green-100 text-green-800' 
                                     : 'bg-red-100 text-red-800'
-                                }`}>
+                                  }`}>
                                   {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
                                 </span>
                               </td>
@@ -1090,6 +1177,17 @@ export const SalesPage: React.FC = () => {
                                   minute: '2-digit',
                                   hour12: true
                                 }) : 'N/A'}
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                                {itemIdx === 0 ? (
+                                  <button
+                                    onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
+                                    title="Delete Order completely"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                ) : null}
                               </td>
                             </tr>
                           ));
@@ -1132,6 +1230,15 @@ export const SalesPage: React.FC = () => {
                                 minute: '2-digit',
                                 hour12: true
                               }) : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <button
+                                onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
+                                title="Delete Order completely"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </td>
                           </tr>
                         );
@@ -1331,6 +1438,7 @@ export const SalesPage: React.FC = () => {
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Time</th>
+                        <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1351,7 +1459,7 @@ export const SalesPage: React.FC = () => {
                               key={`${order?.id}-${itemIdx}`}
                               className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
                             >
-                              <td className="py-4 px-6 font-mono text-slate-900 text-xs">{order?.receipt_no || 'N/A'}</td>
+                              <td className="py-4 px-6 font-mono text-slate-900 text-xs">{itemIdx === 0 ? (order?.receipt_no || 'N/A') : ''}</td>
                               <td className="py-4 px-6 text-slate-900">
                                 {order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A'}
                               </td>
@@ -1387,6 +1495,17 @@ export const SalesPage: React.FC = () => {
                                   minute: '2-digit',
                                   hour12: true
                                 }) : 'N/A'}
+                              </td>
+                              <td className="py-4 px-6 text-center">
+                                {itemIdx === 0 ? (
+                                  <button
+                                    onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
+                                    title="Delete Order completely"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
+                                ) : null}
                               </td>
                             </tr>
                           ));
@@ -1429,6 +1548,15 @@ export const SalesPage: React.FC = () => {
                                 minute: '2-digit',
                                 hour12: true
                               }) : 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 text-center">
+                              <button
+                                onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
+                                title="Delete Order completely"
+                              >
+                                <Trash2 size={16} />
+                              </button>
                             </td>
                           </tr>
                         );

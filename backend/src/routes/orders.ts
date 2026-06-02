@@ -483,6 +483,108 @@ router.delete('/:id', verifyUser, async (req: Request, res: Response) => {
   }
 });
 
+// Admin/staff delete order completely and restore stock if completed
+router.delete('/admin/:id', verifyUser, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const userId = (req as any).userId;
+
+    // Verify user is admin or staff
+    const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
+    if (!userResult.rows[0] || !['admin', 'staff'].includes(userResult.rows[0].role)) {
+      return res.status(403).json({ error: 'Unauthorized. Staff/Admin privilege required.' });
+    }
+
+    // Start transaction
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Get order details to check status and fetch items for stock restoration
+      const orderResult = await client.query(
+        'SELECT status, order_type FROM orders WHERE id = $1',
+        [id]
+      );
+
+      if (orderResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Order not found' });
+      }
+
+      const order = orderResult.rows[0];
+
+      // If the order was COMPLETED, restore the stock of items
+      if (order.status === 'completed' && order.order_type !== 'insurance') {
+        const itemsResult = await client.query(
+          `SELECT product_id, quantity, selected_options FROM order_items WHERE order_id = $1`,
+          [id]
+        );
+
+        for (const item of itemsResult.rows) {
+          const productId = item.product_id;
+          const quantity = item.quantity;
+          const selectedOptions = item.selected_options;
+
+          const productResult = await client.query(
+            'SELECT stock, variants FROM products WHERE id = $1',
+            [productId]
+          );
+
+          if (productResult.rows.length > 0) {
+            const product = productResult.rows[0];
+
+            if (product.variants && selectedOptions && Object.keys(selectedOptions).length > 0) {
+              const variantKey = Object.entries(selectedOptions)
+                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                .map(([key, value]) => `${key}:${value}`)
+                .join('|');
+
+              const variants = product.variants;
+              if (variants[variantKey] !== undefined) {
+                // Restore variant stock
+                variants[variantKey].stock = (variants[variantKey].stock || 0) + quantity;
+                const totalVariantStock = Object.values(variants).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                
+                await client.query(
+                  'UPDATE products SET variants = $1, stock = $2 WHERE id = $3',
+                  [JSON.stringify(variants), totalVariantStock, productId]
+                );
+              } else {
+                await client.query(
+                  'UPDATE products SET stock = stock + $1 WHERE id = $2',
+                  [quantity, productId]
+                );
+              }
+            } else {
+              await client.query(
+                'UPDATE products SET stock = stock + $1 WHERE id = $2',
+                [quantity, productId]
+              );
+            }
+          }
+        }
+      }
+
+      // Delete the order (CASCADE deletes order_items)
+      const deleteResult = await client.query(
+        'DELETE FROM orders WHERE id = $1 RETURNING *',
+        [id]
+      );
+
+      await client.query('COMMIT');
+      res.json({ message: 'Order deleted and stock restored successfully', order: deleteResult.rows[0] });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Admin delete order error:', error);
+    res.status(500).json({ error: 'Failed to delete order' });
+  }
+});
+
 // Get all orders (for staff/admin) or user-specific orders
 // This endpoint checks user role and returns appropriate data
 router.get('/all/transactions', verifyUser, async (req: Request, res: Response) => {
