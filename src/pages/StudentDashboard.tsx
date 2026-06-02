@@ -100,9 +100,16 @@ export const StudentDashboard: React.FC = () => {
     checkPendingInsurance();
     
     const handleInsuranceRegistered = () => {
+      setHasPendingInsurance(true);
       checkPendingInsurance();
     };
+
+    const handleInsuranceFailed = () => {
+      setHasPendingInsurance(false);
+    };
+
     window.addEventListener('insurance-registered', handleInsuranceRegistered);
+    window.addEventListener('insurance-registration-failed', handleInsuranceFailed);
     
     // Poll every 30 seconds
     const interval = setInterval(checkPendingInsurance, 30000);
@@ -110,6 +117,7 @@ export const StudentDashboard: React.FC = () => {
     return () => {
       clearInterval(interval);
       window.removeEventListener('insurance-registered', handleInsuranceRegistered);
+      window.removeEventListener('insurance-registration-failed', handleInsuranceFailed);
     };
   }, [user?.id]);
 
@@ -864,35 +872,35 @@ export const StudentDashboard: React.FC = () => {
                   No
                 </button>
                 <button
-                  onClick={async () => {
-                    try {
-                      // Create membership request via API
-                      await apiClient.createMembershipRequest({
-                        user_id: user?.id,
-                        name: user ? `${user.first_name} ${user.last_name}` : 'Student',
-                        email: user?.email || '',
-                        phone: '',
-                      });
-                      
-                      setShowMembershipModal(false);
-                      setMembershipRequested(true);
-                      showNotification('Membership request submitted! Please pay ₱200 at UC Coop Office.', 'success');
-                    } catch (error: any) {
-                      console.error('Failed to submit membership request:', error);
+                  onClick={() => {
+                    // OPTIMISTIC UI: Close modal and show success immediately!
+                    setShowMembershipModal(false);
+                    setMembershipRequested(true);
+                    showNotification('Membership request submitted! Please pay ₱200 at UC Coop Office.', 'success');
+
+                    // Fire the request in the background
+                    apiClient.createMembershipRequest({
+                      user_id: user?.id,
+                      name: user ? `${user.first_name} ${user.last_name}` : 'Student',
+                      email: user?.email || '',
+                      phone: '',
+                    }).catch((error: any) => {
+                      console.error('Failed to submit membership request in background:', error);
                       
                       // Handle specific error cases
                       if (error?.hasPendingRequest) {
+                        // Keep as requested
                         setMembershipRequested(true);
-                        setShowMembershipModal(false);
-                        showNotification('You already have a pending membership request.', 'success');
                       } else if (error?.isAlreadyMember) {
-                        setShowMembershipModal(false);
+                        // User is already a member
                         showNotification('You are already a member!', 'success');
-                        refreshUser(); // Refresh to update UI
+                        refreshUser();
                       } else {
+                        // Roll back on actual failure
+                        setMembershipRequested(false);
                         showNotification(error?.message || 'Failed to submit membership request', 'error');
                       }
-                    }
+                    });
                   }}
                   className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
                 >

@@ -67,7 +67,7 @@ export const InsuranceModal: React.FC<InsuranceModalProps> = ({ onClose }) => {
     }));
   };
 
-  const handleRegisterInterest = async () => {
+  const handleRegisterInterest = () => {
     if (!user?.id) {
       showNotification('Please log in to register for insurance', 'error');
       return;
@@ -87,54 +87,50 @@ export const InsuranceModal: React.FC<InsuranceModalProps> = ({ onClose }) => {
 
     setIsProcessing(true);
 
-    try {
-      // Generate receipt number for insurance
-      const receiptNo = `INS-${Date.now()}`;
+    // Generate receipt number for insurance
+    const receiptNo = `INS-${Date.now()}`;
 
-      // Create order for insurance (payment at office)
-      const orderData = {
-        items: [
-          {
-            productId: 'insurance', // Special product for insurance
-            productName: 'I-CARD Micro-insurance',
-            name: 'I-CARD Micro-insurance',
-            quantity: 1,
-            unitPrice: 100,
-            subtotal: 100,
-            orderType: 'insurance',
-            selectedOptions: {
-              fullName: formData.fullName.trim(),
-              birthday: formData.birthday,
-              age: ageNum,
-              beneficiary: formData.beneficiary.trim(),
-              relation: formData.relation.trim()
-            }
+    // Create order for insurance (payment at office)
+    const orderData = {
+      items: [
+        {
+          productId: 'insurance', // Special product for insurance
+          productName: 'I-CARD Micro-insurance',
+          name: 'I-CARD Micro-insurance',
+          quantity: 1,
+          unitPrice: 100,
+          subtotal: 100,
+          orderType: 'insurance',
+          selectedOptions: {
+            fullName: formData.fullName.trim(),
+            birthday: formData.birthday,
+            age: ageNum,
+            beneficiary: formData.beneficiary.trim(),
+            relation: formData.relation.trim()
           }
-        ],
-        totalAmount: 100,
-        paymentMethod: 'cash',
-        referenceNumber: null,
-        receiptNo: receiptNo,
-        orderType: 'insurance', // Mark this as an insurance order
-      };
+        }
+      ],
+      totalAmount: 100,
+      paymentMethod: 'cash',
+      referenceNumber: null,
+      receiptNo: receiptNo,
+      orderType: 'insurance', // Mark this as an insurance order
+    };
 
-      await apiClient.createOrder(orderData, user.id);
+    // OPTIMISTIC UI: Instantly show success and update UI
+    showNotification(
+      'Insurance request submitted! Please visit the UC Coop Office to complete payment (₱100).',
+      'success'
+    );
+    window.dispatchEvent(new Event('insurance-registered'));
+    onClose();
 
-      showNotification(
-        'Insurance request submitted! Please visit the UC Coop Office to complete payment (₱100).',
-        'success'
-      );
-
-      // Trigger a page reload or state update to reflect the pending status
-      window.dispatchEvent(new Event('insurance-registered'));
-
-      onClose();
-    } catch (error: any) {
-      console.error('Failed to register insurance interest:', error);
-      showNotification(error?.message || 'Failed to submit insurance request', 'error');
-    } finally {
-      setIsProcessing(false);
-    }
+    // Call API in the background
+    apiClient.createOrder(orderData, user.id).catch((error: any) => {
+      console.error('Failed to register insurance interest in background:', error);
+      showNotification(error?.message || 'Failed to submit insurance request in background', 'error');
+      window.dispatchEvent(new Event('insurance-registration-failed'));
+    });
   };
 
   return createPortal(
