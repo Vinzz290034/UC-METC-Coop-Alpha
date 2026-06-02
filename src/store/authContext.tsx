@@ -133,6 +133,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     try {
       const updatedUser = await apiClient.getCurrentUser() as any;
+      
+      // CRITICAL RACE CONDITION FIX:
+      // If the user has logged out while this request was in flight,
+      // sessionStorage will be empty/cleared. We must not restore the state.
+      const currentToken = sessionStorage.getItem('token');
+      if (!currentToken) {
+        console.warn('[AUTH CONTEXT] refreshUser resolved after logout, ignoring state update');
+        return;
+      }
+
       setUser(updatedUser);
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
       console.log('[AUTH CONTEXT] User data refreshed:', {
