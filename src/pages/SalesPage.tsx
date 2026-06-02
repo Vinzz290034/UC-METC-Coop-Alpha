@@ -84,7 +84,7 @@ export const SalesPage: React.FC = () => {
 
   const { user } = useAuth();
   const { showNotification } = useUIStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -106,6 +106,12 @@ export const SalesPage: React.FC = () => {
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
+  const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    return d;
+  }); // Default to today local start of day
 
   // Load pending orders
   useEffect(() => {
@@ -134,6 +140,21 @@ export const SalesPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [user?.id, activeTab]);
+
+  // Load remittance summary
+  useEffect(() => {
+    if (user?.id && activeTab === 'remittance') {
+      loadRemittanceSummary();
+      
+      // Set up polling for real-time updates (every 10 seconds)
+      const interval = setInterval(() => {
+        loadPreOrderOrders(); // Keep tailored data updated too
+        loadRemittanceSummary();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab, remittanceDate]);
 
   // Load monthly report
   useEffect(() => {
@@ -324,7 +345,7 @@ export const SalesPage: React.FC = () => {
       monthlyOrders.forEach((order: any) => {
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: any) => {
-            const productName = item.productName || item.product_name || 'Unknown';
+            const productName = formatProductNameWithVariants(item);
             if (!productsSold[productName]) {
               productsSold[productName] = { quantity: 0, revenue: 0 };
             }
@@ -365,6 +386,27 @@ export const SalesPage: React.FC = () => {
       setHistoryOrders(historyOrdersFiltered);
     } catch (err) {
       console.error('Failed to load history summary:', err);
+    }
+  };
+
+  const loadRemittanceSummary = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      
+      const targetDate = new Date(remittanceDate);
+      targetDate.setHours(0, 0, 0, 0);
+      
+      const filtered = allOrders.filter((order: any) => {
+        const orderDate = new Date(order.status === 'completed' && order.completed_at ? order.completed_at : order.created_at);
+        orderDate.setHours(0, 0, 0, 0);
+        return orderDate.getTime() === targetDate.getTime() && 
+               (order.status === 'completed' || order.status === 'cancelled') &&
+               order.order_type !== 'insurance';
+      });
+      
+      setRemittanceOrders(filtered);
+    } catch (err) {
+      console.error('Failed to load remittance summary:', err);
     }
   };
 
@@ -507,9 +549,69 @@ export const SalesPage: React.FC = () => {
     }
   };
 
+  const changeRemittanceDate = (days: number) => {
+    const newDate = new Date(remittanceDate);
+    newDate.setHours(0, 0, 0, 0);
+    newDate.setDate(newDate.getDate() + days);
+    
+    // Don't allow future dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (newDate.getTime() <= today.getTime()) {
+      setRemittanceDate(newDate);
+    }
+  };
+
   const exportToExcel = () => {
     const isHistory = activeTab === 'history';
     const isMonthly = activeTab === 'monthly';
+    const isRemittance = activeTab === 'remittance';
+    
+    if (isRemittance) {
+      // Export remittance daily products sold data
+      let csvContent = "data:text/csv;charset=utf-8,";
+      csvContent += "Product Name,Units Sold,Revenue\n";
+      
+      const dailyProductsSold: Record<string, { quantity: number; revenue: number }> = {};
+      
+      remittanceOrders
+        .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
+        .forEach((order: any) => {
+          if (order.items && Array.isArray(order.items)) {
+            order.items.forEach((item: any) => {
+              const productName = formatProductNameWithVariants(item);
+              if (!dailyProductsSold[productName]) {
+                dailyProductsSold[productName] = { quantity: 0, revenue: 0 };
+              }
+              dailyProductsSold[productName].quantity += item.quantity;
+              dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
+            });
+          }
+        });
+      
+      Object.entries(dailyProductsSold)
+        .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+        .forEach(([productName, data]: [string, any]) => {
+          const row = [
+            productName,
+            data.quantity,
+            data.revenue.toFixed(2)
+          ].map(cell => `"${cell}"`).join(',');
+          csvContent += row + "\n";
+        });
+      
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement("a");
+      link.setAttribute("href", encodedUri);
+      const dateStr = remittanceDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+      link.setAttribute("download", `daily_remittance_${dateStr}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      showNotification('Daily remittance report exported successfully!', 'success');
+      return;
+    }
     
     if (isMonthly) {
       // Export monthly products sold data
@@ -618,7 +720,7 @@ export const SalesPage: React.FC = () => {
           </div>
           
           {/* Export Button - Only show on Daily Summary, History, Monthly Sales, and Tailored Orders tabs */}
-          {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'monthly' || activeTab === 'tailored') && (
+          {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored') && (
             <button
               onClick={exportToExcel}
               className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
@@ -661,6 +763,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               History
+            </button>
+            <button
+              onClick={() => setActiveTab('remittance')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'remittance'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Remittance
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
@@ -1262,6 +1374,209 @@ export const SalesPage: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        )}
+
+        {/* Remittance Tab */}
+        {activeTab === 'remittance' && (
+          <div className="space-y-6">
+            {/* Date Navigation */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+                <button
+                  onClick={() => changeRemittanceDate(-1)}
+                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors w-full sm:w-auto"
+                >
+                  <ChevronLeft size={20} />
+                  <span className="font-semibold">Previous Day</span>
+                </button>
+                
+                <div className="text-center">
+                  <p className="text-sm text-slate-600 mb-1">Viewing sales for:</p>
+                  <p className="text-2xl font-bold text-purple-600">
+                    {remittanceDate.toLocaleDateString('en-US', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
+                  </p>
+                </div>
+                
+                <button
+                  onClick={() => changeRemittanceDate(1)}
+                  disabled={(() => {
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const comp = new Date(remittanceDate);
+                    comp.setHours(0, 0, 0, 0);
+                    return comp.getTime() >= today.getTime();
+                  })()}
+                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors w-full sm:w-auto ${
+                    (() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      const comp = new Date(remittanceDate);
+                      comp.setHours(0, 0, 0, 0);
+                      return comp.getTime() >= today.getTime();
+                    })()
+                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                      : 'bg-slate-100 hover:bg-slate-200'
+                  }`}
+                >
+                  <span className="font-semibold">Next Day</span>
+                  <ChevronRight size={20} />
+                </button>
+              </div>
+              
+              {/* Date Picker */}
+              <div className="flex items-center justify-center">
+                <div className="flex items-center space-x-3">
+                  <label htmlFor="remittance-date-picker" className="text-sm font-semibold text-slate-700">
+                    Jump to date:
+                  </label>
+                  <input
+                    id="remittance-date-picker"
+                    type="date"
+                    value={(() => {
+                      const year = remittanceDate.getFullYear();
+                      const month = String(remittanceDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(remittanceDate.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    max={(() => {
+                      const today = new Date();
+                      const year = today.getFullYear();
+                      const month = String(today.getMonth() + 1).padStart(2, '0');
+                      const day = String(today.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    onChange={(e) => {
+                      if (!e.target.value) return;
+                      const [y, m, d] = e.target.value.split('-').map(Number);
+                      const newDate = new Date(y, m - 1, d);
+                      newDate.setHours(0, 0, 0, 0);
+                      setRemittanceDate(newDate);
+                    }}
+                    className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold opacity-90">Total Sales</h3>
+                  <TrendingUp size={24} />
+                </div>
+                <p className="text-3xl font-bold">
+                  ₱{remittanceOrders
+                    .filter(o => o.status === 'completed' && o.order_type !== 'insurance')
+                    .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
+                    .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </p>
+                <p className="text-sm opacity-75 mt-1">on this day</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold opacity-90">Orders Completed</h3>
+                  <CheckCircle size={24} />
+                </div>
+                <p className="text-3xl font-bold">
+                  {remittanceOrders.filter(o => o.status === 'completed' && o.order_type !== 'insurance').length}
+                </p>
+                <p className="text-sm opacity-75 mt-1">orders</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-sm font-semibold opacity-90">Products Sold</h3>
+                  <Package size={24} />
+                </div>
+                <p className="text-3xl font-bold">
+                  {(() => {
+                    const dailyProductsSold: Record<string, number> = {};
+                    remittanceOrders
+                      .filter((o: any) => o.status === 'completed' && o.order_type !== 'insurance')
+                      .forEach((o: any) => {
+                        if (o.items && Array.isArray(o.items)) {
+                          o.items.forEach((item: any) => {
+                            const productName = formatProductNameWithVariants(item);
+                            dailyProductsSold[productName] = (dailyProductsSold[productName] || 0) + item.quantity;
+                          });
+                        }
+                      });
+                    return Object.values(dailyProductsSold).reduce((sum, q) => sum + q, 0);
+                  })()}
+                </p>
+                <p className="text-sm opacity-75 mt-1">units</p>
+              </div>
+            </div>
+
+            {/* Products Sold Today Table */}
+            {(() => {
+              // Calculate daily product remittance from completed orders
+              const dailyProductsSold: Record<string, { quantity: number; revenue: number }> = {};
+              
+              remittanceOrders
+                .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
+                .forEach((order: any) => {
+                  if (order.items && Array.isArray(order.items)) {
+                    order.items.forEach((item: any) => {
+                      const productName = formatProductNameWithVariants(item);
+                      if (!dailyProductsSold[productName]) {
+                        dailyProductsSold[productName] = { quantity: 0, revenue: 0 };
+                      }
+                      dailyProductsSold[productName].quantity += item.quantity;
+                      dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
+                    });
+                  }
+                });
+
+              const dailyProductsSoldEntries = Object.entries(dailyProductsSold).sort((a: any, b: any) => b[1].quantity - a[1].quantity);
+
+              return (
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-6 border-b border-slate-200 bg-slate-50/50">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Products Sold on {remittanceDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                    </h3>
+                  </div>
+                  {dailyProductsSoldEntries.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Package size={48} className="mx-auto text-slate-300 mb-4" />
+                      <p className="text-slate-600 text-lg">No products sold on this date</p>
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
+                            <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Units Sold</th>
+                            <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {dailyProductsSoldEntries.map(([productName, data]: [string, any]) => (
+                            <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
+                              <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
+                              <td className="px-6 py-4 text-sm text-center text-slate-600 font-semibold">{data.quantity} units</td>
+                              <td className="px-6 py-4 text-sm text-right font-semibold text-green-700">
+                                ₱{data.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
 
