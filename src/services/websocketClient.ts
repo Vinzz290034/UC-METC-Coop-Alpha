@@ -28,7 +28,7 @@ class WebSocketClient {
 
     this.socket = io(BACKEND_URL, {
       auth: { token },
-      transports: ['websocket', 'polling'],
+      transports: ['polling', 'websocket'],
       reconnection: true,
       reconnectionDelay: this.reconnectDelay,
       reconnectionDelayMax: 10000,
