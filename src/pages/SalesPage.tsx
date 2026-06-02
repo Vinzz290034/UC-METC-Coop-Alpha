@@ -1157,10 +1157,17 @@ export const SalesPage: React.FC = () => {
                               <td className="py-4 px-6 font-semibold text-green-700">
                                 ₱{Number(item?.subtotal || 0).toFixed(2)}
                               </td>
-                              <td className="py-4 px-6">
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                  {formatPaymentMethod(order?.payment_method)}
-                                </span>
+                               <td className="py-4 px-6">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    {formatPaymentMethod(order?.payment_method)}
+                                  </span>
+                                  {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
+                                    <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                                      Ref: {order.reference_number}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-4 px-6">
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -1210,10 +1217,17 @@ export const SalesPage: React.FC = () => {
                             <td className="py-4 px-6 font-semibold text-green-700">
                               ₱{Number(order?.total_amount || 0).toFixed(2)}
                             </td>
-                            <td className="py-4 px-6">
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                {formatPaymentMethod(order?.payment_method)}
-                              </span>
+                             <td className="py-4 px-6">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                  {formatPaymentMethod(order?.payment_method)}
+                                </span>
+                                {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
+                                  <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                                    Ref: {order.reference_number}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-4 px-6">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -1476,9 +1490,16 @@ export const SalesPage: React.FC = () => {
                                 ₱{Number(item?.subtotal || 0).toFixed(2)}
                               </td>
                               <td className="py-4 px-6">
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                  {formatPaymentMethod(order?.payment_method)}
-                                </span>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                    {formatPaymentMethod(order?.payment_method)}
+                                  </span>
+                                  {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
+                                    <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                                      Ref: {order.reference_number}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-4 px-6">
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -1529,9 +1550,16 @@ export const SalesPage: React.FC = () => {
                               ₱{Number(order?.total_amount || 0).toFixed(2)}
                             </td>
                             <td className="py-4 px-6">
-                              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
-                                {formatPaymentMethod(order?.payment_method)}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                  {formatPaymentMethod(order?.payment_method)}
+                                </span>
+                                {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
+                                  <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                                    Ref: {order.reference_number}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="py-4 px-6">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -2390,6 +2418,11 @@ export const SalesPage: React.FC = () => {
                             </p>
                             <p className="text-xs text-slate-500 mt-1">
                               {formatPaymentMethod(order.payment_method)}
+                              {order.payment_method?.toLowerCase() === 'ewallet' && order.reference_number && (
+                                <span className="block text-xs text-slate-400 font-mono mt-0.5">
+                                  Ref: {order.reference_number}
+                                </span>
+                              )}
                             </p>
                           </div>
                         </div>

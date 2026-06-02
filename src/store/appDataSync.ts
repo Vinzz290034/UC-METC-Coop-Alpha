@@ -72,6 +72,8 @@ export class AppDataSync {
         createdAt: order.created_at,
         completedAt: order.completed_at,
         order_type: order.order_type, // Add order_type field
+        reference_number: order.reference_number,
+        referenceNumber: order.reference_number,
       }));
       useAppStore.setState({ sales: transformedSales });
       return transformedSales;

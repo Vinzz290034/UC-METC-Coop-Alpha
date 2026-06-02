@@ -213,6 +213,8 @@ export interface Sale {
   createdAt?: string;
   created_at?: string; // snake_case from API
   order_type?: 'merchandise' | 'insurance'; // Order type for insurance vs merchandise
+  referenceNumber?: string | null;
+  reference_number?: string | null;
 }
 
 // Notification Types

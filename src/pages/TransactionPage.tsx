@@ -295,6 +295,7 @@ export const TransactionPage: React.FC = () => {
       status: (sale?.status || 'pending') as 'completed' | 'pending' | 'cancelled',
       receiptNumber: sale?.receipt_no || sale?.receiptNo || 'N/A',
       paymentMethod: ((sale?.payment_method || sale?.paymentMethod) === 'cash') ? 'Cash' : 'GCash',
+      referenceNumber: sale?.reference_number || sale?.referenceNumber,
     };
   });
 
@@ -517,8 +518,14 @@ export const TransactionPage: React.FC = () => {
                         </div>
 
                         {/* Payment Method */}
-                        <div className="ml-0 sm:ml-14 pl-4 sm:pl-2 text-xs text-slate-500">
-                          Payment Method: <span className="font-semibold text-slate-700">{transaction.paymentMethod}</span>
+                        <div className="ml-0 sm:ml-14 pl-4 sm:pl-2 text-xs text-slate-500 flex flex-wrap gap-x-2 gap-y-1 items-center">
+                          <span>Payment Method:</span>
+                          <span className="font-semibold text-slate-700">{transaction.paymentMethod}</span>
+                          {transaction.paymentMethod === 'GCash' && transaction.referenceNumber && (
+                            <span className="text-[11px] text-slate-500 font-mono bg-blue-50 text-blue-700 px-1.5 py-0.2 rounded border border-blue-100">
+                              Ref: {transaction.referenceNumber}
+                            </span>
+                          )}
                         </div>
                       </div>
 
