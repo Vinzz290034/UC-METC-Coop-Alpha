@@ -5,6 +5,7 @@ import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
 import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+import { useAppStore } from '../store/appStore';
 
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -84,6 +85,7 @@ export const SalesPage: React.FC = () => {
 
   const { user } = useAuth();
   const { showNotification } = useUIStore();
+  const { products } = useAppStore();
   const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
@@ -563,16 +565,86 @@ export const SalesPage: React.FC = () => {
   };
 
   const exportToExcel = () => {
-    const isHistory = activeTab === 'history';
-    const isMonthly = activeTab === 'monthly';
-    const isRemittance = activeTab === 'remittance';
-    
-    if (isRemittance) {
-      // Export remittance daily products sold data
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Product Name,Units Sold,Revenue\n";
-      
-      const dailyProductsSold: Record<string, { quantity: number; revenue: number }> = {};
+    // Utility functions to wrap Excel XML/HTML and trigger download
+    const getExcelHtmlWrapper = (title: string, subtitle: string, cards: Array<{ label: string; value: string; bg: string; border: string; color: string }>, tableHeader: string, tableRows: string) => {
+      return `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Sales Report</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+        </head>
+        <body>
+          <table style="margin-bottom: 20px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+            <tr>
+              <td colspan="5" style="font-size: 20px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
+                UC-METC Cooperative - ${title}
+              </td>
+            </tr>
+            <tr>
+              <td colspan="5" style="font-size: 12px; color: #64748b; padding-bottom: 20px;">
+                ${subtitle} | Generated on: ${new Date().toLocaleString('en-US', { dateStyle: 'long', timeStyle: 'short' })}
+              </td>
+            </tr>
+            
+            <tr style="height: 40px;">
+              ${cards.map((card, i) => `
+                <td ${i === cards.length - 1 ? 'colspan="2"' : ''} style="background-color: ${card.bg}; border: 1px solid ${card.border}; padding: 10px; text-align: center; border-radius: 8px;">
+                  <span style="font-size: 9px; color: ${card.color}; font-weight: bold; text-transform: uppercase;">${card.label}</span><br/>
+                  <span style="font-size: 14px; font-weight: bold; color: #1e1b4b;">${card.value}</span>
+                </td>
+              `).join('')}
+            </tr>
+          </table>
+
+          <table style="border-collapse: collapse; border: 1px solid #cbd5e1;">
+            <thead>
+              ${tableHeader}
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+    };
+
+    const triggerExcelDownload = (htmlContent: string, fileName: string) => {
+      const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${fileName}.xls`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
+    // Helper to resolve category and SKU from master products
+    const resolveProductInfo = (itemName: string) => {
+      const baseName = itemName.split(' - ')[0];
+      const matchedProduct = products.find(p => p.name === baseName);
+      const category = matchedProduct?.category ? matchedProduct.category.charAt(0).toUpperCase() + matchedProduct.category.slice(1) : 'Merchandise';
+      const sku = matchedProduct?.sku || 'N/A';
+      return { category, sku };
+    };
+
+    if (activeTab === 'remittance') {
+      const dailyProductsSold: Record<string, { quantity: number; revenue: number; category: string; sku: string; price: number }> = {};
       
       remittanceOrders
         .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
@@ -580,133 +652,530 @@ export const SalesPage: React.FC = () => {
           if (order.items && Array.isArray(order.items)) {
             order.items.forEach((item: any) => {
               const productName = formatProductNameWithVariants(item);
+              const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
+              const unitPrice = parseFloat(item.unitPrice || item.unit_price || 0);
+
               if (!dailyProductsSold[productName]) {
-                dailyProductsSold[productName] = { quantity: 0, revenue: 0 };
+                dailyProductsSold[productName] = { quantity: 0, revenue: 0, category, sku, price: unitPrice };
               }
               dailyProductsSold[productName].quantity += item.quantity;
               dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
             });
           }
         });
-      
-      Object.entries(dailyProductsSold)
-        .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-        .forEach(([productName, data]: [string, any]) => {
-          const row = [
-            productName,
-            data.quantity,
-            data.revenue.toFixed(2)
-          ].map(cell => `"${cell}"`).join(',');
-          csvContent += row + "\n";
-        });
-      
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      const dateStr = remittanceDate.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-      link.setAttribute("download", `daily_remittance_${dateStr}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+
+      const rows = Object.entries(dailyProductsSold)
+        .sort((a, b) => b[1].quantity - a[1].quantity)
+        .map(([productName, data]) => ({
+          name: productName,
+          category: data.category,
+          sku: data.sku,
+          price: data.price,
+          quantity: data.quantity,
+          revenue: data.revenue
+        }));
+
+      const totalSales = rows.reduce((sum, r) => sum + r.revenue, 0);
+      const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Unit Price</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const dateTitle = remittanceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const htmlContent = getExcelHtmlWrapper(
+        'Daily Remittance Report',
+        `Remittance Date: ${dateTitle}`,
+        [
+          { label: 'Total Sales', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Completed Orders', value: remittanceOrders.filter((o: any) => o.status === 'completed' && o.order_type !== 'insurance').length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
+          { label: 'Products Sold', value: `${totalUnits} units`, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `daily_remittance_${remittanceDate.toISOString().split('T')[0]}`);
       showNotification('Daily remittance report exported successfully!', 'success');
       return;
     }
-    
-    if (isMonthly) {
-      // Export monthly products sold data
-      let csvContent = "data:text/csv;charset=utf-8,";
-      csvContent += "Product Name,Units Sold,Revenue\n";
+
+    if (activeTab === 'monthly') {
+      if (!monthlyData) return;
       
-      Object.entries(monthlyData.productsSold)
+      const rows = Object.entries(monthlyData.productsSold)
         .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-        .forEach(([productName, data]: [string, any]) => {
-          const row = [
-            productName,
-            data.quantity,
-            data.revenue.toFixed(2)
-          ].map(cell => `"${cell}"`).join(',');
-          csvContent += row + "\n";
+        .map(([productName, data]: [string, any]) => {
+          const { category, sku } = resolveProductInfo(productName);
+          const price = data.revenue / (data.quantity || 1);
+          return {
+            name: productName,
+            category,
+            sku,
+            price,
+            quantity: data.quantity,
+            revenue: data.revenue
+          };
         });
-      
-      const encodedUri = encodeURI(csvContent);
-      const link = document.createElement("a");
-      link.setAttribute("href", encodedUri);
-      const monthStr = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }).replace(/\s/g, '_');
-      link.setAttribute("download", `monthly_sales_${monthStr}.csv`);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
+
+      const totalSales = monthlyData.totalSales;
+      const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Avg Unit Price</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const monthStr = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const htmlContent = getExcelHtmlWrapper(
+        'Monthly Sales Report',
+        `Month: ${monthStr}`,
+        [
+          { label: 'Total Sales', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Completed Orders', value: monthlyData.orderCount.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
+          { label: 'Products Sold', value: `${totalUnits} units`, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `monthly_sales_${monthStr.replace(/\s/g, '_')}`);
       showNotification('Monthly report exported successfully!', 'success');
       return;
     }
-    
-    const ordersToExport = isHistory ? historyOrders : dailyOrders;
-    const filterToUse = isHistory ? historyStatusFilter : statusFilter;
-    const filteredOrders = ordersToExport.filter(order => filterToUse === 'all' || order.status === filterToUse);
-    
-    // Create CSV content
-    let csvContent = "data:text/csv;charset=utf-8,";
-    
-    // Add headers
-    csvContent += "Receipt,Customer Name,Course & Year,Product,Quantity,Amount,Payment,Status,Time\n";
-    
-    // Add data rows
-    filteredOrders.forEach(order => {
-      const items = order?.items || [];
-      const courseYear = order?.course && order?.year 
-        ? `${order.course} - ${order.year}` 
-        : order?.course || order?.year || 'N/A';
-      const time = order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      }) : 'N/A';
+
+    if (activeTab === 'daily' || activeTab === 'history') {
+      const isHistory = activeTab === 'history';
+      const ordersToExport = isHistory ? historyOrders : dailyOrders;
+      const filterToUse = isHistory ? historyStatusFilter : statusFilter;
+      const filteredOrders = ordersToExport.filter(order => filterToUse === 'all' || order.status === filterToUse);
       
-      if (items.length > 0) {
-        items.forEach((item: any) => {
-          const row = [
-            order?.receipt_no || 'N/A',
-            order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+      const rows: any[] = [];
+      filteredOrders.forEach(order => {
+        const items = order?.items || [];
+        const courseYear = order?.course && order?.year 
+          ? `${order.course} - ${order.year}` 
+          : order?.course || order?.year || 'N/A';
+        const time = order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        }) : 'N/A';
+
+        if (items.length > 0) {
+          items.forEach((item: any) => {
+            const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
+            rows.push({
+              receiptNo: order?.receipt_no || 'N/A',
+              customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+              idNumber: order?.id_number || 'N/A',
+              courseYear,
+              productName: formatProductNameWithVariants(item),
+              sku,
+              category,
+              unitPrice: parseFloat(item?.unitPrice || item?.unit_price || 0),
+              quantity: item?.quantity || 0,
+              subtotal: parseFloat(item?.subtotal || 0),
+              paymentMethod: formatPaymentMethod(order?.payment_method),
+              referenceNumber: order?.reference_number || 'N/A',
+              status: order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
+              time
+            });
+          });
+        } else {
+          rows.push({
+            receiptNo: order?.receipt_no || 'N/A',
+            customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+            idNumber: order?.id_number || 'N/A',
             courseYear,
-            formatProductNameWithVariants(item),
-            item?.quantity || 0,
-            Number(item?.subtotal || 0).toFixed(2),
-            formatPaymentMethod(order?.payment_method),
-            order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
+            productName: 'Multiple Items',
+            sku: 'N/A',
+            category: 'Merchandise',
+            unitPrice: parseFloat(order?.total_amount || 0),
+            quantity: 1,
+            subtotal: parseFloat(order?.total_amount || 0),
+            paymentMethod: formatPaymentMethod(order?.payment_method),
+            referenceNumber: order?.reference_number || 'N/A',
+            status: order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
             time
-          ].map(cell => `"${cell}"`).join(',');
-          csvContent += row + "\n";
-        });
-      } else {
-        const row = [
-          order?.receipt_no || 'N/A',
-          order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
-          courseYear,
-          'Multiple Items',
-          '-',
-          Number(order?.total_amount || 0).toFixed(2),
-          formatPaymentMethod(order?.payment_method),
-          order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
-          time
-        ].map(cell => `"${cell}"`).join(',');
-        csvContent += row + "\n";
+          });
+        }
+      });
+
+      const totalSales = rows.reduce((sum, r) => r.status === 'COMPLETED' ? sum + r.subtotal : sum, 0);
+      const completedCount = filteredOrders.filter(o => o.status === 'completed').length;
+      const cancelledCount = filteredOrders.filter(o => o.status === 'cancelled').length;
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 160px;">Customer Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">ID Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Course & Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 220px;">Product Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 110px;">SKU</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Category</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Unit Price</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 80px;">Qty</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Subtotal</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Payment</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 130px;">Ref Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Status</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Time</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        const statusColor = row.status === 'COMPLETED' ? '#166534' : '#991b1b';
+        const statusBg = row.status === 'COMPLETED' ? '#dcfce7' : '#fee2e2';
+
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; font-weight: bold; color: #1e293b;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b;">${row.customerName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.idNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.courseYear}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.productName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.sku}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right;">₱${row.unitPrice.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.referenceNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${statusColor}; background-color: ${statusBg};">${row.status}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.time}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const dateToUse = isHistory ? selectedDate : new Date();
+      const dateStr = dateToUse.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+      const htmlContent = getExcelHtmlWrapper(
+        isHistory ? 'Historical Sales Report' : 'Daily Sales Report',
+        `Sales Date: ${dateStr}`,
+        [
+          { label: 'Total Revenue', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Completed Orders', value: completedCount.toString(), bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+          { label: 'Cancelled Orders', value: cancelledCount.toString(), bg: '#fee2e2', border: '#fca5a5', color: '#b91c1c' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `${isHistory ? 'historical' : 'daily'}_sales_${dateToUse.toISOString().split('T')[0]}`);
+      showNotification('Report exported successfully!', 'success');
+      return;
+    }
+
+    if (activeTab === 'tailored') {
+      // Combine tailored orders in accordance to tab filters
+      let displayOrders: any[] = [];
+      if (tailoredFilter === 'all') {
+        displayOrders = [
+          ...preOrderOrders.map(o => ({ ...o, type: 'preorder' })),
+          ...downpaymentOrders.filter(o => !o.receipt_no || !o.receipt_no.startsWith('BAL-')).map(o => ({ ...o, type: 'downpayment' })),
+          ...fullPaymentOrders.map(o => ({ ...o, type: 'fullpayment' }))
+        ];
+      } else if (tailoredFilter === 'preorder') {
+        displayOrders = preOrderOrders.filter(o => o.status !== 'released').map(o => ({ ...o, type: 'preorder' }));
+      } else if (tailoredFilter === 'downpayment') {
+        displayOrders = downpaymentOrders.filter(o => !o.receipt_no || !o.receipt_no.startsWith('BAL-')).map(o => ({ ...o, type: 'downpayment' }));
+      } else if (tailoredFilter === 'fullpayment') {
+        displayOrders = fullPaymentOrders.map(o => ({ ...o, type: 'fullpayment' }));
+      } else if (tailoredFilter === 'released') {
+        displayOrders = preOrderOrders.filter(o => o.status === 'released').map(o => ({ ...o, type: 'preorder' }));
       }
-    });
-    
-    // Create download link
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    const dateToUse = isHistory ? selectedDate : new Date();
-    const dateStr = dateToUse.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }).replace(/\//g, '-');
-    link.setAttribute("download", `daily_sales_${dateStr}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    showNotification('Report exported successfully!', 'success');
+
+      if (tailoredSearchQuery) {
+        displayOrders = displayOrders.filter(order => {
+          const customerName = `${order?.first_name || ''} ${order?.last_name || ''}`.trim().toLowerCase();
+          return customerName.includes(tailoredSearchQuery.toLowerCase());
+        });
+      }
+
+      displayOrders.sort((a, b) => {
+        const dateA = new Date(a.completed_at || a.created_at).getTime();
+        const dateB = new Date(b.completed_at || b.created_at).getTime();
+        return dateB - dateA;
+      });
+
+      const rows: any[] = [];
+      displayOrders.forEach(order => {
+        // Filter items to only show the tailored products matching the specific order type
+        const items = (order?.items || []).filter((item: any) => {
+          if (order.type === 'preorder') {
+            return item.orderType === 'preorder' || item.order_type === 'preorder';
+          } else if (order.type === 'downpayment') {
+            const paymentType = item.paymentType || item.payment_type;
+            if (paymentType === 'downpayment') return true;
+            
+            // For legacy orders without payment_type, check if it's a downpayment based on price
+            const productName = item.productName || item.product_name || '';
+            const subtotal = parseFloat(item.subtotal || 0);
+            
+            if (productName.includes('Gala') && subtotal === 500) return true;
+            if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
+            
+            return false;
+          } else {
+            // Full payment
+            const paymentType = item.paymentType || item.payment_type;
+            const productName = item.productName || item.product_name || '';
+            const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].some(name => productName.includes(name));
+            
+            if (!isTailoredProduct) return false;
+            if (paymentType === 'full') return true;
+            if (paymentType === 'downpayment') return false;
+            
+            // For legacy orders, check if it's NOT a downpayment price
+            const subtotal = parseFloat(item.subtotal || 0);
+            if (productName.includes('Gala') && subtotal === 500) return false;
+            if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return false;
+            
+            return true;
+          }
+        });
+
+        const courseYear = order?.course && order?.year 
+          ? `${order.course} - ${order.year}` 
+          : order?.course || order?.year || 'N/A';
+        const dateStr = new Date(order.completed_at || order.created_at).toLocaleDateString();
+
+        const badgeLabel = order.type === 'preorder' ? 'PRE-ORDER'
+                         : order.type === 'downpayment' ? 'DOWNPAYMENT'
+                         : 'FULL PAYMENT';
+
+        if (items.length > 0) {
+          items.forEach((item: any) => {
+            const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
+            rows.push({
+              receiptNo: order?.receipt_no || 'N/A',
+              customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+              idNumber: order?.id_number || 'N/A',
+              courseYear,
+              productName: formatProductNameWithVariants(item),
+              sku,
+              category,
+              unitPrice: parseFloat(item?.unitPrice || item?.unit_price || 0),
+              quantity: item?.quantity || 0,
+              subtotal: parseFloat(item?.subtotal || 0),
+              paymentType: badgeLabel,
+              paymentMethod: formatPaymentMethod(order?.payment_method),
+              referenceNumber: order?.reference_number || 'N/A',
+              fulfillmentStatus: order?.status === 'released' ? 'Released' : (order?.status || 'Pending'),
+              date: dateStr
+            });
+          });
+        }
+      });
+
+      const totalSales = rows.reduce((sum, r) => sum + r.subtotal, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 160px;">Customer Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">ID Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Course & Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 220px;">Product Details</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 110px;">SKU</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Payment Type</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Qty</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Subtotal</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Method</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 130px;">Ref Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Fulfillment</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Order Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        
+        let typeColor = '#6d28d9';
+        let typeBg = '#f3e8ff';
+        if (row.paymentType === 'DOWNPAYMENT') {
+          typeColor = '#c2410c';
+          typeBg = '#ffedd5';
+        } else if (row.paymentType === 'FULL PAYMENT') {
+          typeColor = '#15803d';
+          typeBg = '#dcfce7';
+        }
+
+        const fulfillColor = row.fulfillmentStatus === 'Released' ? '#15803d' : '#854d0e';
+        const fulfillBg = row.fulfillmentStatus === 'Released' ? '#dcfce7' : '#fef9c3';
+
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; font-weight: bold; color: #1e293b;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b;">${row.customerName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.idNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.courseYear}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.productName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.sku}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${typeColor}; background-color: ${typeBg}; font-size: 11px;">${row.paymentType}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.subtotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.referenceNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${fulfillColor}; background-color: ${fulfillBg}; font-size: 11px;">${row.fulfillmentStatus}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.date}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = getExcelHtmlWrapper(
+        'Tailored Uniform Orders Report',
+        `Tailored orders filter: ${tailoredFilter.toUpperCase()}`,
+        [
+          { label: 'Total Sales Revenue', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Tailored Orders Count', value: displayOrders.length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
+          { label: 'Filter State', value: tailoredFilter.toUpperCase(), bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `tailored_orders_${tailoredFilter}_${new Date().toISOString().split('T')[0]}`);
+      showNotification('Tailored report exported successfully!', 'success');
+      return;
+    }
+
+    if (activeTab === 'insurance') {
+      const rows = insuranceOrders.map(order => {
+        const details = order.items?.[0]?.selectedOptions || {};
+        const paymentDateStr = new Date(order.completed_at || order.updated_at || order.created_at).toLocaleDateString();
+        
+        let formattedBirthday = details.birthday || 'N/A';
+        try {
+          if (details.birthday) {
+            formattedBirthday = new Date(details.birthday).toLocaleDateString('en-US', {
+              month: '2-digit',
+              day: '2-digit',
+              year: 'numeric'
+            });
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        const courseYear = order?.course && order?.year 
+          ? `${order.course} - ${order.year}` 
+          : order?.course || order?.year || 'N/A';
+
+        return {
+          receiptNo: order.receipt_no || 'N/A',
+          insuredName: details.fullName || `${order.first_name} ${order.last_name || ''}`.trim(),
+          idNumber: order.id_number || 'N/A',
+          courseYear,
+          premium: parseFloat(order.total_amount || 0),
+          paymentMethod: formatPaymentMethod(order.payment_method),
+          referenceNumber: order.reference_number || 'N/A',
+          birthday: formattedBirthday,
+          age: details.age || 'N/A',
+          beneficiary: details.beneficiary || 'N/A',
+          relation: details.relation || 'N/A',
+          paymentDate: paymentDateStr
+        };
+      });
+
+      const totalRevenueVal = rows.reduce((sum, r) => sum + r.premium, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Insured Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">ID Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Course & Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Premium</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Method</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 130px;">Ref Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Birth Date</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 80px;">Age</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Beneficiary</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Relation</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Payment Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; font-weight: bold; color: #1e293b;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.insuredName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.idNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.courseYear}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.premium.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.referenceNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #475569;">${row.birthday}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.age}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b;">${row.beneficiary}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #6d28d9; font-size: 11px;">${row.relation}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.paymentDate}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = getExcelHtmlWrapper(
+        'Insurance Policies Sales Report',
+        'All completed I-CARD insurance policy sales',
+        [
+          { label: 'Total Revenue', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Policies Sold', value: insuranceOrders.length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `insurance_sales_${new Date().toISOString().split('T')[0]}`);
+      showNotification('Insurance sales report exported successfully!', 'success');
+      return;
+    }
   };
 
   return (
@@ -719,8 +1188,8 @@ export const SalesPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Process orders and view sales reports</p>
           </div>
           
-          {/* Export Button - Only show on Daily Summary, History, Monthly Sales, and Tailored Orders tabs */}
-          {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored') && (
+          {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, and Insurance tabs */}
+          {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance') && (
             <button
               onClick={exportToExcel}
               className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
