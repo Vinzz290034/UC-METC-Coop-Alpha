@@ -565,6 +565,14 @@ export const SalesPage: React.FC = () => {
   };
 
   const exportToExcel = () => {
+    // Local date formatter to prevent UTC day shifting
+    const formatLocalDate = (date: Date): string => {
+      const y = date.getFullYear();
+      const m = String(date.getMonth() + 1).padStart(2, '0');
+      const d = String(date.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    };
+
     // Utility functions to wrap Excel XML/HTML and trigger download
     const getExcelHtmlWrapper = (title: string, subtitle: string, cards: Array<{ label: string; value: string; bg: string; border: string; color: string }>, tableHeader: string, tableRows: string) => {
       return `
@@ -716,7 +724,7 @@ export const SalesPage: React.FC = () => {
         tableRows
       );
 
-      triggerExcelDownload(htmlContent, `daily_remittance_${remittanceDate.toISOString().split('T')[0]}`);
+      triggerExcelDownload(htmlContent, `daily_remittance_${formatLocalDate(remittanceDate)}`);
       showNotification('Daily remittance report exported successfully!', 'success');
       return;
     }
@@ -905,7 +913,7 @@ export const SalesPage: React.FC = () => {
         tableRows
       );
 
-      triggerExcelDownload(htmlContent, `${isHistory ? 'historical' : 'daily'}_sales_${dateToUse.toISOString().split('T')[0]}`);
+      triggerExcelDownload(htmlContent, `${isHistory ? 'historical' : 'daily'}_sales_${formatLocalDate(dateToUse)}`);
       showNotification('Report exported successfully!', 'success');
       return;
     }
@@ -1079,7 +1087,7 @@ export const SalesPage: React.FC = () => {
         tableRows
       );
 
-      triggerExcelDownload(htmlContent, `tailored_orders_${tailoredFilter}_${new Date().toISOString().split('T')[0]}`);
+      triggerExcelDownload(htmlContent, `tailored_orders_${tailoredFilter}_${formatLocalDate(new Date())}`);
       showNotification('Tailored report exported successfully!', 'success');
       return;
     }
@@ -1172,7 +1180,7 @@ export const SalesPage: React.FC = () => {
         tableRows
       );
 
-      triggerExcelDownload(htmlContent, `insurance_sales_${new Date().toISOString().split('T')[0]}`);
+      triggerExcelDownload(htmlContent, `insurance_sales_${formatLocalDate(new Date())}`);
       showNotification('Insurance sales report exported successfully!', 'success');
       return;
     }
@@ -2098,8 +2106,20 @@ export const SalesPage: React.FC = () => {
                   <input
                     id="date-picker"
                     type="date"
-                    value={selectedDate.toISOString().split('T')[0]}
-                    max={new Date(new Date().setDate(new Date().getDate() - 1)).toISOString().split('T')[0]}
+                    value={(() => {
+                      const year = selectedDate.getFullYear();
+                      const month = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                      const day = String(selectedDate.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    })()}
+                    max={(() => {
+                      const prevDay = new Date();
+                      prevDay.setDate(prevDay.getDate() - 1);
+                      const year = prevDay.getFullYear();
+                      const month = String(prevDay.getMonth() + 1).padStart(2, '0');
+                      const day = String(prevDay.getDate()).padStart(2, '0');
+                      return `${year}-${month}-${day}`;
+                    })()}
                     onChange={(e) => {
                       const newDate = new Date(e.target.value);
                       newDate.setHours(0, 0, 0, 0);
