@@ -2683,6 +2683,42 @@ export const SalesPage: React.FC = () => {
                                        : order.type === 'downpayment' ? 'DOWNPAYMENT'
                                        : 'FULL PAYMENT';
 
+                      const filteredItems = (order.items || []).filter((item: any) => {
+                        if (order.type === 'preorder') {
+                          return item.orderType === 'preorder' || item.order_type === 'preorder';
+                        } else if (order.type === 'downpayment') {
+                          const paymentType = item.paymentType || item.payment_type;
+                          if (paymentType === 'downpayment') return true;
+                          
+                          // For legacy orders without payment_type, check if it's a downpayment based on price
+                          const productName = item.productName || item.product_name || '';
+                          const subtotal = parseFloat(item.subtotal || 0);
+                          
+                          if (productName.includes('Gala') && subtotal === 500) return true;
+                          if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
+                          
+                          return false;
+                        } else {
+                          // Full payment
+                          const paymentType = item.paymentType || item.payment_type;
+                          const productName = item.productName || item.product_name || '';
+                          const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].some(name => productName.includes(name));
+                          
+                          if (!isTailoredProduct) return false;
+                          if (paymentType === 'full') return true;
+                          if (paymentType === 'downpayment') return false;
+                          
+                          // For legacy orders, check if it's NOT a downpayment price
+                          const subtotal = parseFloat(item.subtotal || 0);
+                          if (productName.includes('Gala') && subtotal === 500) return false;
+                          if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return false;
+                          
+                          return true;
+                        }
+                      });
+
+                      const displayAmount = filteredItems.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0);
+
                       return (
                         <div key={order.id} className={`border rounded-lg p-4 ${bgColor}`}>
                           <div className="flex items-center justify-between mb-3">
@@ -2699,7 +2735,7 @@ export const SalesPage: React.FC = () => {
                             </div>
                             <div className="text-right">
                               <p className="text-xl font-bold text-slate-900">
-                                ₱{parseFloat(order.total_amount).toLocaleString()}
+                                ₱{displayAmount.toLocaleString()}
                               </p>
                               <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold mt-1 ${
                                 order.status === 'completed' 
@@ -2718,39 +2754,7 @@ export const SalesPage: React.FC = () => {
                           <div className="bg-white rounded p-3">
                             <p className="text-sm font-semibold text-slate-700 mb-2">Items:</p>
                             <div className="space-y-1">
-                              {order.items && order.items.filter((item: any) => {
-                                if (order.type === 'preorder') {
-                                  return item.orderType === 'preorder' || item.order_type === 'preorder';
-                                } else if (order.type === 'downpayment') {
-                                  const paymentType = item.paymentType || item.payment_type;
-                                  if (paymentType === 'downpayment') return true;
-                                  
-                                  // For legacy orders without payment_type, check if it's a downpayment based on price
-                                  const productName = item.productName || item.product_name || '';
-                                  const subtotal = parseFloat(item.subtotal || 0);
-                                  
-                                  if (productName.includes('Gala') && subtotal === 500) return true;
-                                  if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
-                                  
-                                  return false;
-                                } else {
-                                  // Full payment
-                                  const paymentType = item.paymentType || item.payment_type;
-                                  const productName = item.productName || item.product_name || '';
-                                  const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].some(name => productName.includes(name));
-                                  
-                                  if (!isTailoredProduct) return false;
-                                  if (paymentType === 'full') return true;
-                                  if (paymentType === 'downpayment') return false;
-                                  
-                                  // For legacy orders, check if it's NOT a downpayment price
-                                  const subtotal = parseFloat(item.subtotal || 0);
-                                  if (productName.includes('Gala') && subtotal === 500) return false;
-                                  if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return false;
-                                  
-                                  return true;
-                                }
-                              }).map((item: any, idx: number) => (
+                              {filteredItems.map((item: any, idx: number) => (
                                 <div key={idx} className="text-xs text-slate-600 flex items-center gap-2">
                                   <span className={`px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
                                     {badgeLabel}
@@ -2838,64 +2842,69 @@ export const SalesPage: React.FC = () => {
                       if (!fulfillmentSearchQuery) return true;
                       const customerName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
                       return customerName.includes(fulfillmentSearchQuery.toLowerCase());
-                    }).map((order) => (
-                      <div key={order.id} className="border border-purple-200 bg-purple-50 rounded-lg p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <p className="font-semibold text-slate-900">
-                                {order.first_name} {order.last_name}
-                              </p>
-                              <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">
-                                PRE-ORDER
-                              </span>
-                            </div>
-                            <p className="text-sm text-slate-600 mb-1">
-                              {order.email} • ID: {order.id_number}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              Receipt: {order.receipt_no} • Ordered: {new Date(order.created_at).toLocaleDateString()}
-                            </p>
-                            
-                            {/* Pre-order items */}
-                            <div className="mt-3 bg-white rounded p-2">
-                              <p className="text-xs font-semibold text-slate-700 mb-1">Items:</p>
-                              {order.items && order.items.filter((item: any) => 
-                                item.orderType === 'preorder' || item.order_type === 'preorder'
-                              ).map((item: any, idx: number) => (
-                                <p key={idx} className="text-xs text-slate-600">
-                                  • {formatProductNameWithVariants(item)} (Qty: {item.quantity})
+                    }).map((order) => {
+                      const preOrderItems = (order.items || []).filter((item: any) => 
+                        item.orderType === 'preorder' || item.order_type === 'preorder'
+                      );
+                      const preOrderTotal = preOrderItems.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0);
+
+                      return (
+                        <div key={order.id} className="border border-purple-200 bg-purple-50 rounded-lg p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-3 mb-2">
+                                <p className="font-semibold text-slate-900">
+                                  {order.first_name} {order.last_name}
                                 </p>
-                              ))}
+                                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">
+                                  PRE-ORDER
+                                </span>
+                              </div>
+                              <p className="text-sm text-slate-600 mb-1">
+                                {order.email} • ID: {order.id_number}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                Receipt: {order.receipt_no} • Ordered: {new Date(order.created_at).toLocaleDateString()}
+                              </p>
+                              
+                              {/* Pre-order items */}
+                              <div className="mt-3 bg-white rounded p-2">
+                                <p className="text-xs font-semibold text-slate-700 mb-1">Items:</p>
+                                {preOrderItems.map((item: any, idx: number) => (
+                                  <p key={idx} className="text-xs text-slate-600">
+                                    • {formatProductNameWithVariants(item)} (Qty: {item.quantity})
+                                  </p>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                          
-                          <div className="text-right ml-4">
-                            <p className="text-lg font-bold text-purple-600 mb-2">
-                              ₱{parseFloat(order.total_amount).toLocaleString()}
-                            </p>
-                            <button
-                              className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors"
-                              onClick={async () => {
-                                try {
-                                  await AppDataSync.updateOrderStatus(order.id, 'released', user?.id || '');
-                                  showNotification('Order marked as released!', 'success');
-                                  // Reload all orders from API to get updated status
-                                  await AppDataSync.loadOrdersFromAPI(user?.id || '');
-                                  // Then reload pre-orders to update the list
-                                  await loadPreOrderOrders();
-                                } catch (err) {
-                                  console.error('Failed to mark order as released:', err);
-                                  showNotification('Failed to mark order as released', 'error');
-                                }
-                              }}
-                            >
-                              Mark as Released
-                            </button>
+                            
+                            <div className="text-right ml-4">
+                              <p className="text-lg font-bold text-purple-600 mb-2">
+                                ₱{preOrderTotal.toLocaleString()}
+                              </p>
+                              <button
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors"
+                                onClick={async () => {
+                                  try {
+                                    await AppDataSync.updateOrderStatus(order.id, 'released', user?.id || '');
+                                    showNotification('Order marked as released!', 'success');
+                                    // Reload all orders from API to get updated status
+                                    await AppDataSync.loadOrdersFromAPI(user?.id || '');
+                                    // Then reload pre-orders to update the list
+                                    await loadPreOrderOrders();
+                                  } catch (err) {
+                                    console.error('Failed to mark order as released:', err);
+                                    showNotification('Failed to mark order as released', 'error');
+                                  }
+                                }}
+                              >
+                                Mark as Released
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
