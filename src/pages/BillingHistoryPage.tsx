@@ -251,54 +251,56 @@ export const BillingHistoryPage: React.FC = () => {
     paymentMethod: ((sale?.payment_method || sale?.paymentMethod) === 'cash') ? 'Cash' : 'GCash',
   }));
 
+  const balanceDueTransactions = transactions.filter(t => {
+    // Exclude balance payment orders (they're the payment itself, not the original order)
+    if (t.receiptNumber && t.receiptNumber.startsWith('BAL-')) return false;
+    
+    // Show completed orders that have downpayment items with remaining balance
+    if (t.status !== 'completed') return false;
+    
+    const hasDownpaymentItems = t.items.some((item: any) => {
+      const paymentType = item.paymentType || item.payment_type;
+      if (paymentType === 'downpayment') return true;
+      
+      // For legacy orders, check if it's a downpayment based on price
+      const productName = item.productName || item.product_name || '';
+      const subtotal = parseFloat(item.subtotal || 0);
+      
+      if (productName.includes('Gala') && subtotal === 500) return true;
+      if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
+      
+      return false;
+    });
+    
+    if (!hasDownpaymentItems) return false;
+    
+    // Check if there's a pending OR completed balance payment for this order
+    // Look for orders with BAL- receipt that have the same items
+    const hasBalancePayment = transactions.some(balanceOrder => {
+      if (!balanceOrder.receiptNumber || !balanceOrder.receiptNumber.startsWith('BAL-')) return false;
+      // Check for both pending and completed balance payments
+      if (balanceOrder.status !== 'pending' && balanceOrder.status !== 'completed') return false;
+      
+      // Check if this balance order is for the same downpayment items
+      // We can check if the items match by comparing product names
+      return balanceOrder.items.some((balItem: any) => 
+        t.items.some((origItem: any) => {
+          const balProductName = balItem.productName || balItem.product_name || '';
+          const origProductName = origItem.productName || origItem.product_name || '';
+          return balProductName.includes(origProductName.split('(')[0].trim()) || 
+                 origProductName.includes(balProductName.split('(')[0].trim());
+        })
+      );
+    });
+    
+    // Only show if there's NO balance payment (pending or completed)
+    return !hasBalancePayment;
+  });
+
   const filteredTransactions = filterStatus === 'all'
     ? transactions
     : filterStatus === 'balance-due'
-    ? transactions.filter(t => {
-        // Exclude balance payment orders (they're the payment itself, not the original order)
-        if (t.receiptNumber && t.receiptNumber.startsWith('BAL-')) return false;
-        
-        // Show completed orders that have downpayment items with remaining balance
-        if (t.status !== 'completed') return false;
-        
-        const hasDownpaymentItems = t.items.some((item: any) => {
-          const paymentType = item.paymentType || item.payment_type;
-          if (paymentType === 'downpayment') return true;
-          
-          // For legacy orders, check if it's a downpayment based on price
-          const productName = item.productName || item.product_name || '';
-          const subtotal = parseFloat(item.subtotal || 0);
-          
-          if (productName.includes('Gala') && subtotal === 500) return true;
-          if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
-          
-          return false;
-        });
-        
-        if (!hasDownpaymentItems) return false;
-        
-        // Check if there's a pending OR completed balance payment for this order
-        // Look for orders with BAL- receipt that have the same items
-        const hasBalancePayment = transactions.some(balanceOrder => {
-          if (!balanceOrder.receiptNumber || !balanceOrder.receiptNumber.startsWith('BAL-')) return false;
-          // Check for both pending and completed balance payments
-          if (balanceOrder.status !== 'pending' && balanceOrder.status !== 'completed') return false;
-          
-          // Check if this balance order is for the same downpayment items
-          // We can check if the items match by comparing product names
-          return balanceOrder.items.some((balItem: any) => 
-            t.items.some((origItem: any) => {
-              const balProductName = balItem.productName || balItem.product_name || '';
-              const origProductName = origItem.productName || origItem.product_name || '';
-              return balProductName.includes(origProductName.split('(')[0].trim()) || 
-                     origProductName.includes(balProductName.split('(')[0].trim());
-            })
-          );
-        });
-        
-        // Only show if there's NO balance payment (pending or completed)
-        return !hasBalancePayment;
-      })
+    ? balanceDueTransactions
     : transactions.filter(t => t.status === filterStatus);
 
   const statusConfig = {
@@ -318,25 +320,7 @@ export const BillingHistoryPage: React.FC = () => {
       .reduce((sum, t) => sum + Number(t.amount || 0), 0)),
     paidCount: transactions.filter(t => t.status === 'completed').length,
     pendingCount: transactions.filter(t => t.status === 'pending').length,
-    totalBalanceDue: Math.round(transactions
-      .filter(t => {
-        // Only completed orders with downpayment items
-        if (t.status !== 'completed') return false;
-        if (t.receiptNumber && t.receiptNumber.startsWith('BAL-')) return false;
-        
-        return t.items.some((item: any) => {
-          const paymentType = item.paymentType || item.payment_type;
-          if (paymentType === 'downpayment') return true;
-          
-          const productName = item.productName || item.product_name || '';
-          const subtotal = parseFloat(item.subtotal || 0);
-          
-          if (productName.includes('Gala') && subtotal === 500) return true;
-          if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
-          
-          return false;
-        });
-      })
+    totalBalanceDue: Math.round(balanceDueTransactions
       .reduce((sum, t) => {
         // Calculate total balance for each order
         const orderBalance = t.items.reduce((itemSum: number, item: any) => {
@@ -372,23 +356,7 @@ export const BillingHistoryPage: React.FC = () => {
         
         return sum + orderBalance;
       }, 0)),
-    balanceDueCount: transactions.filter(t => {
-      if (t.status !== 'completed') return false;
-      if (t.receiptNumber && t.receiptNumber.startsWith('BAL-')) return false;
-      
-      return t.items.some((item: any) => {
-        const paymentType = item.paymentType || item.payment_type;
-        if (paymentType === 'downpayment') return true;
-        
-        const productName = item.productName || item.product_name || '';
-        const subtotal = parseFloat(item.subtotal || 0);
-        
-        if (productName.includes('Gala') && subtotal === 500) return true;
-        if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
-        
-        return false;
-      });
-    }).length,
+    balanceDueCount: balanceDueTransactions.length,
   };
 
   return (
