@@ -464,7 +464,7 @@ export const MerchandisePage: React.FC = () => {
     const isProductOutOfStock = (() => {
       // Skip for made-to-order products
       if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name)) {
-        return false;
+        return product.allowPreorder === false;
       }
       
       // For products with variants
@@ -997,7 +997,19 @@ export const MerchandisePage: React.FC = () => {
                 </div>
 
                 {/* Stock */}
-                {product.name !== 'Type A & B Uniform' && product.name !== 'Hard Bound' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && (
+                {['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(product.name) ? (
+                  <div className="mb-2 sm:mb-4">
+                    {product.allowPreorder === false ? (
+                      <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-semibold leading-none">
+                        Unavailable
+                      </span>
+                    ) : (
+                      <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-semibold leading-none">
+                        ✓ Made to Order
+                      </span>
+                    )}
+                  </div>
+                ) : (
                   <div className="mb-2 sm:mb-4">
                     <p className="text-[10px] sm:text-xs text-slate-600 leading-none">
                       Stock: <span className={product.stock > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold'}>
@@ -1006,7 +1018,7 @@ export const MerchandisePage: React.FC = () => {
                     </p>
                     {product.stock <= 0 && (
                       <p className="text-[9px] sm:text-xs text-purple-600 font-semibold mt-0.5 sm:mt-1 leading-none">
-                        ✓ Pre-Order
+                        {product.allowPreorder !== false ? '✓ Pre-Order' : 'Unavailable'}
                       </p>
                     )}
                   </div>
@@ -1023,7 +1035,7 @@ export const MerchandisePage: React.FC = () => {
                     setPaymentType('full');
                     // Automatically set to pre-order if product is out of stock (excluding made-to-order products) and pre-order is allowed
                     const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
-                    const isOutOfStock = !isMadeToOrder && product.stock <= 0;
+                    const isOutOfStock = isMadeToOrder ? (product.allowPreorder === false) : (product.stock <= 0);
                     const canPreorder = product.allowPreorder !== false;
                     setOrderType((isOutOfStock && canPreorder) ? 'preorder' : 'regular');
                   }}
@@ -1246,7 +1258,14 @@ export const MerchandisePage: React.FC = () => {
                   })()}
                 </div>
 
-                {selectedProduct.name !== 'Type A & B Uniform' && selectedProduct.name !== 'Hard Bound' && selectedProduct.name !== 'Gala' && selectedProduct.name !== 'BSNAME Uniform' && (
+                {['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name) ? (
+                  <div>
+                    <p className="text-sm text-slate-600 mb-1">Availability</p>
+                    <p className={`text-lg font-bold ${selectedProduct.allowPreorder !== false ? 'text-green-600' : 'text-red-600'}`}>
+                      {selectedProduct.allowPreorder !== false ? 'Made to Order' : 'Unavailable'}
+                    </p>
+                  </div>
+                ) : (
                   <div>
                     <p className="text-sm text-slate-600 mb-1">Stock Available</p>
                     {(() => {
@@ -1439,14 +1458,14 @@ export const MerchandisePage: React.FC = () => {
                 <button
                   onClick={() => handleAddToCart(selectedProduct)}
                   disabled={(() => {
-                    // Made-to-order products are always available
+                    // Made-to-order products are always available (unless allowPreorder is false)
                     if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name)) {
-                      return false;
+                      return selectedProduct.allowPreorder === false;
                     }
                     
-                    // Service-only products are always available
+                    // Service-only products are always available (unless allowPreorder is false)
                     if (selectedProduct.name === 'Hard Bound') {
-                      return false;
+                      return selectedProduct.allowPreorder === false;
                     }
                     
 

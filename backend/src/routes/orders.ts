@@ -24,7 +24,56 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
     });
 
     const { items, totalAmount, paymentMethod, referenceNumber, receiptNo, orderType } = req.body;
-    const userId = (req as any).userId;
+    let userId = (req as any).userId;
+    let orderStatus = 'pending';
+    let completedAt: Date | null = null;
+    let createdAt = new Date();
+
+    // Check if the requesting user is admin/staff
+    const requestingUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [(req as any).userId]);
+    const isStaffOrAdmin = requestingUserResult.rows[0] && ['admin', 'staff'].includes(requestingUserResult.rows[0].role);
+
+    if (isStaffOrAdmin) {
+      if (req.body.isWalkIn) {
+        const { walkInName, walkInIdNumber, walkInCourse, walkInMembershipStatus } = req.body;
+        
+        // Split name into first and last name
+        const nameParts = (walkInName || 'Walk-in Student').trim().split(/\s+/);
+        const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0] || 'Walk-in';
+        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : 'Student';
+        
+        const email = `walkin-${Date.now()}-${Math.floor(Math.random() * 1000)}@uc-metc-walkin.com`;
+        
+        const userInsertResult = await pool.query(
+          `INSERT INTO users (email, password, id_number, first_name, last_name, course, role, status, membership_status)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [
+            email,
+            '', // No password
+            walkInIdNumber || null,
+            firstName,
+            lastName,
+            walkInCourse || null,
+            'user',
+            'active',
+            walkInMembershipStatus || 'none'
+          ]
+        );
+        userId = userInsertResult.rows[0].id;
+      } else if (req.body.userId) {
+        userId = req.body.userId;
+      }
+      if (req.body.status) {
+        orderStatus = req.body.status;
+        if (orderStatus === 'completed' || orderStatus === 'released') {
+          completedAt = req.body.completedAt ? new Date(req.body.completedAt) : new Date();
+        }
+      }
+      if (req.body.createdAt) {
+        createdAt = new Date(req.body.createdAt);
+      }
+    }
 
     // Validate payment method
     if (!['cash', 'ewallet'].includes(paymentMethod)) {
@@ -51,13 +100,24 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
     try {
       await client.query('BEGIN');
 
-      // Insert order with reference_number and order_type
+      // Insert order with reference_number, order_type, status, completed_at, and created_at
       console.log('[ORDER CREATE] Inserting order...');
       const orderResult = await client.query(
-        `INSERT INTO orders (receipt_no, user_id, total_amount, payment_method, reference_number, status, order_type, payment_status)
-         VALUES ($1, $2, $3, $4, $5, 'pending', $6, 'pending')
+        `INSERT INTO orders (receipt_no, user_id, total_amount, payment_method, reference_number, status, order_type, payment_status, completed_at, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
-        [receiptNo, userId, totalAmount, paymentMethod, referenceNumber || null, finalOrderType]
+        [
+          receiptNo, 
+          userId, 
+          totalAmount, 
+          paymentMethod, 
+          referenceNumber || null, 
+          orderStatus, 
+          finalOrderType, 
+          (orderStatus === 'completed' || orderStatus === 'released') ? 'completed' : 'pending',
+          completedAt,
+          createdAt
+        ]
       );
 
       const orderId = orderResult.rows[0].id;
@@ -66,26 +126,97 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
       // Insert order items with product details
       for (const item of items) {
         console.log('[ORDER CREATE] Inserting item:', item);
+        const productId = item.productId || item.product_id;
+        const quantity = item.quantity;
+        const selectedOptions = item.selectedOptions || item.selected_options;
+        const unitPrice = item.unitPrice || item.unit_price;
+
         await client.query(
           `INSERT INTO order_items (order_id, product_id, product_name, quantity, unit_price, subtotal, selected_options, payment_type, order_type, full_price)
            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
           [
             orderId,
-            item.productId,
-            item.productName || item.name || '',
-            item.quantity,
-            item.unitPrice,
+            productId,
+            item.productName || item.product_name || item.name || '',
+            quantity,
+            unitPrice,
             item.subtotal,
-            item.selectedOptions ? JSON.stringify(item.selectedOptions) : null,
-            item.paymentType || null,
-            item.orderType || 'regular',
-            item.fullPrice || null
+            selectedOptions ? (typeof selectedOptions === 'string' ? selectedOptions : JSON.stringify(selectedOptions)) : null,
+            item.paymentType || item.payment_type || null,
+            item.orderType || item.order_type || 'regular',
+            item.fullPrice || item.full_price || null
           ]
         );
+
+        // Deduct inventory stock if the order is created as completed/released immediately (offline walk-in order)
+        if ((orderStatus === 'completed' || orderStatus === 'released') && finalOrderType !== 'insurance') {
+          // Get product to check if it has variants
+          const productResult = await client.query(
+            'SELECT stock, variants FROM products WHERE id = $1',
+            [productId]
+          );
+
+          if (productResult.rows.length > 0) {
+            const product = productResult.rows[0];
+
+            // Check if product has variants and selected options
+            if (product.variants && selectedOptions && Object.keys(selectedOptions).length > 0) {
+              // Build variant key from selected options
+              let parsedOptions = selectedOptions;
+              if (typeof selectedOptions === 'string') {
+                try {
+                  parsedOptions = JSON.parse(selectedOptions);
+                } catch (e) {
+                  parsedOptions = {};
+                }
+              }
+
+              if (parsedOptions && Object.keys(parsedOptions).length > 0) {
+                const variantKey = Object.entries(parsedOptions)
+                  .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                  .map(([key, value]) => `${key}:${value}`)
+                  .join('|');
+
+                // Update variant stock
+                const variants = product.variants;
+                if (variants[variantKey] !== undefined) {
+                  // Deduct from variant stock
+                  variants[variantKey].stock = Math.max(0, (variants[variantKey].stock || 0) - quantity);
+                  
+                  // Also update the total product stock
+                  const totalVariantStock = Object.values(variants).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                  
+                  await client.query(
+                    'UPDATE products SET variants = $1, stock = $2 WHERE id = $3',
+                    [JSON.stringify(variants), totalVariantStock, productId]
+                  );
+                } else {
+                  // Variant key not found, deduct from main stock as fallback
+                  await client.query(
+                    'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+                    [quantity, productId]
+                  );
+                }
+              } else {
+                // Deduct from main stock
+                await client.query(
+                  'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+                  [quantity, productId]
+                );
+              }
+            } else {
+              // Simple product without variants - deduct from main stock
+              await client.query(
+                'UPDATE products SET stock = GREATEST(0, stock - $1) WHERE id = $2',
+                [quantity, productId]
+              );
+            }
+          }
+        }
       }
 
-      // Clear cart (only for merchandise orders, not insurance)
-      if (finalOrderType !== 'insurance') {
+      // Clear cart only if this is NOT a manual admin/staff recorded offline order for another student
+      if (finalOrderType !== 'insurance' && (!isStaffOrAdmin || userId === (req as any).userId)) {
         await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
       }
 
@@ -94,22 +225,23 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
       
       // Create notification for admin/staff about new pending order
       const orderTypeLabel = finalOrderType === 'insurance' ? 'Insurance Request' : 'Order';
-      await notificationService.createNotificationsForRole(
-        'admin',
-        'pending_order',
-        `New ${orderTypeLabel} Received`,
-        `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
-        '/sales'
-      );
-      
-      // Also notify staff
-      await notificationService.createNotificationsForRole(
-        'staff',
-        'pending_order',
-        `New ${orderTypeLabel} Received`,
-        `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
-        '/sales'
-      );
+      if (orderStatus === 'pending') {
+        await notificationService.createNotificationsForRole(
+          'admin',
+          'pending_order',
+          `New ${orderTypeLabel} Received`,
+          `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
+          '/sales'
+        );
+        
+        await notificationService.createNotificationsForRole(
+          'staff',
+          'pending_order',
+          `New ${orderTypeLabel} Received`,
+          `${orderTypeLabel} #${receiptNo} is pending approval - Total: ₱${totalAmount}`,
+          '/sales'
+        );
+      }
       
       console.log('[ORDER CREATE] Success! Returning order:', orderResult.rows[0]);
       res.json(orderResult.rows[0]);

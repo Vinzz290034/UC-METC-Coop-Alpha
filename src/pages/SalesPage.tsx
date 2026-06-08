@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -233,6 +233,371 @@ export const SalesPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [user?.id, activeTab]);
+
+  // States for manual offline transaction logging
+  const [showRecordSaleModal, setShowRecordSaleModal] = useState<boolean>(false);
+  const [allUsers, setAllUsers] = useState<any[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(false);
+  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
+  
+  const [studentType, setStudentType] = useState<'registered' | 'walkin'>('registered');
+  const [walkInName, setWalkInName] = useState<string>('');
+  const [walkInIdNumber, setWalkInIdNumber] = useState<string>('');
+  const [walkInCourse, setWalkInCourse] = useState<string>('');
+  const [walkInMembership, setWalkInMembership] = useState<'none' | 'approved'>('none');
+
+  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [paymentType, setPaymentType] = useState<'full' | 'downpayment'>('full');
+  const [orderType, setOrderType] = useState<'regular' | 'preorder'>('regular');
+  const [quantity, setQuantity] = useState<number>(1);
+  const [unitPrice, setUnitPrice] = useState<number>(0);
+  const [manualItems, setManualItems] = useState<any[]>([]);
+  
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>('cash');
+  const [referenceNumber, setReferenceNumber] = useState<string>('');
+  const [receiptNo, setReceiptNo] = useState<string>('');
+  const [transactionDate, setTransactionDate] = useState<string>('');
+  const [transactionTime, setTransactionTime] = useState<string>('');
+  const [orderStatus, setOrderStatus] = useState<'completed' | 'released' | 'pending'>('completed');
+  const [isSavingManualOrder, setIsSavingManualOrder] = useState<boolean>(false);
+
+  // Initialize and load users for manual transaction
+  useEffect(() => {
+    if (showRecordSaleModal) {
+      const loadUsers = async () => {
+        setIsLoadingUsers(true);
+        try {
+          const response = await apiClient.getUsers();
+          const usersData = Array.isArray(response) ? response : (response.users || []);
+          const studentUsers = usersData.filter((u: any) => u.role === 'user');
+          setAllUsers(studentUsers);
+        } catch (e) {
+          console.error('Failed to load users:', e);
+          showNotification('Failed to load students list', 'error');
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      };
+      loadUsers();
+
+      const now = new Date();
+      setReceiptNo(`RCP-OFF-${Math.floor(100000 + Math.random() * 900000)}`);
+      
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      setTransactionDate(`${year}-${month}-${day}`);
+      
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      setTransactionTime(`${hours}:${minutes}`);
+
+      setStudentType('registered');
+      setWalkInName('');
+      setWalkInIdNumber('');
+      setWalkInCourse('');
+      setWalkInMembership('none');
+      setSelectedUser(null);
+      setUserSearchQuery('');
+      setSelectedProduct(null);
+      setSelectedOptions({});
+      setPaymentType('full');
+      setQuantity(1);
+      setUnitPrice(0);
+      setPaymentMethod('cash');
+      setReferenceNumber('');
+      setOrderStatus('completed');
+
+      if (activeTab === 'insurance') {
+        setOrderType('regular');
+        setManualItems([
+          {
+            id: `ins-${Date.now()}`,
+            productId: null,
+            productName: 'I-CARD Micro-insurance',
+            quantity: 1,
+            unitPrice: 100,
+            subtotal: 100,
+            selectedOptions: {},
+            orderType: 'insurance'
+          }
+        ]);
+      } else {
+        setOrderType(activeTab === 'tailored' ? 'preorder' : 'regular');
+        setManualItems([]);
+      }
+    }
+  }, [showRecordSaleModal, activeTab]);
+
+  // Keep unitPrice updated when selectedProduct or options change
+  useEffect(() => {
+    if (selectedProduct) {
+      const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+      const isMember = studentType === 'registered' 
+        ? selectedUser?.membership_status === 'approved' 
+        : walkInMembership === 'approved';
+      
+      const extractPriceFromChoice = (choiceText: string, isMemberUser: boolean): number | null => {
+        const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
+        if (memberPriceMatch) {
+          const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
+          const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
+          return isMemberUser ? memberPrice : regularPrice;
+        }
+        const match = choiceText.match(/₱([\d,]+)/);
+        return match ? parseInt(match[1].replace(/,/g, '')) : null;
+      };
+
+      let basePrice = selectedProduct.price;
+      if (selectedProduct.options && selectedProduct.options.length > 0) {
+        for (const option of selectedProduct.options) {
+          const selectedVal = selectedOptions[option.id];
+          if (selectedVal) {
+            const optPrice = extractPriceFromChoice(selectedVal, isMember);
+            if (optPrice !== null) {
+              basePrice = optPrice;
+              break;
+            }
+          }
+        }
+      }
+
+      if (isTailoredProduct && paymentType === 'downpayment') {
+        if (selectedProduct.name === 'Gala') {
+          basePrice = 500;
+        } else if (selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'BSNAME Uniform') {
+          basePrice = 1500;
+        }
+      }
+
+      setUnitPrice(basePrice);
+
+      // Auto-set orderType if out of stock
+      const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
+      if (!isMadeToOrder) {
+        let isOutOfStock = false;
+        if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
+          const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
+          if (allOptionsSelected) {
+            const variantKey = Object.entries(selectedOptions)
+              .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+              .map(([key, value]) => `${key}:${value}`)
+              .join('|');
+            const variant = selectedProduct.variants[variantKey];
+            isOutOfStock = !variant || variant.stock <= 0;
+          }
+        } else {
+          isOutOfStock = selectedProduct.stock <= 0;
+        }
+
+        if (isOutOfStock) {
+          if (selectedProduct.allowPreorder !== false) {
+            setOrderType('preorder');
+          }
+        } else {
+          setOrderType('regular');
+        }
+      }
+    } else {
+      setUnitPrice(0);
+    }
+  }, [selectedProduct, selectedOptions, paymentType, selectedUser, studentType, walkInMembership]);
+
+  const handleAddManualItem = () => {
+    if (!selectedProduct) return;
+
+    if (selectedProduct.options && selectedProduct.options.length > 0) {
+      const missingOptions = selectedProduct.options.filter((opt: any) => !selectedOptions[opt.id]);
+      if (missingOptions.length > 0) {
+        showNotification(`Please select all options: ${missingOptions.map((o: any) => o.label).join(', ')}`, 'error');
+        return;
+      }
+    }
+
+    // Validate stock and pre-order availability
+    const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
+    if (isMadeToOrder) {
+      if (selectedProduct.allowPreorder === false) {
+        showNotification('This tailored product/service is currently unavailable.', 'error');
+        return;
+      }
+    } else {
+      let isOutOfStock = false;
+      let stockVal = 0;
+      if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
+        const variantKey = Object.entries(selectedOptions)
+          .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+          .map(([key, value]) => `${key}:${value}`)
+          .join('|');
+        const variant = selectedProduct.variants[variantKey];
+        stockVal = variant ? variant.stock : 0;
+        isOutOfStock = stockVal <= 0;
+      } else {
+        stockVal = selectedProduct.stock;
+        isOutOfStock = stockVal <= 0;
+      }
+
+      if (isOutOfStock) {
+        if (selectedProduct.allowPreorder === false) {
+          showNotification('This item is out of stock and not available for pre-order.', 'error');
+          return;
+        }
+        if (orderType !== 'preorder') {
+          showNotification('This item is out of stock. Please set Order Type to Pre-Order.', 'error');
+          return;
+        }
+      } else if (quantity > stockVal && orderType !== 'preorder') {
+        showNotification(`Requested quantity (${quantity}) exceeds available stock (${stockVal}). Choose Pre-Order or reduce quantity.`, 'error');
+        return;
+      }
+    }
+
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+    const itemSubtotal = quantity * unitPrice;
+    const itemId = `${selectedProduct.id}-${Date.now()}`;
+
+    const isMember = studentType === 'registered' 
+      ? selectedUser?.membership_status === 'approved' 
+      : walkInMembership === 'approved';
+    const extractPriceFromChoice = (choiceText: string, isMemberUser: boolean): number | null => {
+      const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
+      if (memberPriceMatch) {
+        const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
+        const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
+        return isMemberUser ? memberPrice : regularPrice;
+      }
+      const match = choiceText.match(/₱([\d,]+)/);
+      return match ? parseInt(match[1].replace(/,/g, '')) : null;
+    };
+
+    let baseFullPrice = selectedProduct.price;
+    if (selectedProduct.options && selectedProduct.options.length > 0) {
+      for (const option of selectedProduct.options) {
+        const selectedVal = selectedOptions[option.id];
+        if (selectedVal) {
+          const optPrice = extractPriceFromChoice(selectedVal, isMember);
+          if (optPrice !== null) {
+            baseFullPrice = optPrice;
+            break;
+          }
+        }
+      }
+    }
+
+    const newItem = {
+      id: itemId,
+      productId: selectedProduct.id,
+      productName: selectedProduct.name,
+      quantity,
+      unitPrice,
+      subtotal: itemSubtotal,
+      selectedOptions: { ...selectedOptions },
+      paymentType: isTailoredProduct ? paymentType : undefined,
+      orderType: orderType,
+      fullPrice: isTailoredProduct && paymentType === 'downpayment' ? baseFullPrice : undefined
+    };
+
+    setManualItems([...manualItems, newItem]);
+    
+    setSelectedProduct(null);
+    setSelectedOptions({});
+    setPaymentType('full');
+    setOrderType('regular');
+    setQuantity(1);
+    setUnitPrice(0);
+    showNotification('Item added to transaction', 'success');
+  };
+
+  const handleRemoveManualItem = (idToRemove: string) => {
+    setManualItems(manualItems.filter(item => item.id !== idToRemove));
+    showNotification('Item removed from transaction');
+  };
+
+  const refreshActiveTabData = async () => {
+    if (activeTab === 'pending') await loadPendingOrders();
+    else if (activeTab === 'daily') await loadDailySummary();
+    else if (activeTab === 'history') await loadHistorySummary();
+    else if (activeTab === 'remittance') await loadRemittanceSummary();
+    else if (activeTab === 'monthly') await loadMonthlyReport();
+    else if (activeTab === 'tailored') {
+      await loadPreOrderOrders();
+      await loadDownpaymentOrders();
+      await loadFullPaymentOrders();
+    }
+    else if (activeTab === 'insurance') await loadInsuranceOrders();
+  };
+
+  const handleSaveManualOrder = async () => {
+    if (studentType === 'registered' && !selectedUser) {
+      showNotification('Please select a student/user', 'error');
+      return;
+    }
+    if (studentType === 'walkin' && !walkInName.trim()) {
+      showNotification('Please enter student name', 'error');
+      return;
+    }
+    if (manualItems.length === 0) {
+      showNotification('Please add at least one item to the transaction', 'error');
+      return;
+    }
+    if (!receiptNo.trim()) {
+      showNotification('Please enter a receipt number', 'error');
+      return;
+    }
+    if (paymentMethod === 'ewallet' && !referenceNumber.trim()) {
+      showNotification('Please enter GCash reference number', 'error');
+      return;
+    }
+
+    setIsSavingManualOrder(true);
+
+    try {
+      const orderDateObj = new Date(`${transactionDate}T${transactionTime}:00`);
+      
+      const orderData = {
+        isWalkIn: studentType === 'walkin',
+        walkInName: studentType === 'walkin' ? walkInName.trim() : undefined,
+        walkInIdNumber: studentType === 'walkin' && walkInIdNumber.trim() ? walkInIdNumber.trim() : undefined,
+        walkInCourse: studentType === 'walkin' && walkInCourse.trim() ? walkInCourse.trim() : undefined,
+        walkInMembershipStatus: studentType === 'walkin' ? walkInMembership : undefined,
+        userId: studentType === 'registered' ? selectedUser.id : undefined,
+        items: manualItems.map(item => ({
+          productId: item.productId,
+          productName: item.productName,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          subtotal: item.subtotal,
+          selectedOptions: item.selectedOptions,
+          paymentType: item.paymentType || null,
+          orderType: item.orderType || 'regular',
+          fullPrice: item.fullPrice || null
+        })),
+        totalAmount: manualItems.reduce((sum, item) => sum + item.subtotal, 0),
+        paymentMethod,
+        referenceNumber: paymentMethod === 'ewallet' ? referenceNumber : null,
+        receiptNo: receiptNo.trim(),
+        orderType: activeTab === 'insurance' ? 'insurance' : 'merchandise',
+        status: orderStatus,
+        createdAt: orderDateObj.toISOString(),
+        completedAt: orderStatus !== 'pending' ? orderDateObj.toISOString() : null
+      };
+
+      await apiClient.createOrder(orderData, user?.id || '');
+      
+      showNotification('Offline transaction recorded successfully!', 'success');
+      setShowRecordSaleModal(false);
+      
+      await AppDataSync.loadProductsFromAPI();
+      await refreshActiveTabData();
+    } catch (e: any) {
+      console.error('Failed to record manual order:', e);
+      showNotification(e.message || 'Failed to record transaction', 'error');
+    } finally {
+      setIsSavingManualOrder(false);
+    }
+  };
 
   // Load insurance orders when insurance tab is active
   useEffect(() => {
@@ -1196,16 +1561,27 @@ export const SalesPage: React.FC = () => {
             <p className="text-xs sm:text-sm text-slate-600 mt-1 sm:mt-2">Process orders and view sales reports</p>
           </div>
           
-          {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, and Insurance tabs */}
-          {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance') && (
+          {/* Action buttons */}
+          <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
             <button
-              onClick={exportToExcel}
-              className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
+              onClick={() => setShowRecordSaleModal(true)}
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
             >
-              <Download size={18} className="sm:w-5 sm:h-5" />
-              <span>Export</span>
+              <PlusCircle size={18} className="sm:w-5 sm:h-5" />
+              <span>Record Offline Sale</span>
             </button>
-          )}
+
+            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, and Insurance tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance') && (
+              <button
+                onClick={exportToExcel}
+                className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
+              >
+                <Download size={18} className="sm:w-5 sm:h-5" />
+                <span>Export</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -3304,6 +3680,705 @@ export const SalesPage: React.FC = () => {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+        {/* Record Offline Sale Modal */}
+        {showRecordSaleModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in" onClick={() => setShowRecordSaleModal(false)}>
+            <div 
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Record Offline Walk-in Transaction</h3>
+                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Manually log direct payments, pre-orders, and downpayments</p>
+                </div>
+                <button
+                  onClick={() => setShowRecordSaleModal(false)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-all"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body - Two Column Layout */}
+              <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                {/* Column 1: Selector & Item Inputs (7 cols) */}
+                <div className="lg:col-span-7 space-y-6">
+                  
+                  {/* Step 1: Select Student */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-semibold text-slate-800">
+                        1. Select Student
+                      </label>
+                      <div className="flex bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStudentType('registered');
+                            setSelectedUser(null);
+                          }}
+                          className={`px-3 py-1.5 rounded-md transition-all ${studentType === 'registered' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Registered Student
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setStudentType('walkin');
+                            setSelectedUser(null);
+                          }}
+                          className={`px-3 py-1.5 rounded-md transition-all ${studentType === 'walkin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Unregistered Walk-in
+                        </button>
+                      </div>
+                    </div>
+
+                    {studentType === 'registered' ? (
+                      <div>
+                        {!selectedUser ? (
+                          <div className="relative">
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                              <input
+                                type="text"
+                                placeholder="Search by student name, ID number or email..."
+                                value={userSearchQuery}
+                                onChange={(e) => setUserSearchQuery(e.target.value)}
+                                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm bg-white"
+                              />
+                            </div>
+                            {userSearchQuery.trim() !== '' && (
+                              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100">
+                                {(() => {
+                                  if (isLoadingUsers) {
+                                    return (
+                                      <div className="px-4 py-3 text-sm text-slate-500 text-center flex items-center justify-center gap-2 bg-white">
+                                        <div className="w-4.5 h-4.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
+                                        Loading students...
+                                      </div>
+                                    );
+                                  }
+                                  const filteredUsers = allUsers.filter((u: any) => {
+                                    const query = userSearchQuery.toLowerCase();
+                                    return (
+                                      u.first_name.toLowerCase().includes(query) ||
+                                      (u.last_name || '').toLowerCase().includes(query) ||
+                                      (u.email || '').toLowerCase().includes(query) ||
+                                      (u.id_number || '').toLowerCase().includes(query)
+                                    );
+                                  });
+                                  return filteredUsers.length > 0 ? (
+                                    filteredUsers.map((u: any) => (
+                                      <button
+                                        key={u.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedUser(u);
+                                          setUserSearchQuery('');
+                                        }}
+                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center justify-between transition-colors bg-white"
+                                      >
+                                        <div>
+                                          <p className="font-semibold text-slate-900">{u.first_name} {u.last_name}</p>
+                                          <p className="text-xs text-slate-500">{u.email} • ID: {u.id_number || 'N/A'}</p>
+                                        </div>
+                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.membership_status === 'approved' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}`}>
+                                          {u.membership_status === 'approved' ? 'Member' : 'Non-Member'}
+                                        </span>
+                                      </button>
+                                    ))
+                                  ) : (
+                                    <div className="px-4 py-3 text-sm text-slate-500 text-center bg-white">
+                                      No students found
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
+                                {`${selectedUser.first_name?.[0] || ''}${selectedUser.last_name?.[0] || ''}`.toUpperCase()}
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900">{selectedUser.first_name} {selectedUser.last_name}</p>
+                                <p className="text-xs text-slate-500">{selectedUser.email} • ID: {selectedUser.id_number || 'N/A'}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedUser(null)}
+                              className="text-xs font-semibold text-red-600 hover:text-red-800 hover:bg-red-50 px-2.5 py-1.5 rounded-md border border-red-200 transition-colors bg-white"
+                            >
+                              Change
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1 font-semibold">Student Name *</label>
+                          <input
+                            type="text"
+                            placeholder="Enter full name..."
+                            value={walkInName}
+                            onChange={(e) => setWalkInName(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                            required
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1 font-semibold">ID Number (Optional)</label>
+                            <input
+                              type="text"
+                              placeholder="Enter ID number..."
+                              value={walkInIdNumber}
+                              onChange={(e) => setWalkInIdNumber(e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-slate-500 mb-1 font-semibold">Course (Optional)</label>
+                            <input
+                              type="text"
+                              placeholder="e.g. BSMT, BSMARE..."
+                              value={walkInCourse}
+                              onChange={(e) => setWalkInCourse(e.target.value)}
+                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-slate-500 mb-1 font-semibold">Membership Status</label>
+                          <div className="flex gap-4">
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="walkInMembership"
+                                value="none"
+                                checked={walkInMembership === 'none'}
+                                onChange={() => setWalkInMembership('none')}
+                                className="text-purple-600 focus:ring-purple-500"
+                              />
+                              Non-Member
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="walkInMembership"
+                                value="approved"
+                                checked={walkInMembership === 'approved'}
+                                onChange={() => setWalkInMembership('approved')}
+                                className="text-purple-600 focus:ring-purple-500"
+                              />
+                              Coop Member
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Step 2: Add Product Item */}
+                  {activeTab === 'insurance' ? (
+                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-5 space-y-3">
+                      <label className="block text-sm font-semibold text-purple-900">
+                        2. Transaction Item
+                      </label>
+                      <div className="p-4 bg-white border border-purple-100 rounded-lg flex items-center justify-between shadow-sm">
+                        <div>
+                          <p className="font-semibold text-slate-900">I-CARD Micro-insurance</p>
+                          <p className="text-xs text-slate-500">Fixed rate walk-in insurance coverage</p>
+                        </div>
+                        <span className="font-bold text-purple-700">₱100.00</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
+                      <label className="block text-sm font-semibold text-slate-800">
+                        2. Add Product Item
+                      </label>
+
+                      {/* Product Selection */}
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Select Product</label>
+                        <select
+                          value={selectedProduct?.id || ''}
+                          onChange={(e) => {
+                            const p = products.find(prod => prod.id === e.target.value);
+                            setSelectedProduct(p || null);
+                            setSelectedOptions({});
+                            setQuantity(1);
+                          }}
+                          className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                        >
+                          <option value="">-- Choose Product --</option>
+                          {products.map(p => {
+                            const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(p.name);
+                            let stockText = '';
+                            if (isMadeToOrder) {
+                              stockText = p.allowPreorder !== false 
+                                ? ' - Made to Order' 
+                                : ' - Unavailable';
+                            } else {
+                              const hasVariants = p.variants && Object.keys(p.variants).length > 0;
+                              const stockVal = hasVariants 
+                                ? Object.values(p.variants!).reduce((sum, v) => sum + (v.stock || 0), 0)
+                                : p.stock;
+                              
+                              if (stockVal <= 0) {
+                                stockText = p.allowPreorder !== false 
+                                  ? ' - Out of Stock (Pre-order available)' 
+                                  : ' - Out of Stock (Unavailable)';
+                              } else {
+                                stockText = ` - Stock: ${stockVal}`;
+                              }
+                            }
+                            return (
+                              <option key={p.id} value={p.id}>
+                                {p.name} (₱{p.price}){stockText}
+                              </option>
+                            );
+                          })}
+                        </select>
+                      </div>
+
+                      {selectedProduct && (
+                        <div className="space-y-4 border-t border-slate-200 pt-4 animate-fade-in">
+                          {/* Live Stock Status Indicator */}
+                          <div className="bg-slate-100 rounded-lg p-2.5 flex items-center justify-between text-xs font-semibold">
+                            <span className="text-slate-600">Stock Availability:</span>
+                            {(() => {
+                              const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
+                              if (isMadeToOrder) {
+                                if (selectedProduct.allowPreorder === false) {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200 animate-pulse">
+                                      ❌ Unavailable
+                                    </span>
+                                  );
+                                }
+                                return (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                    ✓ Made to Order (Always Available)
+                                  </span>
+                                );
+                              }
+
+                              const hasVariants = selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0;
+                              if (hasVariants) {
+                                const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
+                                if (!allOptionsSelected) {
+                                  const totalStock = Object.values(selectedProduct.variants!).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+                                  return (
+                                    <span className="text-xs text-slate-500 font-medium">
+                                      Select options to verify (Total: {totalStock})
+                                    </span>
+                                  );
+                                }
+
+                                const variantKey = Object.entries(selectedOptions)
+                                  .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                                  .map(([key, value]) => `${key}:${value}`)
+                                  .join('|');
+                                const variant = selectedProduct.variants![variantKey];
+                                const variantStock = variant ? variant.stock : 0;
+
+                                if (variantStock <= 0) {
+                                  if (selectedProduct.allowPreorder !== false) {
+                                    return (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                        ⚠️ Out of Stock (Pre-order Only)
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                                        ❌ Out of Stock (Unavailable)
+                                      </span>
+                                    );
+                                  }
+                                } else {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                      ✓ In Stock ({variantStock} left)
+                                    </span>
+                                  );
+                                }
+                              } else {
+                                const stockVal = selectedProduct.stock;
+                                if (stockVal <= 0) {
+                                  if (selectedProduct.allowPreorder !== false) {
+                                    return (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                                        ⚠️ Out of Stock (Pre-order Only)
+                                      </span>
+                                    );
+                                  } else {
+                                    return (
+                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
+                                        ❌ Out of Stock (Unavailable)
+                                      </span>
+                                    );
+                                  }
+                                } else {
+                                  return (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                      ✓ In Stock ({stockVal} left)
+                                    </span>
+                                  );
+                                }
+                              }
+                            })()}
+                          </div>
+
+                          {/* Dynamic Product Options */}
+                          {selectedProduct.options && selectedProduct.options.length > 0 && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {selectedProduct.options.map((option: any) => (
+                                <div key={option.id}>
+                                  <label className="block text-xs text-slate-500 mb-1 font-semibold">
+                                    {option.label}
+                                  </label>
+                                  <select
+                                    value={selectedOptions[option.id] || ''}
+                                    onChange={(e) => setSelectedOptions({
+                                      ...selectedOptions,
+                                      [option.id]: e.target.value
+                                    })}
+                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                                  >
+                                    <option value="">-- Select {option.label} --</option>
+                                    {option.choices.map((choice: string) => (
+                                      <option key={choice} value={choice}>
+                                        {choice}
+                                      </option>
+                                    ))}
+                                  </select>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Order & Payment Types */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Order Type</label>
+                              <select
+                                value={orderType}
+                                onChange={(e: any) => setOrderType(e.target.value)}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                              >
+                                <option value="regular" disabled={(() => {
+                                  if (!selectedProduct) return false;
+                                  const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
+                                  if (isMadeToOrder) return selectedProduct.allowPreorder === false;
+                                  
+                                  if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
+                                    const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
+                                    if (allOptionsSelected) {
+                                      const variantKey = Object.entries(selectedOptions)
+                                        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                                        .map(([key, value]) => `${key}:${value}`)
+                                        .join('|');
+                                      const variant = selectedProduct.variants[variantKey];
+                                      return !variant || variant.stock <= 0;
+                                    }
+                                    return false;
+                                  }
+                                  return selectedProduct.stock <= 0;
+                                })()}>Regular Purchase</option>
+                                <option value="preorder">Pre-Order</option>
+                              </select>
+                            </div>
+
+                            {['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name) && (
+                              <div>
+                                <label className="block text-xs text-slate-500 mb-1 font-semibold">Payment Options</label>
+                                <select
+                                  value={paymentType}
+                                  onChange={(e: any) => setPaymentType(e.target.value)}
+                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                                >
+                                  <option value="full">Full Payment</option>
+                                  <option value="downpayment">Downpayment</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Quantity & Unit Price Override */}
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Quantity</label>
+                              <input
+                                type="number"
+                                min="1"
+                                value={quantity}
+                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Unit Price (₱)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={unitPrice}
+                                onChange={(e) => setUnitPrice(Math.max(0, parseFloat(e.target.value) || 0))}
+                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Calculated Subtotal & Add Button */}
+                          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
+                            <div>
+                              <p className="text-xs text-slate-500 font-semibold">Subtotal</p>
+                              <p className="text-xl font-bold text-slate-900">₱{(quantity * unitPrice).toLocaleString()}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={handleAddManualItem}
+                              disabled={(() => {
+                                if (!selectedProduct) return true;
+                                const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
+                                if (isMadeToOrder) return selectedProduct.allowPreorder === false;
+
+                                let isOutOfStock = false;
+                                if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
+                                  const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
+                                  if (allOptionsSelected) {
+                                    const variantKey = Object.entries(selectedOptions)
+                                      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                                      .map(([key, value]) => `${key}:${value}`)
+                                      .join('|');
+                                    const variant = selectedProduct.variants[variantKey];
+                                    isOutOfStock = !variant || variant.stock <= 0;
+                                  } else {
+                                    return false;
+                                  }
+                                } else {
+                                  isOutOfStock = selectedProduct.stock <= 0;
+                                }
+
+                                return isOutOfStock && selectedProduct.allowPreorder === false;
+                              })()}
+                              className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm text-sm"
+                            >
+                              Add to Transaction
+                            </button>
+                          </div>
+
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Column 2: Manual Cart & Transaction metadata (5 cols) */}
+                <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-8 space-y-6">
+                  
+                  {/* Cart Items List */}
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-800 mb-3 flex items-center justify-between">
+                      <span>Transaction Cart</span>
+                      <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
+                        {manualItems.length} items
+                      </span>
+                    </h4>
+                    
+                    {manualItems.length === 0 ? (
+                      <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-slate-400">
+                        <Package size={32} className="mx-auto mb-2 text-slate-300" />
+                        <p className="text-xs">No items added to this transaction yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
+                        {manualItems.map(item => (
+                          <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-3 shadow-xs">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-semibold text-slate-900 text-xs truncate">
+                                {item.productName}
+                              </p>
+                              {/* Display Option Subtitle */}
+                              {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                                <p className="text-[10px] text-slate-500 truncate font-medium">
+                                  {Object.entries(item.selectedOptions).map(([k, v]: any) => `${k}: ${v}`).join(', ')}
+                                </p>
+                              )}
+                              <p className="text-[10px] text-slate-600 mt-0.5 font-medium">
+                                {item.quantity} × ₱{item.unitPrice.toLocaleString()} 
+                                {item.paymentType && (
+                                  <span className="ml-1.5 px-1 bg-amber-100 text-amber-800 rounded font-bold text-[9px]">
+                                    {item.paymentType.toUpperCase()}
+                                  </span>
+                                )}
+                                {item.orderType === 'preorder' && (
+                                  <span className="ml-1.5 px-1 bg-blue-100 text-blue-800 rounded font-bold text-[9px]">
+                                    PRE-ORDER
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-xs font-bold text-slate-900">
+                                ₱{item.subtotal.toLocaleString()}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveManualItem(item.id)}
+                                className="p-1 hover:bg-red-50 hover:text-red-600 rounded text-slate-400 transition-colors"
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Transaction Metadata Forms */}
+                  <div className="space-y-4 pt-4 border-t border-slate-200">
+                    
+                    {/* Custom Receipt Number */}
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Receipt Number</label>
+                      <input
+                        type="text"
+                        placeholder="Receipt / Order Number"
+                        value={receiptNo}
+                        onChange={(e) => setReceiptNo(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-bold bg-white text-slate-900"
+                      />
+                    </div>
+
+                    {/* Transaction Date & Time */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Date</label>
+                        <input
+                          type="date"
+                          value={transactionDate}
+                          onChange={(e) => setTransactionDate(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Time</label>
+                        <input
+                          type="time"
+                          value={transactionTime}
+                          onChange={(e) => setTransactionTime(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Payment Method */}
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Payment Method</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('cash')}
+                          className={`py-2 rounded-lg text-xs font-bold transition-all border ${
+                            paymentMethod === 'cash'
+                              ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          Cash
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setPaymentMethod('ewallet')}
+                          className={`py-2 rounded-lg text-xs font-bold transition-all border ${
+                            paymentMethod === 'ewallet'
+                              ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
+                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
+                          }`}
+                        >
+                          GCash
+                        </button>
+                      </div>
+                    </div>
+
+                    {paymentMethod === 'ewallet' && (
+                      <div className="animate-fade-in">
+                        <label className="block text-xs text-slate-500 mb-1 font-semibold">GCash Reference Number</label>
+                        <input
+                          type="text"
+                          placeholder="Enter 13-digit GCash Ref No"
+                          value={referenceNumber}
+                          onChange={(e) => setReferenceNumber(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                        />
+                      </div>
+                    )}
+
+                    {/* Order Fulfillment/DB Status */}
+                    <div>
+                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Fulfillment Status</label>
+                      <select
+                        value={orderStatus}
+                        onChange={(e: any) => setOrderStatus(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white font-bold"
+                      >
+                        <option value="completed">Completed (Paid)</option>
+                        <option value="released">Released (Picked Up)</option>
+                        <option value="pending">Pending Approval</option>
+                      </select>
+                    </div>
+
+                    {/* Summary Totals & Submit */}
+                    <div className="pt-4 border-t border-slate-200 space-y-4 bg-slate-50 rounded-xl p-4">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="font-semibold text-slate-600">Total Bill</span>
+                        <span className="text-xl font-bold text-slate-900">
+                          ₱{manualItems.reduce((sum, item) => sum + item.subtotal, 0).toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      <button
+                        type="button"
+                        disabled={
+                          isSavingManualOrder || 
+                          manualItems.length === 0 || 
+                          (studentType === 'registered' ? !selectedUser : !walkInName.trim())
+                        }
+                        onClick={handleSaveManualOrder}
+                        className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                      >
+                        {isSavingManualOrder ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                            Saving Transaction...
+                          </>
+                        ) : (
+                          'Save Offline Transaction'
+                        )}
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
             </div>
           </div>
         )}
