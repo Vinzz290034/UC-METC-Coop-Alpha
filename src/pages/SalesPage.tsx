@@ -2124,7 +2124,11 @@ export const SalesPage: React.FC = () => {
                               </td>
                                <td className="py-4 px-6">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                    order?.payment_method?.toLowerCase() === 'ewallet' 
+                                      ? 'bg-purple-100 text-purple-800' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
                                     {formatPaymentMethod(order?.payment_method)}
                                   </span>
                                   {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
@@ -2184,7 +2188,11 @@ export const SalesPage: React.FC = () => {
                             </td>
                              <td className="py-4 px-6">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  order?.payment_method?.toLowerCase() === 'ewallet' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
                                   {formatPaymentMethod(order?.payment_method)}
                                 </span>
                                 {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
@@ -2671,7 +2679,11 @@ export const SalesPage: React.FC = () => {
                               </td>
                               <td className="py-4 px-6">
                                 <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                    order?.payment_method?.toLowerCase() === 'ewallet' 
+                                      ? 'bg-purple-100 text-purple-800' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
                                     {formatPaymentMethod(order?.payment_method)}
                                   </span>
                                   {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
@@ -2731,7 +2743,11 @@ export const SalesPage: React.FC = () => {
                             </td>
                             <td className="py-4 px-6">
                               <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">
+                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                                  order?.payment_method?.toLowerCase() === 'ewallet' 
+                                    ? 'bg-purple-100 text-purple-800' 
+                                    : 'bg-blue-100 text-blue-800'
+                                }`}>
                                   {formatPaymentMethod(order?.payment_method)}
                                 </span>
                                 {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
