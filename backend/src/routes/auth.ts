@@ -126,6 +126,8 @@ router.post('/login', async (req: Request, res: Response) => {
         role: user.role,
         course: user.course,
         year: user.year,
+        membership_status: user.membership_status,
+        tour_completed: user.tour_completed,
       },
     });
   } catch (err: any) {

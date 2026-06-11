@@ -41,9 +41,10 @@ export const StudentDashboard: React.FC = () => {
 
   // Check if user has seen the welcome tour
   useEffect(() => {
-    if (user?.id) {
+    // Only proceed if user is loaded and we have retrieved their tour_completed state as a boolean from the backend
+    if (user?.id && typeof user.tour_completed === 'boolean') {
       const tourKey = `welcome_tour_completed_${user.id}`;
-      const hasSeenTour = localStorage.getItem(tourKey) || (user.tour_completed ? 'true' : null);
+      const hasSeenTour = localStorage.getItem(tourKey) === 'true' || user.tour_completed;
       
       if (!hasSeenTour) {
         // Show tour after a short delay for better UX
@@ -51,11 +52,21 @@ export const StudentDashboard: React.FC = () => {
           setShowWelcomeTour(true);
         }, 500);
         return () => clearTimeout(timer);
-      } else if (!user.tour_completed && hasSeenTour === 'true') {
-        // LocalStorage says seen but DB does not know yet; sync it silently in background
-        apiClient.updateUser(user.id, { tour_completed: true }).catch(err => {
-          console.error('Failed to sync tour completion with database:', err);
-        });
+      } else {
+        // Explicitly ensure tour is not displayed if they have seen it
+        setShowWelcomeTour(false);
+        
+        // Sync local storage if it's missing on this device/browser
+        if (localStorage.getItem(tourKey) !== 'true') {
+          localStorage.setItem(tourKey, 'true');
+        }
+        
+        // If local storage says seen but database was false, sync it in the background
+        if (!user.tour_completed) {
+          apiClient.updateUser(user.id, { tour_completed: true }).catch(err => {
+            console.error('Failed to sync tour completion with database:', err);
+          });
+        }
       }
     }
   }, [user?.id, user?.tour_completed]);

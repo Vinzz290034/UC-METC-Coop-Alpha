@@ -13,6 +13,8 @@ export interface User {
   email_verified?: boolean;
   course?: string;
   year?: string;
+  membership_status?: 'approved' | 'pending' | 'rejected';
+  tour_completed?: boolean;
   created_at: Date;
   updated_at: Date;
 }
