@@ -21,6 +21,9 @@ class EmailService {
     const emailUser = process.env.EMAIL_USER;
     const emailPassword = process.env.EMAIL_PASSWORD;
     const emailService = process.env.EMAIL_SERVICE || 'gmail';
+    const emailHost = process.env.EMAIL_HOST;
+    const emailPort = parseInt(process.env.EMAIL_PORT || '587');
+    const emailSecure = process.env.EMAIL_SECURE === 'true';
 
     if (emailService.toLowerCase() === 'sendgrid') {
       if (!emailPassword) {
@@ -41,17 +44,31 @@ class EmailService {
     }
 
     try {
-      // Gmail, Outlook, etc.
-      this.transporter = nodemailer.createTransport({
-        service: emailService,
-        auth: {
-          user: emailUser,
-          pass: emailPassword,
-        },
-      });
+      if (emailHost) {
+        // Generic SMTP transport
+        this.transporter = nodemailer.createTransport({
+          host: emailHost,
+          port: emailPort,
+          secure: emailSecure,
+          auth: {
+            user: emailUser,
+            pass: emailPassword,
+          },
+        });
+        console.log(`✅ [EMAIL SERVICE] Email service initialized successfully via custom SMTP (${emailHost}:${emailPort})`);
+      } else {
+        // Gmail, Outlook, etc.
+        this.transporter = nodemailer.createTransport({
+          service: emailService,
+          auth: {
+            user: emailUser,
+            pass: emailPassword,
+          },
+        });
+        console.log(`✅ [EMAIL SERVICE] Email service initialized successfully (${emailService})`);
+      }
 
       this.isConfigured = true;
-      console.log(`✅ [EMAIL SERVICE] Email service initialized successfully (${emailService})`);
     } catch (error) {
       console.error('❌ [EMAIL SERVICE] Failed to initialize email service:', error);
       this.isConfigured = false;
