@@ -799,6 +799,10 @@ export const SalesPage: React.FC = () => {
       
       // Filter for downpayment items AND balance payment orders
       const downpaymentOrdersFiltered = allOrders.filter((order: any) => {
+        // Exclude pre-order orders
+        const isPreOrder = order.items && Array.isArray(order.items) && order.items.some((item: any) => item.orderType === 'preorder' || item.order_type === 'preorder');
+        if (isPreOrder) return false;
+
         // Include balance payment orders (receipt starts with BAL-)
         if (order.receipt_no && order.receipt_no.startsWith('BAL-')) return true;
         
@@ -835,6 +839,10 @@ export const SalesPage: React.FC = () => {
       
       // Filter for orders where ALL items have payment_type = 'full' (or are non-tailored products)
       const fullPaymentOrdersFiltered = allOrders.filter((order: any) => {
+        // Exclude pre-order orders
+        const isPreOrder = order.items && Array.isArray(order.items) && order.items.some((item: any) => item.orderType === 'preorder' || item.order_type === 'preorder');
+        if (isPreOrder) return false;
+
         if (!order.items || !Array.isArray(order.items)) return false;
         
         // Check if order has at least one tailored product with full payment
