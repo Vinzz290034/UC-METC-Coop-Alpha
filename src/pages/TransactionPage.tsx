@@ -1244,7 +1244,7 @@ export const TransactionPage: React.FC = () => {
                           }
                           
                           await AppDataSync.createOrderFromBalancePayment(balanceOrderData, user.id);
-                          setToast({ message: 'Balance payment successful!', type: 'success' });
+                          setToast({ message: 'Please proceed to Coop Office to confirm your payment balance', type: 'success' });
                           setShowBalancePaymentModal(false);
                           setBalancePaymentMethod(null);
                           setBalanceReferenceNumber('');
