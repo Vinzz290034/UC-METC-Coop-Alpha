@@ -25,14 +25,14 @@ class EmailService {
     const emailPort = parseInt(process.env.EMAIL_PORT || '587');
     const emailSecure = process.env.EMAIL_SECURE === 'true';
 
-    if (emailService.toLowerCase() === 'sendgrid') {
+    if (emailService.toLowerCase() === 'sendgrid' || emailService.toLowerCase() === 'brevo') {
       if (!emailPassword) {
-        console.warn('⚠️  [EMAIL SERVICE] SendGrid API Key (EMAIL_PASSWORD) not configured.');
+        console.warn(`⚠️  [EMAIL SERVICE] ${emailService} API Key (EMAIL_PASSWORD) not configured.`);
         this.isConfigured = false;
         return;
       }
       this.isConfigured = true;
-      console.log(`✅ [EMAIL SERVICE] Email service initialized successfully via SendGrid Web API`);
+      console.log(`✅ [EMAIL SERVICE] Email service initialized successfully via ${emailService} Web API`);
       return;
     }
 
@@ -116,6 +116,31 @@ class EmailService {
           }
         );
         console.log(`✅ [EMAIL SERVICE] Email sent successfully to ${options.to} via SendGrid Web API`);
+        return true;
+      }
+
+      if (emailService.toLowerCase() === 'brevo') {
+        // Send via official Brevo HTTP API - ultra fast and immune to SMTP port blocks
+        await axios.post(
+          'https://api.brevo.com/v3/smtp/email',
+          {
+            sender: {
+              email: fromEmail,
+              name: 'UC METC SILMS',
+            },
+            to: [{ email: options.to }],
+            subject: options.subject,
+            htmlContent: options.html,
+          },
+          {
+            headers: {
+              'api-key': emailPassword,
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+            },
+          }
+        );
+        console.log(`✅ [EMAIL SERVICE] Email sent successfully to ${options.to} via Brevo Web API`);
         return true;
       }
 
