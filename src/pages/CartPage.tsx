@@ -21,6 +21,7 @@ export const CartPage: React.FC = () => {
   const [referenceNumber, setReferenceNumber] = useState<string>('');
   const [showQRCode, setShowQRCode] = useState(false);
   const [confirmedNoRefund, setConfirmedNoRefund] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   // Ensure any existing modals are closed when CartPage mounts
   useEffect(() => {
@@ -299,6 +300,7 @@ export const CartPage: React.FC = () => {
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 overflow-y-auto"
           style={{ zIndex: Z_INDEX.CHECKOUT_MODAL }}
           onClick={() => {
+            if (isCheckingOut) return;
             setShowCheckoutPrompt(false);
             setPaymentMethod(null);
             setReferenceNumber('');
@@ -329,16 +331,18 @@ export const CartPage: React.FC = () => {
                   {/* Cash Option */}
                   <button
                     onClick={() => {
+                      if (isCheckingOut) return;
                       setPaymentMethod('cash');
                       setReferenceNumber('');
                       setShowQRCode(false);
                       setConfirmedNoRefund(false);
                     }}
+                    disabled={isCheckingOut}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       paymentMethod === 'cash'
                         ? 'border-purple-600 bg-purple-50'
                         : 'border-slate-300 hover:border-slate-400'
-                    }`}
+                    } ${isCheckingOut ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="font-semibold text-slate-900 text-lg">Cash</div>
                     <div className="text-xs text-slate-600 mt-1">Pay at Coop office</div>
@@ -347,15 +351,17 @@ export const CartPage: React.FC = () => {
                   {/* GCash Option */}
                   <button
                     onClick={() => {
+                      if (isCheckingOut) return;
                       setPaymentMethod('ewallet');
                       setShowQRCode(false);
                       setConfirmedNoRefund(false);
                     }}
+                    disabled={isCheckingOut}
                     className={`p-4 rounded-lg border-2 transition-all ${
                       paymentMethod === 'ewallet'
                         ? 'border-purple-600 bg-purple-50'
                         : 'border-slate-300 hover:border-slate-400'
-                    }`}
+                    } ${isCheckingOut ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
                     <div className="font-semibold text-slate-900 text-lg">GCash</div>
                     <div className="text-xs text-slate-600 mt-1">Pay via GCash</div>
@@ -383,8 +389,12 @@ export const CartPage: React.FC = () => {
                     <input
                       type="checkbox"
                       checked={confirmedNoRefund}
-                      onChange={(e) => setConfirmedNoRefund(e.target.checked)}
-                      className="mt-1 w-5 h-5 text-purple-600 border-slate-300 rounded focus:ring-purple-500"
+                      onChange={(e) => {
+                        if (isCheckingOut) return;
+                        setConfirmedNoRefund(e.target.checked);
+                      }}
+                      disabled={isCheckingOut}
+                      className="mt-1 w-5 h-5 text-purple-600 border-slate-300 rounded focus:ring-purple-500 disabled:opacity-50"
                     />
                     <span className="text-sm text-slate-700">
                       I understand and agree that GCash payments are non-refundable once completed.
@@ -393,8 +403,12 @@ export const CartPage: React.FC = () => {
 
                   {confirmedNoRefund && (
                     <button
-                      onClick={() => setShowQRCode(true)}
-                      className="w-full mt-4 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 hover:shadow-lg active:scale-95"
+                      onClick={() => {
+                        if (isCheckingOut) return;
+                        setShowQRCode(true);
+                      }}
+                      disabled={isCheckingOut}
+                      className="w-full mt-4 bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition-all duration-300 transform hover:scale-105 hover:shadow-lg active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:cursor-not-allowed"
                     >
                       Show Payment QR Code
                     </button>
@@ -452,13 +466,15 @@ export const CartPage: React.FC = () => {
                       type="text"
                       value={referenceNumber}
                       onChange={(e) => {
+                        if (isCheckingOut) return;
                         const value = e.target.value.replace(/\D/g, '');
                         if (value.length <= 4) {
                           setReferenceNumber(value);
                         }
                       }}
+                      disabled={isCheckingOut}
                       placeholder="Enter last 4 digits"
-                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl font-bold tracking-widest transition-all duration-300 focus:scale-105"
+                      className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-center text-2xl font-bold tracking-widest transition-all duration-300 focus:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                       maxLength={4}
                       required
                     />
@@ -487,13 +503,15 @@ export const CartPage: React.FC = () => {
               <div className="flex space-x-3">
                 <button
                   onClick={() => {
+                    if (isCheckingOut) return;
                     setShowCheckoutPrompt(false);
                     setPaymentMethod(null);
                     setReferenceNumber('');
                     setShowQRCode(false);
                     setConfirmedNoRefund(false);
                   }}
-                  className="flex-1 px-4 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all duration-200 hover:scale-105"
+                  disabled={isCheckingOut}
+                  className="flex-1 px-4 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all duration-200 hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancel
                 </button>
@@ -516,6 +534,7 @@ export const CartPage: React.FC = () => {
                     }
                     
                     try {
+                      setIsCheckingOut(true);
                       await AppDataSync.createOrderFromCart(
                         user.id, 
                         paymentMethod,
@@ -531,16 +550,28 @@ export const CartPage: React.FC = () => {
                       navigate('/transaction');
                     } catch (err: any) {
                       showNotification(`Checkout failed: ${err.message}`, 'error');
+                    } finally {
+                      setIsCheckingOut(false);
                     }
                   }}
-                  disabled={!paymentMethod || (paymentMethod === 'ewallet' && referenceNumber.length !== 4)}
-                  className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg ${
-                    paymentMethod && (paymentMethod === 'cash' || referenceNumber.length === 4)
+                  disabled={isCheckingOut || !paymentMethod || (paymentMethod === 'ewallet' && referenceNumber.length !== 4)}
+                  className={`flex-1 px-4 py-3 rounded-lg font-semibold transition-all duration-200 shadow-lg flex items-center justify-center ${
+                    !isCheckingOut && paymentMethod && (paymentMethod === 'cash' || referenceNumber.length === 4)
                       ? 'bg-green-600 hover:bg-green-700 text-white hover:scale-105'
                       : 'bg-slate-300 text-slate-500 cursor-not-allowed'
                   }`}
                 >
-                  Checkout
+                  {isCheckingOut ? (
+                    <div className="flex items-center space-x-2">
+                      <svg className="animate-spin h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <span>Processing...</span>
+                    </div>
+                  ) : (
+                    'Checkout'
+                  )}
                 </button>
               </div>
             </div>
