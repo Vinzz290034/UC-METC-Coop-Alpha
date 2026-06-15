@@ -3,6 +3,7 @@ import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { Bell, Search, Settings, LogOut, User } from 'lucide-react';
+import { formatNamePart, formatFullName } from '../utils/nameFormatter';
 
 export const Header: React.FC = () => {
   const { showNotification } = useUIStore();
@@ -52,7 +53,9 @@ export const Header: React.FC = () => {
 
   const getInitials = () => {
     if (user?.first_name && user?.last_name) {
-      return `${user.first_name[0]}${user.last_name[0]}`.toUpperCase();
+      const formattedFirst = formatNamePart(user.first_name);
+      const formattedLast = formatNamePart(user.last_name);
+      return `${formattedFirst.charAt(0)}${formattedLast.charAt(0)}`.toUpperCase();
     }
     return 'U';
   };
@@ -144,7 +147,7 @@ export const Header: React.FC = () => {
                 {/* User Info */}
                 <div className="px-4 py-4 border-b border-purple-100">
                   <p className="text-sm font-semibold text-slate-900">
-                    {user?.first_name} {user?.last_name}
+                    {formatFullName(user?.first_name, user?.last_name)}
                   </p>
                   <p className="text-xs text-slate-500">{user?.email}</p>
                 </div>

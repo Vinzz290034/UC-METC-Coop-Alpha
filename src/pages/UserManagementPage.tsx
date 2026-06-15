@@ -16,6 +16,7 @@ import {
 import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
+import { formatNamePart, formatFullName } from '../utils/nameFormatter';
 
 interface User {
   id: string;
@@ -346,13 +347,13 @@ export const UserManagementPage: React.FC = () => {
                           <div className="flex-shrink-0 h-10 w-10">
                             <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
                               <span className="text-sm font-medium text-purple-600">
-                                {user.first_name.charAt(0)}{user.last_name.charAt(0)}
+                                {formatNamePart(user.first_name).charAt(0)}{formatNamePart(user.last_name).charAt(0)}
                               </span>
                             </div>
                           </div>
                           <div className="ml-4">
                             <div className="text-sm font-medium text-gray-900">
-                              {user.first_name} {user.middle_name} {user.last_name}
+                              {formatFullName(user.first_name, user.last_name, user.middle_name)}
                             </div>
                             <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
@@ -528,12 +529,12 @@ export const UserManagementPage: React.FC = () => {
                 <div className="flex items-center space-x-4 mb-8">
                   <div className="h-16 w-16 rounded-full bg-purple-100 flex items-center justify-center flex-shrink-0">
                     <span className="text-xl font-medium text-purple-600">
-                      {selectedUser.first_name.charAt(0)}{selectedUser.last_name.charAt(0)}
+                      {formatNamePart(selectedUser.first_name).charAt(0)}{formatNamePart(selectedUser.last_name).charAt(0)}
                     </span>
                   </div>
                   <div>
                     <h3 className="text-xl font-semibold text-slate-900">
-                      {selectedUser.first_name} {selectedUser.middle_name} {selectedUser.last_name}
+                      {formatFullName(selectedUser.first_name, selectedUser.last_name, selectedUser.middle_name)}
                     </h3>
                     <p className="text-slate-600">{selectedUser.email}</p>
                   </div>
@@ -672,7 +673,7 @@ export const UserManagementPage: React.FC = () => {
               </div>
               
               <p className="text-slate-700 mb-6">
-                Are you sure you want to permanently delete <strong>{showDeleteConfirm.first_name} {showDeleteConfirm.last_name}</strong>? 
+                Are you sure you want to permanently delete <strong>{formatFullName(showDeleteConfirm.first_name, showDeleteConfirm.last_name, showDeleteConfirm.middle_name)}</strong>? 
                 This will remove all their data from the system.
               </p>
 
@@ -712,7 +713,7 @@ export const UserManagementPage: React.FC = () => {
               </div>
               
               <p className="text-slate-700 mb-6">
-                Are you sure you want to deactivate <strong>{showDeactivateConfirm.first_name} {showDeactivateConfirm.last_name}</strong>? 
+                Are you sure you want to deactivate <strong>{formatFullName(showDeactivateConfirm.first_name, showDeactivateConfirm.last_name, showDeactivateConfirm.middle_name)}</strong>? 
                 They will not be able to access their account until reactivated.
               </p>
 

@@ -21,6 +21,7 @@ import {
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
+import { formatFullName } from '../utils/nameFormatter';
 
 const sidebarStyles = `
   @keyframes slide-in-left {
@@ -250,7 +251,7 @@ export const Sidebar: React.FC = () => {
                 </div>
                 {/* User details */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{user.first_name} {user.last_name}</p>
+                  <p className="text-sm font-semibold text-white truncate">{formatFullName(user.first_name, user.last_name)}</p>
                   <p className="text-xs text-purple-200 truncate">
                     {user.role === 'user' && user.course && user.year 
                       ? `${user.course}-${user.year.replace(/[a-z]+/gi, '')}` 

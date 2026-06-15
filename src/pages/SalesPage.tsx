@@ -6,6 +6,7 @@ import { AppDataSync } from '../store/appDataSync';
 import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
+import { formatNamePart, formatFullName } from '../utils/nameFormatter';
 
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -1189,7 +1190,7 @@ export const SalesPage: React.FC = () => {
             const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
             rows.push({
               receiptNo: order?.receipt_no || 'N/A',
-              customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+              customerName: order?.first_name ? formatFullName(order.first_name, order.last_name) : 'N/A',
               idNumber: order?.id_number || 'N/A',
               courseYear,
               productName: formatProductNameWithVariants(item),
@@ -1207,7 +1208,7 @@ export const SalesPage: React.FC = () => {
         } else {
           rows.push({
             receiptNo: order?.receipt_no || 'N/A',
-            customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+            customerName: order?.first_name ? formatFullName(order.first_name, order.last_name) : 'N/A',
             idNumber: order?.id_number || 'N/A',
             courseYear,
             productName: 'Multiple Items',
@@ -1374,7 +1375,7 @@ export const SalesPage: React.FC = () => {
             const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
             rows.push({
               receiptNo: order?.receipt_no || 'N/A',
-              customerName: order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A',
+              customerName: order?.first_name ? formatFullName(order.first_name, order.last_name) : 'N/A',
               idNumber: order?.id_number || 'N/A',
               courseYear,
               productName: formatProductNameWithVariants(item),
@@ -1742,7 +1743,7 @@ export const SalesPage: React.FC = () => {
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <p className="font-semibold text-slate-900 group-hover:text-purple-700 transition-colors">
-                                  {order.first_name} {order.last_name}
+                                  {formatFullName(order.first_name, order.last_name)}
                                 </p>
                                 {order.receipt_no && order.receipt_no.startsWith('BAL-') && (
                                   <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>
@@ -1788,7 +1789,7 @@ export const SalesPage: React.FC = () => {
                   </div>
                   <div>
                     <h3 className="font-bold text-slate-900">
-                      {selectedPendingOrder.first_name} {selectedPendingOrder.last_name}
+                      {formatFullName(selectedPendingOrder.first_name, selectedPendingOrder.last_name)}
                     </h3>
                     <p className="text-sm text-slate-500">{selectedPendingOrder.email} • ID: {selectedPendingOrder.id_number}</p>
                   </div>
@@ -3124,7 +3125,7 @@ export const SalesPage: React.FC = () => {
                           <div className="flex items-center justify-between mb-3">
                             <div>
                               <p className="font-semibold text-slate-900">
-                                {order.first_name} {order.last_name}
+                                {formatFullName(order.first_name, order.last_name)}
                               </p>
                               <p className="text-sm text-slate-600">
                                 {order.email} • ID: {order.id_number}
@@ -3254,7 +3255,7 @@ export const SalesPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
                                 <p className="font-semibold text-slate-900">
-                                  {order.first_name} {order.last_name}
+                                  {formatFullName(order.first_name, order.last_name)}
                                 </p>
                                 <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">
                                   PRE-ORDER
@@ -3450,7 +3451,7 @@ export const SalesPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
                                 <p className="font-semibold text-slate-900">
-                                  {order.first_name} {order.last_name}
+                                  {formatFullName(order.first_name, order.last_name)}
                                 </p>
                                 {isFullyPaid ? (
                                   <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-semibold">
@@ -3615,7 +3616,7 @@ export const SalesPage: React.FC = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <h4 className="font-semibold text-slate-900">
-                                {order.first_name} {order.last_name}
+                                {formatFullName(order.first_name, order.last_name)}
                               </h4>
                               <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-semibold">
                                 Paid
@@ -3810,7 +3811,7 @@ export const SalesPage: React.FC = () => {
                                         className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center justify-between transition-colors bg-white"
                                       >
                                         <div>
-                                          <p className="font-semibold text-slate-900">{u.first_name} {u.last_name}</p>
+                                          <p className="font-semibold text-slate-900">{formatFullName(u.first_name, u.last_name)}</p>
                                           <p className="text-xs text-slate-500">{u.email} • ID: {u.id_number || 'N/A'}</p>
                                         </div>
                                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.membership_status === 'approved' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}`}>
@@ -3834,7 +3835,7 @@ export const SalesPage: React.FC = () => {
                                 {`${selectedUser.first_name?.[0] || ''}${selectedUser.last_name?.[0] || ''}`.toUpperCase()}
                               </div>
                               <div>
-                                <p className="font-semibold text-slate-900">{selectedUser.first_name} {selectedUser.last_name}</p>
+                                <p className="font-semibold text-slate-900">{formatFullName(selectedUser.first_name, selectedUser.last_name)}</p>
                                 <p className="text-xs text-slate-500">{selectedUser.email} • ID: {selectedUser.id_number || 'N/A'}</p>
                               </div>
                             </div>

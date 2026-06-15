@@ -3,6 +3,7 @@ import { Check, X, Edit2, Mail, Clock, Send, Trash2 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { apiClient } from '../services/api';
+import { formatNamePart, formatFullName } from '../utils/nameFormatter';
 
 interface PendingRequest {
   id: string;
@@ -186,7 +187,7 @@ export const MembersPage: React.FC = () => {
       }
       
       console.log('=== APPROVAL SUCCESS ===');
-      showNotification(`${request.name} has been approved as a member!`, 'success');
+      showNotification(`${formatNamePart(request.name)} has been approved as a member!`, 'success');
     } catch (error: any) {
       console.error('APPROVAL ERROR - Full error object:', error);
       console.error('Error constructor:', error?.constructor?.name);
@@ -381,7 +382,7 @@ export const MembersPage: React.FC = () => {
 
     setConfirmationModal({
       isOpen: true,
-      title: `Are you sure you want to remove ${editState.member.first_name} ${editState.member.last_name} from the members list? They will be demoted to a regular user.`,
+      title: `Are you sure you want to remove ${formatFullName(editState.member.first_name, editState.member.last_name)} from the members list? They will be demoted to a regular user.`,
       onConfirm: async () => {
         await confirmDeleteMember();
       },
@@ -414,7 +415,7 @@ export const MembersPage: React.FC = () => {
       setConfirmationModal(prev => ({ ...prev, isOpen: false }));
       setMessageModal({
         isOpen: true,
-        message: `${editState.member.first_name} ${editState.member.last_name} has been demoted to a regular user`,
+        message: `${formatFullName(editState.member.first_name, editState.member.last_name)} has been demoted to a regular user`,
         type: 'success',
         onClose: () => {
           setMessageModal(prev => ({ ...prev, isOpen: false }));
@@ -490,7 +491,7 @@ export const MembersPage: React.FC = () => {
                       className="border-b border-slate-200 hover:bg-amber-50 transition-colors"
                     >
                       <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                        {request.name}
+                        {formatNamePart(request.name)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {request.email}
@@ -584,7 +585,7 @@ export const MembersPage: React.FC = () => {
                       className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
                     >
                       <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                        {member.first_name} {member.last_name}
+                        {formatFullName(member.first_name, member.last_name)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {member.email}
@@ -602,7 +603,7 @@ export const MembersPage: React.FC = () => {
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center space-x-2">
                           <button 
-                            onClick={() => openEmailModal(member.email, `${member.first_name} ${member.last_name}`)}
+                            onClick={() => openEmailModal(member.email, formatFullName(member.first_name, member.last_name))}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors" 
                             title="Send Email"
                           >
