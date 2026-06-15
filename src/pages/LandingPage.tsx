@@ -491,7 +491,7 @@ export const LandingPage: React.FC = () => {
               </h1>
  
               <p className="text-sm sm:text-base lg:text-lg xl:text-xl 2xl:text-2xl text-slate-600 mb-6 sm:mb-12 max-w-2xl mx-auto leading-relaxed">
-                Get your uniforms, equipment, and school supplies in UC Coop Office. Exclusive member discounts, secure lockers, and hassle-free ordering all in one website.
+                Get your uniforms, equipment, and school supplies in UC METC Coop Office. Exclusive member discounts, secure lockers, and hassle-free ordering all in one website.
               </p>
  
               <div className="flex justify-center items-center gap-3 sm:gap-4 lg:gap-6 w-full max-w-md mx-auto px-2">

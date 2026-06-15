@@ -655,6 +655,14 @@ export const TransactionPage: React.FC = () => {
             </button>
             {/* Receipt Header with Logo */}
             <div className="text-center mb-4 pb-4 border-b-2 border-slate-300">
+              <div className="px-10 mb-4">
+                <h1 className="text-[10px] sm:text-[11px] font-black text-slate-700 uppercase tracking-wider leading-tight">
+                  University of Cebu - METC
+                </h1>
+                <p className="text-[9px] sm:text-[10px] font-bold text-purple-600 uppercase tracking-wide leading-tight">
+                  Multipurpose Cooperative (UC-METC MPC)
+                </p>
+              </div>
               <div className="flex items-center justify-center mb-3">
                 <img src={COOP_LOGO_URL} alt="UC METC SILMS" className="h-12 w-12 object-contain mr-3" />
                 <div className="text-left">

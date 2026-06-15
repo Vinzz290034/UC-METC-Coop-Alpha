@@ -119,7 +119,7 @@ export const LearnMorePage: React.FC = () => {
         <div className="max-w-6xl mx-auto px-4 xs:px-6 text-center relative z-10">
           <h1 className="text-2xl xs:text-4xl sm:text-5xl md:text-6xl font-bold mb-2 xs:mb-6">About UC METC SILMS</h1>
           <p className="text-xs xs:text-base sm:text-xl md:text-2xl text-white/90 max-w-2xl mx-auto leading-relaxed">
-            The Sales, Inventory, Locker, and Membership (SILMS) platform for the University of Cebu Maritime Education and Training Center.
+            The Sales, Inventory, Locker, and Membership (SILMS) platform for the UC METC Multipurpose Cooperative.
           </p>
         </div>
       </div>
@@ -144,7 +144,7 @@ export const LearnMorePage: React.FC = () => {
               <img src={COOP_LOGO_URL} alt="UC METC Logo" className="w-12 h-12 xs:w-24 xs:h-24 sm:w-32 sm:h-32 rounded-full mx-auto mb-2 xs:mb-6 shadow-lg" />
               <h3 className="text-xs xs:text-xl sm:text-2xl font-bold text-slate-800 leading-tight">UC METC SILMS</h3>
               <p className="text-[9px] xs:text-sm sm:text-slate-600 mt-1 xs:mt-2 leading-tight">Sales, Inventory, Locker, and <br className="hidden xs:block"/> Membership System</p>
-              <p className="text-[7px] xs:text-xs sm:text-slate-500 mt-1 xs:mt-4 leading-tight">University of Cebu Maritime Education<br className="hidden xs:block"/> and Training Center</p>
+              <p className="text-[7px] xs:text-xs sm:text-slate-500 mt-1 xs:mt-4 leading-tight">UC METC Multipurpose<br className="hidden xs:block"/> Cooperative</p>
             </div>
           </div>
         </div>
