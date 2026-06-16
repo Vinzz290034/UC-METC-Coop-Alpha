@@ -104,6 +104,7 @@ export const SalesPage: React.FC = () => {
   const [insuranceOrders, setInsuranceOrders] = useState<any[]>([]);
   const [hardboundOrders, setHardboundOrders] = useState<any[]>([]);
   const [hardboundSearchQuery, setHardboundSearchQuery] = useState<string>('');
+  const [hardboundFilterDate, setHardboundFilterDate] = useState<string>('');
   const [insuranceRevenue, setInsuranceRevenue] = useState<number>(0);
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
@@ -1604,6 +1605,10 @@ export const SalesPage: React.FC = () => {
           const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
           if (!isHardbound) return;
           
+          const orderDateObj = new Date(order.created_at);
+          const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+          if (hardboundFilterDate && orderDateString !== hardboundFilterDate) return;
+          
           rows.push({
             receiptNo: order.receipt_no || 'N/A',
             studentName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
@@ -1613,7 +1618,7 @@ export const SalesPage: React.FC = () => {
             amount: parseFloat(order.total_amount || 0),
             paymentMethod: formatPaymentMethod(order.payment_method),
             status: (order.status || '').toUpperCase(),
-            orderDate: new Date(order.created_at).toLocaleDateString()
+            orderDate: orderDateObj.toLocaleDateString()
           });
         });
       });
@@ -1649,20 +1654,68 @@ export const SalesPage: React.FC = () => {
         `;
       }).join('');
 
+      // Group by orderDate to count daily purchases
+      const dailyCounts: { [date: string]: number } = {};
+      rows.forEach(row => {
+        const dateStr = row.orderDate;
+        dailyCounts[dateStr] = (dailyCounts[dateStr] || 0) + 1;
+      });
+
+      // Sort dates descending
+      const sortedDailyCounts = Object.entries(dailyCounts).sort((a, b) => {
+        return new Date(b[0]).getTime() - new Date(a[0]).getTime();
+      });
+
+      const summaryRows = sortedDailyCounts.map(([date, count], index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${date}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #6d28d9;">${count}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const combinedRows = `${tableRows}
+        </tbody>
+        </table>
+        
+        <table style="margin-top: 30px; margin-bottom: 10px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          <tr>
+            <td colspan="2" style="font-size: 16px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
+              Daily Purchase Summary
+            </td>
+          </tr>
+        </table>
+        
+        <table style="border-collapse: collapse; border: 1px solid #cbd5e1; width: 300px;">
+          <thead>
+            <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+              <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">Purchase Date</th>
+              <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 150px;">Purchasers Count</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${summaryRows}
+      `;
+
       const totalRevenueVal = rows.reduce((sum, r) => sum + r.amount, 0);
 
       const htmlContent = getExcelHtmlWrapper(
         'Hardbound Research Orders Report',
-        'All completed/released Hardbound book orders and research metadata',
+        hardboundFilterDate
+          ? `Filtered for date: ${new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'long' })}`
+          : 'All completed Hardbound book orders and research metadata',
         [
           { label: 'Total Revenue', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
           { label: 'Books Ordered', value: rows.length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' }
         ],
         tableHeader,
-        tableRows
+        combinedRows
       );
 
-      triggerExcelDownload(htmlContent, `hardbound_research_orders_${formatLocalDate(new Date())}`);
+      const fileDateSuffix = hardboundFilterDate ? hardboundFilterDate : formatLocalDate(new Date());
+      triggerExcelDownload(htmlContent, `hardbound_research_orders_${fileDateSuffix}`);
       showNotification('Hardbound report exported successfully!', 'success');
       return;
     }
@@ -3853,7 +3906,16 @@ export const SalesPage: React.FC = () => {
                   <p className="text-purple-100 text-sm mt-1">Manage and track hardbound book orders, research titles, and authors</p>
                   <div className="flex gap-4 mt-4 text-xs font-semibold text-purple-100">
                     <span className="bg-white/15 px-3 py-1 rounded-full">
-                      Completed: {hardboundOrders.length}
+                      {(() => {
+                        const filteredByDateCount = hardboundOrders.filter((order: any) => {
+                          const orderDateObj = new Date(order.created_at);
+                          const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+                          return !hardboundFilterDate || orderDateString === hardboundFilterDate;
+                        }).length;
+                        return hardboundFilterDate 
+                          ? `Completed on ${new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'medium' })}: ${filteredByDateCount}` 
+                          : `Completed: ${hardboundOrders.length}`;
+                      })()}
                     </span>
                   </div>
                 </div>
@@ -3865,27 +3927,62 @@ export const SalesPage: React.FC = () => {
 
             {/* Main Content Card */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
-              <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900">Hardbound Order Log</h3>
                   <p className="text-sm text-slate-600 mt-1">View research titles and lead researchers for all orders</p>
                 </div>
-                {/* Search Bar */}
-                <div className="relative w-full sm:w-80">
-                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Search titles, authors, students, receipts..."
-                    value={hardboundSearchQuery}
-                    onChange={(e) => setHardboundSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white"
-                  />
+                
+                {/* Controls (Date Filter & Search Bar) */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                  {/* Date Filter */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label htmlFor="hb-date-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                      Date:
+                    </label>
+                    <div className="relative w-full sm:w-44">
+                      <input
+                        id="hb-date-filter"
+                        type="date"
+                        value={hardboundFilterDate}
+                        onChange={(e) => setHardboundFilterDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white text-slate-900 font-medium"
+                      />
+                      {hardboundFilterDate && (
+                        <button
+                          onClick={() => setHardboundFilterDate('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold bg-white px-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full sm:w-72">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search titles, authors, students..."
+                      value={hardboundSearchQuery}
+                      onChange={(e) => setHardboundSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white"
+                    />
+                  </div>
                 </div>
               </div>
 
               <div className="p-6">
                 {(() => {
                   const filtered = hardboundOrders.filter((order: any) => {
+                    // Filter by date first
+                    if (hardboundFilterDate) {
+                      const orderDateObj = new Date(order.created_at);
+                      const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+                      if (orderDateString !== hardboundFilterDate) return false;
+                    }
+
                     const query = hardboundSearchQuery.toLowerCase().trim();
                     if (!query) return true;
                     if (order.receipt_no?.toLowerCase().includes(query)) return true;
