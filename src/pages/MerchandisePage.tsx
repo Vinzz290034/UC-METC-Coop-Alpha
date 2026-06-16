@@ -9,6 +9,7 @@ import { AppDataSync } from '../store/appDataSync';
 import { Z_INDEX } from '../constants/zIndex';
 import type { Product } from '../types';
 import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
+import { FloatingInput } from '../components/FloatingInput';
 
 // Destructure or map individual product images from PRODUCT_IMAGES
 const typeABUniformImage = PRODUCT_IMAGES['Type A & B Uniform'];
@@ -97,6 +98,8 @@ export const MerchandisePage: React.FC = () => {
   const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
   const [paymentType, setPaymentType] = useState<'full' | 'downpayment'>('full');
   const [orderType, setOrderType] = useState<'regular' | 'preorder'>('regular');
+  const [researchTitle, setResearchTitle] = useState<string>('');
+  const [leadResearcher, setLeadResearcher] = useState<string>('');
   const [cartAnimating, setCartAnimating] = useState(false);
   const cartButtonRef = useRef<HTMLButtonElement>(null);
   const { products, addToCart } = useAppStore();
@@ -197,6 +200,12 @@ export const MerchandisePage: React.FC = () => {
       navigate(location.pathname, { replace: true, state: {} });
     }
   }, [location.state, normalizedProducts]);
+
+  // Reset custom fields when product changes
+  useEffect(() => {
+    setResearchTitle('');
+    setLeadResearcher('');
+  }, [selectedProduct]);
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -442,6 +451,18 @@ export const MerchandisePage: React.FC = () => {
   };
 
   const handleAddToCart = (product: Product) => {
+    // Validate Hard Bound fields
+    if (product.name === 'Hard Bound') {
+      if (!researchTitle.trim()) {
+        showNotification('Please enter the Research Title', 'error');
+        return;
+      }
+      if (!leadResearcher.trim()) {
+        showNotification('Please enter the Lead Researcher', 'error');
+        return;
+      }
+    }
+
     // Check if product has required options
     if (product.options && product.options.length > 0) {
       // Check if all required options have been selected
@@ -505,8 +526,15 @@ export const MerchandisePage: React.FC = () => {
       }
     }
     
+    // Merge custom options for Hard Bound
+    const mergedOptions = { ...selectedOptions };
+    if (product.name === 'Hard Bound') {
+      mergedOptions['researchTitle'] = researchTitle.trim();
+      mergedOptions['leadResearcher'] = leadResearcher.trim();
+    }
+    
     // Generate a deterministic cart item ID based on product, selected options, payment type, and order type
-    const optionsString = Object.entries(selectedOptions)
+    const optionsString = Object.entries(mergedOptions)
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
       .map(([key, value]) => `${key}:${value}`)
       .join('|');
@@ -525,7 +553,7 @@ export const MerchandisePage: React.FC = () => {
       price: actualPrice,
       quantity: 1,
       image: productImage || product.image || '📦',
-      selectedOptions: { ...selectedOptions },
+      selectedOptions: mergedOptions,
       paymentType: isTailoredProduct ? paymentType : undefined,
       orderType: orderType,
       fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
@@ -1346,6 +1374,24 @@ export const MerchandisePage: React.FC = () => {
                         </div>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Custom Fields for Hard Bound Research Metadata */}
+                {selectedProduct.name === 'Hard Bound' && (
+                  <div className="pt-4 border-t border-slate-200 space-y-4">
+                    <FloatingInput
+                      label="Research Title"
+                      value={researchTitle}
+                      onChange={(e) => setResearchTitle(e.target.value)}
+                      required
+                    />
+                    <FloatingInput
+                      label="Lead Researcher"
+                      value={leadResearcher}
+                      onChange={(e) => setLeadResearcher(e.target.value)}
+                      required
+                    />
                   </div>
                 )}
 

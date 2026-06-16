@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle, BookOpen, User } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -87,7 +87,7 @@ export const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance' | 'hardbound'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -102,6 +102,8 @@ export const SalesPage: React.FC = () => {
   const [downpaymentOrders, setDownpaymentOrders] = useState<any[]>([]);
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
   const [insuranceOrders, setInsuranceOrders] = useState<any[]>([]);
+  const [hardboundOrders, setHardboundOrders] = useState<any[]>([]);
+  const [hardboundSearchQuery, setHardboundSearchQuery] = useState<string>('');
   const [insuranceRevenue, setInsuranceRevenue] = useState<number>(0);
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
@@ -230,6 +232,20 @@ export const SalesPage: React.FC = () => {
       const interval = setInterval(() => {
         loadPreOrderOrders();
         loadDownpaymentOrders();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab]);
+
+  // Load orders for hardbound tab
+  useEffect(() => {
+    if (user?.id && activeTab === 'hardbound') {
+      loadHardboundOrders();
+      
+      // Set up polling for real-time updates (every 10 seconds)
+      const interval = setInterval(() => {
+        loadHardboundOrders();
       }, 10000);
       
       return () => clearInterval(interval);
@@ -529,6 +545,7 @@ export const SalesPage: React.FC = () => {
       await loadFullPaymentOrders();
     }
     else if (activeTab === 'insurance') await loadInsuranceOrders();
+    else if (activeTab === 'hardbound') await loadHardboundOrders();
   };
 
   const handleSaveManualOrder = async () => {
@@ -911,6 +928,25 @@ export const SalesPage: React.FC = () => {
       setInsuranceRevenue(totalRevenue);
     } catch (err) {
       console.error('Failed to load insurance orders:', err);
+    }
+  };
+
+  const loadHardboundOrders = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      
+      const hardboundOrdersFiltered = allOrders.filter((order: any) => {
+        if (!order.items || !Array.isArray(order.items)) return false;
+        if (order.status !== 'completed') return false;
+        return order.items.some((item: any) => {
+          const productName = item.productName || item.product_name || '';
+          return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
+        });
+      });
+      
+      setHardboundOrders(hardboundOrdersFiltered);
+    } catch (err) {
+      console.error('Failed to load hardbound orders:', err);
     }
   };
 
@@ -1559,6 +1595,77 @@ export const SalesPage: React.FC = () => {
       showNotification('Insurance sales report exported successfully!', 'success');
       return;
     }
+
+    if (activeTab === 'hardbound') {
+      const rows: any[] = [];
+      
+      hardboundOrders.forEach(order => {
+        order.items?.forEach((item: any) => {
+          const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
+          if (!isHardbound) return;
+          
+          rows.push({
+            receiptNo: order.receipt_no || 'N/A',
+            studentName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
+            idNumber: order.id_number || 'N/A',
+            researchTitle: item.selectedOptions?.researchTitle || 'N/A',
+            leadResearcher: item.selectedOptions?.leadResearcher || 'N/A',
+            amount: parseFloat(order.total_amount || 0),
+            paymentMethod: formatPaymentMethod(order.payment_method),
+            status: (order.status || '').toUpperCase(),
+            orderDate: new Date(order.created_at).toLocaleDateString()
+          });
+        });
+      });
+
+      const tableHeader = `
+        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Student Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Student ID</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Research Title</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Lead Researcher</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Total Amount</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Method</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Status</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Order Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; font-weight: bold; color: #1e293b;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.studentName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.idNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b;">${row.researchTitle}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.leadResearcher}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: ${row.status === 'RELEASED' ? '#6b21a8' : '#047857'};">${row.status}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.orderDate}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const totalRevenueVal = rows.reduce((sum, r) => sum + r.amount, 0);
+
+      const htmlContent = getExcelHtmlWrapper(
+        'Hardbound Research Orders Report',
+        'All completed/released Hardbound book orders and research metadata',
+        [
+          { label: 'Total Revenue', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Books Ordered', value: rows.length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `hardbound_research_orders_${formatLocalDate(new Date())}`);
+      showNotification('Hardbound report exported successfully!', 'success');
+      return;
+    }
   };
 
   return (
@@ -1581,8 +1688,8 @@ export const SalesPage: React.FC = () => {
               <span>Record Offline Sale</span>
             </button>
 
-            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, and Insurance tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance') && (
+            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, and Hardbound tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
@@ -1676,6 +1783,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               Insurance
+            </button>
+            <button
+              onClick={() => setActiveTab('hardbound')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'hardbound'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Hardbound ({hardboundOrders.length})
             </button>
           </div>
         </div>
@@ -3720,6 +3837,168 @@ export const SalesPage: React.FC = () => {
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Hardbound Tab */}
+        {activeTab === 'hardbound' && (
+          <div className="space-y-6">
+            {/* Header Summary */}
+            <div className="bg-purple-600 rounded-xl p-8 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">Hardbound Research Portal</h3>
+                  <p className="text-purple-100 text-sm mt-1">Manage and track hardbound book orders, research titles, and authors</p>
+                  <div className="flex gap-4 mt-4 text-xs font-semibold text-purple-100">
+                    <span className="bg-white/15 px-3 py-1 rounded-full">
+                      Completed: {hardboundOrders.length}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white/20 p-4 rounded-full hidden sm:block">
+                  <BookOpen size={48} />
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Card */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Hardbound Order Log</h3>
+                  <p className="text-sm text-slate-600 mt-1">View research titles and lead researchers for all orders</p>
+                </div>
+                {/* Search Bar */}
+                <div className="relative w-full sm:w-80">
+                  <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search titles, authors, students, receipts..."
+                    value={hardboundSearchQuery}
+                    onChange={(e) => setHardboundSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white"
+                  />
+                </div>
+              </div>
+
+              <div className="p-6">
+                {(() => {
+                  const filtered = hardboundOrders.filter((order: any) => {
+                    const query = hardboundSearchQuery.toLowerCase().trim();
+                    if (!query) return true;
+                    if (order.receipt_no?.toLowerCase().includes(query)) return true;
+                    const fullName = `${order.first_name || ''} ${order.last_name || ''}`.toLowerCase();
+                    if (fullName.includes(query)) return true;
+                    if (order.id_number?.toLowerCase().includes(query)) return true;
+                    return order.items?.some((item: any) => {
+                      const title = item.selectedOptions?.researchTitle || '';
+                      const researcher = item.selectedOptions?.leadResearcher || '';
+                      return title.toLowerCase().includes(query) || researcher.toLowerCase().includes(query);
+                    }) || false;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Package size={48} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-600 text-lg">No hardbound orders found</p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-6">
+                      {filtered.map((order: any) => (
+                        <div
+                           key={order.id}
+                           className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
+                        >
+                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+                            <div>
+                              <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                                <h4 className="font-semibold text-slate-900 text-base">
+                                  {formatFullName(order.first_name, order.last_name)}
+                                </h4>
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                  order.status === 'pending'
+                                    ? 'bg-amber-100 text-amber-700'
+                                    : order.status === 'completed'
+                                    ? 'bg-green-100 text-green-700'
+                                    : order.status === 'released'
+                                    ? 'bg-purple-100 text-purple-700'
+                                    : 'bg-red-100 text-red-700'
+                                }`}>
+                                  {order.status.toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-xs text-slate-500 font-medium">
+                                Student ID: {order.id_number || 'N/A'} • Email: {order.email}
+                              </p>
+                            </div>
+                            <div className="text-left md:text-right">
+                              <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
+                              <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            {/* Research Metadata */}
+                            <div className="lg:col-span-8 space-y-3">
+                              {order.items?.map((item: any, idx: number) => {
+                                const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
+                                if (!isHardbound) return null;
+                                return (
+                                  <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                    <div className="flex items-center gap-2 text-purple-600 mb-2">
+                                      <BookOpen size={16} />
+                                      <span className="text-xs font-bold uppercase tracking-wider">Research Metadata</span>
+                                    </div>
+                                    <div className="space-y-2.5">
+                                      <div>
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Research Title</p>
+                                        <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                          {item.selectedOptions?.researchTitle || 'N/A'}
+                                        </p>
+                                      </div>
+                                      <div>
+                                        <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Lead Researcher</p>
+                                        <div className="flex items-center gap-1.5 mt-0.5">
+                                          <User size={14} className="text-slate-400" />
+                                          <p className="text-sm font-medium text-slate-800">
+                                            {item.selectedOptions?.leadResearcher || 'N/A'}
+                                          </p>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+
+                            {/* Payment Summary & Actions */}
+                            <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                              <div>
+                                <p className="text-xs text-slate-500 mb-1">Total Amount:</p>
+                                <p className="text-2xl font-bold text-slate-900 mb-2">
+                                  ₱{parseFloat(order.total_amount).toLocaleString()}
+                                </p>
+                                <div className="text-xs text-slate-500 font-medium">
+                                  Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
+                                  {order.payment_method === 'ewallet' && order.reference_number && (
+                                    <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
+                                  )}
+                                </div>
+                              </div>
+
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>

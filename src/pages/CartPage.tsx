@@ -169,6 +169,16 @@ export const CartPage: React.FC = () => {
                           <h3 className="text-sm sm:text-base md:text-lg font-bold text-slate-900 line-clamp-2 leading-snug">
                             {formatProductName(item.name, item.selectedOptions, item.price)}
                           </h3>
+                          {item.selectedOptions?.researchTitle && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Title: <span className="text-slate-800 font-semibold">{item.selectedOptions.researchTitle}</span>
+                            </p>
+                          )}
+                          {item.selectedOptions?.leadResearcher && (
+                            <p className="text-xs text-slate-500">
+                              Lead Researcher: <span className="text-slate-800 font-semibold">{item.selectedOptions.leadResearcher}</span>
+                            </p>
+                          )}
                           <p className="text-base sm:text-lg font-bold text-purple-600 mt-1">
                             ₱{item.price.toLocaleString('en-US', {
                               minimumFractionDigits: 2,
