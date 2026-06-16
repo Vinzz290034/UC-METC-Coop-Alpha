@@ -22,6 +22,7 @@ export const TransactionPage: React.FC = () => {
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [showReceiptActions, setShowReceiptActions] = useState<boolean>(true);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   // Balance payment modal state
@@ -766,29 +767,39 @@ export const TransactionPage: React.FC = () => {
                 <div className="flex space-x-2 mb-3">
                   <button
                     onClick={async () => {
+                      if (isUpdatingStatus) return;
                       try {
+                        setIsUpdatingStatus(true);
                         await AppDataSync.updateOrderStatus(selectedTransaction.id, 'completed', user.id);
                         setSelectedTransaction(null);
                       } catch (err: any) {
                         console.error('Failed to mark as paid:', err);
+                      } finally {
+                        setIsUpdatingStatus(false);
                       }
                     }}
-                    className="flex-1 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-all text-sm"
+                    disabled={isUpdatingStatus}
+                    className="flex-1 px-3 py-2 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm flex items-center justify-center gap-1"
                   >
-                    ✓ Mark as Paid
+                    ✓ {isUpdatingStatus ? 'Processing...' : 'Mark as Paid'}
                   </button>
                   <button
                     onClick={async () => {
+                      if (isUpdatingStatus) return;
                       try {
+                        setIsUpdatingStatus(true);
                         await AppDataSync.updateOrderStatus(selectedTransaction.id, 'cancelled', user.id);
                         setSelectedTransaction(null);
                       } catch (err: any) {
                         console.error('Failed to cancel order:', err);
+                      } finally {
+                        setIsUpdatingStatus(false);
                       }
                     }}
-                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all text-sm"
+                    disabled={isUpdatingStatus}
+                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm flex items-center justify-center gap-1"
                   >
-                    ✕ Cancel Order
+                    ✕ {isUpdatingStatus ? 'Processing...' : 'Cancel Order'}
                   </button>
                 </div>
               )}
@@ -804,17 +815,21 @@ export const TransactionPage: React.FC = () => {
                   </button>
                   <button
                     onClick={async () => {
-                      if (!user?.id) return;
+                      if (!user?.id || isUpdatingStatus) return;
                       try {
+                        setIsUpdatingStatus(true);
                         await AppDataSync.cancelOrderForUser(selectedTransaction.id, user.id);
                         setSelectedTransaction(null);
                       } catch (err: any) {
                         console.error('Failed to cancel order:', err);
+                      } finally {
+                        setIsUpdatingStatus(false);
                       }
                     }}
-                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all text-sm"
+                    disabled={isUpdatingStatus}
+                    className="flex-1 px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-all text-sm flex items-center justify-center gap-1"
                   >
-                    ✕ Cancel Order
+                    ✕ {isUpdatingStatus ? 'Processing...' : 'Cancel Order'}
                   </button>
                 </div>
               )}

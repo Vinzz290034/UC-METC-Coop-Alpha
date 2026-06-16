@@ -6,7 +6,7 @@ import { AppDataSync } from '../store/appDataSync';
 import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
-import { formatNamePart, formatFullName } from '../utils/nameFormatter';
+import { formatFullName } from '../utils/nameFormatter';
 
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -109,6 +109,7 @@ export const SalesPage: React.FC = () => {
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
   const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
     const d = new Date();
@@ -1851,7 +1852,9 @@ export const SalesPage: React.FC = () => {
                 <div className="flex gap-3 pt-2">
                   <button
                     onClick={async () => {
+                      if (isUpdatingStatus) return;
                       try {
+                        setIsUpdatingStatus(true);
                         await AppDataSync.updateOrderStatus(selectedPendingOrder.id, 'completed', user?.id || '');
                         await AppDataSync.loadProductsFromAPI();
                         await loadPendingOrders();
@@ -1860,27 +1863,35 @@ export const SalesPage: React.FC = () => {
                         showNotification('Order marked as paid! Stock updated.', 'success');
                       } catch (err) {
                         showNotification('Failed to mark order as paid. Please try again.', 'error');
+                      } finally {
+                        setIsUpdatingStatus(false);
                       }
                     }}
-                    className="flex-1 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 text-white font-semibold transition-colors flex items-center justify-center gap-2"
+                    disabled={isUpdatingStatus}
+                    className="flex-1 px-4 py-3 rounded-lg bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center justify-center gap-2"
                   >
                     <CheckCircle size={18} />
-                    Paid
+                    {isUpdatingStatus ? 'Processing...' : 'Paid'}
                   </button>
                   <button
                     onClick={async () => {
+                      if (isUpdatingStatus) return;
                       try {
+                        setIsUpdatingStatus(true);
                         await AppDataSync.updateOrderStatus(selectedPendingOrder.id, 'cancelled', user?.id || '');
                         await loadPendingOrders();
                         setSelectedPendingOrder(null);
                         showNotification('Order cancelled successfully!', 'success');
                       } catch (err) {
                         showNotification('Failed to cancel order. Please try again.', 'error');
+                      } finally {
+                        setIsUpdatingStatus(false);
                       }
                     }}
-                    className="flex-1 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-colors"
+                    disabled={isUpdatingStatus}
+                    className="flex-1 px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold transition-colors flex items-center justify-center"
                   >
-                    Cancel
+                    {isUpdatingStatus ? 'Processing...' : 'Cancel'}
                   </button>
                 </div>
               </div>
@@ -3284,9 +3295,11 @@ export const SalesPage: React.FC = () => {
                                 ₱{preOrderTotal.toLocaleString()}
                               </p>
                               <button
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 transition-colors"
+                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                                 onClick={async () => {
+                                  if (isUpdatingStatus) return;
                                   try {
+                                    setIsUpdatingStatus(true);
                                     await AppDataSync.updateOrderStatus(order.id, 'released', user?.id || '');
                                     showNotification('Order marked as released!', 'success');
                                     // Reload all orders from API to get updated status
@@ -3296,10 +3309,13 @@ export const SalesPage: React.FC = () => {
                                   } catch (err) {
                                     console.error('Failed to mark order as released:', err);
                                     showNotification('Failed to mark order as released', 'error');
+                                  } finally {
+                                    setIsUpdatingStatus(false);
                                   }
                                 }}
+                                disabled={isUpdatingStatus}
                               >
-                                Mark as Released
+                                {isUpdatingStatus ? 'Processing...' : 'Mark as Released'}
                               </button>
                             </div>
                           </div>
