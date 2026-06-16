@@ -1010,7 +1010,7 @@ export const SalesPage: React.FC = () => {
           <table style="margin-bottom: 20px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
             <tr>
               <td colspan="5" style="font-size: 20px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
-                UC-METC Cooperative - ${title}
+                UC-METC Multipurpose Cooperative - ${title}
               </td>
             </tr>
             <tr>
@@ -1019,6 +1019,7 @@ export const SalesPage: React.FC = () => {
               </td>
             </tr>
             
+            ${cards.length > 0 ? `
             <tr style="height: 40px;">
               ${cards.map((card, i) => `
                 <td ${i === cards.length - 1 ? 'colspan="2"' : ''} style="background-color: ${card.bg}; border: 1px solid ${card.border}; padding: 10px; text-align: center; border-radius: 8px;">
@@ -1027,6 +1028,7 @@ export const SalesPage: React.FC = () => {
                 </td>
               `).join('')}
             </tr>
+            ` : ''}
           </table>
 
           <table style="border-collapse: collapse; border: 1px solid #cbd5e1;">
@@ -1610,109 +1612,87 @@ export const SalesPage: React.FC = () => {
           if (hardboundFilterDate && orderDateString !== hardboundFilterDate) return;
           
           rows.push({
-            receiptNo: order.receipt_no || 'N/A',
-            studentName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
-            idNumber: order.id_number || 'N/A',
             researchTitle: item.selectedOptions?.researchTitle || 'N/A',
-            leadResearcher: item.selectedOptions?.leadResearcher || 'N/A',
-            amount: parseFloat(order.total_amount || 0),
-            paymentMethod: formatPaymentMethod(order.payment_method),
-            status: (order.status || '').toUpperCase(),
-            orderDate: orderDateObj.toLocaleDateString()
+            leadResearcher: item.selectedOptions?.leadResearcher || 'N/A'
           });
         });
       });
 
-      const tableHeader = `
-        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Student Name</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Student ID</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Research Title</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Lead Researcher</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Total Amount</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Method</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Status</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Order Date</th>
-        </tr>
-      `;
-
-      const tableRows = rows.map((row, index) => {
-        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const tableRows = rows.map((row) => {
         return `
-          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; font-weight: bold; color: #1e293b;">${row.receiptNo}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.studentName}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.idNumber}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #1e293b;">${row.researchTitle}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; color: #475569;">${row.leadResearcher}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: 600; color: ${row.status === 'RELEASED' ? '#6b21a8' : '#047857'};">${row.status}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.orderDate}</td>
+          <tr style="height: 30px;">
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000; font-weight: bold;">${row.leadResearcher}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000;">${row.researchTitle}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
           </tr>
         `;
       }).join('');
 
-      // Group by orderDate to count daily purchases
-      const dailyCounts: { [date: string]: number } = {};
-      rows.forEach(row => {
-        const dateStr = row.orderDate;
-        dailyCounts[dateStr] = (dailyCounts[dateStr] || 0) + 1;
-      });
-
-      // Sort dates descending
-      const sortedDailyCounts = Object.entries(dailyCounts).sort((a, b) => {
-        return new Date(b[0]).getTime() - new Date(a[0]).getTime();
-      });
-
-      const summaryRows = sortedDailyCounts.map(([date, count], index) => {
-        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-        return `
-          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${date}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #6d28d9;">${count}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const combinedRows = `${tableRows}
-        </tbody>
-        </table>
-        
-        <table style="margin-top: 30px; margin-bottom: 10px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
-          <tr>
-            <td colspan="2" style="font-size: 16px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
-              Daily Purchase Summary
-            </td>
-          </tr>
-        </table>
-        
-        <table style="border-collapse: collapse; border: 1px solid #cbd5e1; width: 300px;">
-          <thead>
-            <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
-              <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">Purchase Date</th>
-              <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 150px;">Purchasers Count</th>
+      const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Hardbound Log</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+        </head>
+        <body style="font-family: Arial, sans-serif;">
+          <table style="width: 100%; border: none; margin-bottom: 20px;">
+            <tr>
+              <td rowspan="3" style="width: 70px; text-align: center; vertical-align: middle; font-family: Arial, sans-serif;">
+                =IMAGE("https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Coop_tfalpj.jpg")
+              </td>
+              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-align: center; color: #000000; padding: 2px 0;">
+                University of Cebu - METC Multipurpose Cooperative (UC-METC MPC)
+              </td>
+              <td rowspan="3" style="width: 70px; text-align: center; vertical-align: middle; font-family: Arial, sans-serif;">
+                =IMAGE("https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Coop_tfalpj.jpg")
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            ${summaryRows}
+            <tr>
+              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0;">
+                UCMETC Campus Alumnos, Mambaling, Cebu City
+              </td>
+            </tr>
+            <tr>
+              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0; padding-bottom: 20px;">
+                ucmetc.ecc@gmail.com tel no. 410-8811 local 5155
+              </td>
+            </tr>
+          </table>
+
+          <table style="border-collapse: collapse; border: 1px solid #cbd5e1; width: 100%;">
+            <thead>
+              <tr style="height: 35px; background-color: #6d28d9;">
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 200px; color: #ffffff; background-color: #6d28d9;">LEAD RESERACHER</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 380px; color: #ffffff; background-color: #6d28d9;">RESEARCH TITLE</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE&SIGNATURE<br/>(SERVICE PROVIDER)</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE RECEIVED FROM<br/>SERVICE PROVIDER</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE&SIGNATURE<br/>(ENDORSEMENT TO RO)</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 100px; color: #ffffff; background-color: #6d28d9;">REMARKS</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </body>
+        </html>
       `;
-
-      const totalRevenueVal = rows.reduce((sum, r) => sum + r.amount, 0);
-
-      const htmlContent = getExcelHtmlWrapper(
-        'Hardbound Research Orders Report',
-        hardboundFilterDate
-          ? `Filtered for date: ${new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'long' })}`
-          : 'All completed Hardbound book orders and research metadata',
-        [
-          { label: 'Total Revenue', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
-          { label: 'Books Ordered', value: rows.length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' }
-        ],
-        tableHeader,
-        combinedRows
-      );
 
       const fileDateSuffix = hardboundFilterDate ? hardboundFilterDate : formatLocalDate(new Date());
       triggerExcelDownload(htmlContent, `hardbound_research_orders_${fileDateSuffix}`);
@@ -1845,7 +1825,7 @@ export const SalesPage: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Hardbound ({hardboundOrders.length})
+              Hardbound
             </button>
           </div>
         </div>
