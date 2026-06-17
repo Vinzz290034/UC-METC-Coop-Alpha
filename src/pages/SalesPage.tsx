@@ -1618,11 +1618,12 @@ export const SalesPage: React.FC = () => {
         });
       });
 
-      const tableRows = rows.map((row) => {
+      const tableRows = rows.map((row, index) => {
         return `
           <tr style="height: 30px;">
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; text-align: center; padding: 6px; color: #000000;">${index + 1}</td>
             <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000; font-weight: bold;">${row.leadResearcher}</td>
-            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000;">${row.researchTitle}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000; white-space: normal; word-wrap: break-word; word-break: break-word; overflow: hidden;">${row.researchTitle}</td>
             <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
             <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
             <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px;"></td>
@@ -1653,23 +1654,17 @@ export const SalesPage: React.FC = () => {
         <body style="font-family: Arial, sans-serif;">
           <table style="width: 100%; border: none; margin-bottom: 20px;">
             <tr>
-              <td rowspan="3" style="width: 70px; text-align: center; vertical-align: middle; font-family: Arial, sans-serif;">
-                =IMAGE("https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Coop_tfalpj.jpg")
-              </td>
-              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-align: center; color: #000000; padding: 2px 0;">
+              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-align: center; color: #000000; padding: 2px 0;">
                 University of Cebu - METC Multipurpose Cooperative (UC-METC MPC)
-              </td>
-              <td rowspan="3" style="width: 70px; text-align: center; vertical-align: middle; font-family: Arial, sans-serif;">
-                =IMAGE("https://res.cloudinary.com/doas4qcdo/image/upload/v1779411919/Coop_tfalpj.jpg")
               </td>
             </tr>
             <tr>
-              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0;">
+              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0;">
                 UCMETC Campus Alumnos, Mambaling, Cebu City
               </td>
             </tr>
             <tr>
-              <td colspan="4" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0; padding-bottom: 20px;">
+              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0; padding-bottom: 20px;">
                 ucmetc.ecc@gmail.com tel no. 410-8811 local 5155
               </td>
             </tr>
@@ -1678,8 +1673,9 @@ export const SalesPage: React.FC = () => {
           <table style="border-collapse: collapse; border: 1px solid #cbd5e1; width: 100%;">
             <thead>
               <tr style="height: 35px; background-color: #6d28d9;">
-                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 200px; color: #ffffff; background-color: #6d28d9;">LEAD RESERACHER</th>
-                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 380px; color: #ffffff; background-color: #6d28d9;">RESEARCH TITLE</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 45px; color: #ffffff; background-color: #6d28d9;">NO.</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 180px; color: #ffffff; background-color: #6d28d9;">LEAD RESERACHER</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 350px; color: #ffffff; background-color: #6d28d9;">RESEARCH TITLE</th>
                 <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE&SIGNATURE<br/>(SERVICE PROVIDER)</th>
                 <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE RECEIVED FROM<br/>SERVICE PROVIDER</th>
                 <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 140px; color: #ffffff; background-color: #6d28d9;">DATE&SIGNATURE<br/>(ENDORSEMENT TO RO)</th>
