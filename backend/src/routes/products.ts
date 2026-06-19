@@ -39,11 +39,11 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create product
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { id, name, category, price, stock, sku, note, options, variants, allowPreorder } = req.body;
+    const { id, name, category, price, stock, sku, note, options, variants, allowPreorder, image } = req.body;
     
     const result = await pool.query(
-      `INSERT INTO products (id, name, category, price, stock, sku, note, options, variants, allow_preorder, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `INSERT INTO products (id, name, category, price, stock, sku, note, options, variants, allow_preorder, image, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
       [
         id, 
@@ -55,7 +55,8 @@ router.post('/', async (req: Request, res: Response) => {
         note, 
         options ? JSON.stringify(options) : null, 
         variants ? JSON.stringify(variants) : null,
-        allowPreorder !== false
+        allowPreorder !== false,
+        image || null
       ]
     );
     
@@ -74,7 +75,7 @@ router.post('/', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { name, category, price, stock, sku, note, options, variants, allowPreorder } = req.body;
+    const { name, category, price, stock, sku, note, options, variants, allowPreorder, image } = req.body;
     
     const result = await pool.query(
       `UPDATE products 
@@ -87,8 +88,9 @@ router.put('/:id', async (req: Request, res: Response) => {
            options = COALESCE($7, options),
            variants = COALESCE($8, variants),
            allow_preorder = COALESCE($9, allow_preorder),
+           image = COALESCE($10, image),
            updated_at = CURRENT_TIMESTAMP
-       WHERE id = $10
+       WHERE id = $11
        RETURNING *`,
       [
         name, 
@@ -100,6 +102,7 @@ router.put('/:id', async (req: Request, res: Response) => {
         options ? JSON.stringify(options) : null, 
         variants ? JSON.stringify(variants) : null, 
         allowPreorder, 
+        image || null,
         id
       ]
     );

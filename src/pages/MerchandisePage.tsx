@@ -304,8 +304,22 @@ export const MerchandisePage: React.FC = () => {
   };
 
   // Function to get the current selected price based on the selected option
-  // Function to get the current selected price based on the selected option
   const getSelectedPrice = (product: Product, selectedOpts: Record<string, string>): number | null => {
+    // 1. First, check if there is a specific variant price defined in product.variants
+    if (product.variants && Object.keys(product.variants).length > 0 && product.options && product.options.length > 0) {
+      const allOptionsSelected = product.options.every(opt => selectedOpts[opt.id]);
+      if (allOptionsSelected) {
+        const variantKey = Object.entries(selectedOpts)
+          .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+          .map(([key, value]) => `${key}:${value}`)
+          .join('|');
+        const variant = product.variants[variantKey];
+        if (variant && (variant as any).price && (variant as any).price > 0) {
+          return (variant as any).price;
+        }
+      }
+    }
+
     if (!product.options || product.options.length === 0) return null;
     
     const isMember = user?.membership_status === 'approved';
@@ -321,6 +335,40 @@ export const MerchandisePage: React.FC = () => {
 
   // Function to get the appropriate image based on selected course
   const getProductImage = (product: Product, selectedOpts: Record<string, string>) => {
+    // 1. First, check if there is a specific variant image defined in product.variants
+    if (product.variants && Object.keys(product.variants).length > 0) {
+      // Try to find an exact match if all options are selected
+      if (product.options && product.options.length > 0) {
+        const allOptionsSelected = product.options.every(opt => selectedOpts[opt.id]);
+        if (allOptionsSelected) {
+          const variantKey = Object.entries(selectedOpts)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+            .map(([key, value]) => `${key}:${value}`)
+            .join('|');
+          const variant = product.variants[variantKey];
+          if (variant && (variant as any).image) {
+            return (variant as any).image;
+          }
+        }
+      }
+      
+      // If not all options are selected, find the first variant matching the selected options that has a custom image
+      if (selectedOpts && Object.keys(selectedOpts).length > 0) {
+        const matchingVariant = Object.entries(product.variants).find(([key, val]) => {
+          const parts = key.split('|').reduce((acc, part) => {
+            const [optId, optVal] = part.split(':');
+            if (optId && optVal) acc[optId] = optVal;
+            return acc;
+          }, {} as Record<string, string>);
+          
+          return Object.entries(selectedOpts).every(([selId, selVal]) => parts[selId] === selVal) && (val as any).image;
+        });
+        if (matchingVariant) {
+          return (matchingVariant[1] as any).image;
+        }
+      }
+    }
+
     // Products with variant images based on options
     if (product.name === 'Type A & B Uniform') {
       return typeABUniformImage;
@@ -342,12 +390,13 @@ export const MerchandisePage: React.FC = () => {
       return PRODUCT_IMAGES['Gala Bundle A']; // Default to Bundle A
     }
     
+
     if (product.name === 'Type C Uniform') {
       const courseOption = selectedOpts['course'];
       if (courseOption) {
         if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Type C-BSMT'];
         if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Type C-BSMARE'];
-        if (courseOption.includes('SHS')) return PRODUCT_IMAGES['Type C-SHS'];
+        if (courseOption.includes('SHS') || courseOption.includes('JHS')) return PRODUCT_IMAGES['Type C-SHS'];
       }
       return PRODUCT_IMAGES['Type C-BSMT']; // Default to BSMT
     }
@@ -357,7 +406,7 @@ export const MerchandisePage: React.FC = () => {
       if (courseOption) {
         if (courseOption.includes('BSMT')) return PRODUCT_IMAGES['Lanyard-BSMT'];
         if (courseOption.includes('BSMARE')) return PRODUCT_IMAGES['Lanyard-BSMARE'];
-        if (courseOption.includes('SHS')) return lanyardSHSImage;
+        if (courseOption.includes('SHS') || courseOption.includes('JHS')) return lanyardSHSImage;
         if (courseOption.includes('HM')) return PRODUCT_IMAGES['Lanyard-HM'];
         if (courseOption.includes('TM') || courseOption.includes('TOURISM')) return PRODUCT_IMAGES['Lanyard-TM'];
       }

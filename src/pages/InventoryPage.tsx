@@ -1,12 +1,183 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { AppDataSync } from '../store/appDataSync';
 import { FloatingInput } from '../components/FloatingInput';
 import { apiClient } from '../services/api';
 import type { Product, ItemType } from '../types';
+import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
+
+// Helper to resolve dynamic Cloudinary product images for display in admin inventory management
+const getInventoryProductImage = (productName: string, variantKey: string = '', customImage: string = ''): string => {
+  // If customImage is already a data URL, http URL, or file path, return it directly
+  if (customImage && (customImage.startsWith('data:') || customImage.startsWith('http') || customImage.includes('.'))) {
+    return customImage;
+  }
+
+  // Standardize product name search
+  const name = productName || '';
+
+  if (name === 'Type A & B Uniform') {
+    return PRODUCT_IMAGES['Type A & B Uniform'];
+  }
+  
+  if (name === 'Gala') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('bundle:bundle b')) return PRODUCT_IMAGES['Gala Bundle B'];
+    if (keyLower.includes('bundle:bundle c')) return PRODUCT_IMAGES['Gala Bundle C'];
+    if (keyLower.includes('bundle:bundle d')) return PRODUCT_IMAGES['Gala Bundle D'];
+    if (keyLower.includes('bundle:bundle e')) return PRODUCT_IMAGES['Gala Bundle E'];
+    if (keyLower.includes('bundle:bundle f')) return PRODUCT_IMAGES['Gala Bundle F'];
+    if (keyLower.includes('bundle:bundle g')) return PRODUCT_IMAGES['Gala Bundle G'];
+    if (keyLower.includes('bundle:bundle h')) return PRODUCT_IMAGES['Gala Bundle H'];
+    if (keyLower.includes('bundle:bundle i')) return PRODUCT_IMAGES['Gala Bundle I'];
+    return PRODUCT_IMAGES['Gala Bundle A'];
+  }
+  
+  if (name === 'Type C Uniform') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('course:bsmare')) return PRODUCT_IMAGES['Type C-BSMARE'];
+    if (keyLower.includes('course:shs')) return PRODUCT_IMAGES['Type C-SHS'];
+    return PRODUCT_IMAGES['Type C-BSMT']; // Default/BSMT
+  }
+  
+  if (name === 'Lanyard') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('course:bsmare')) return PRODUCT_IMAGES['Lanyard-BSMARE'];
+    if (keyLower.includes('course:shs')) return PRODUCT_IMAGES['Lanyard-SHS'];
+    if (keyLower.includes('course:hm')) return PRODUCT_IMAGES['Lanyard-HM'];
+    if (keyLower.includes('course:tm') || keyLower.includes('tourism')) return PRODUCT_IMAGES['Lanyard-TM'];
+    return PRODUCT_IMAGES['Lanyard-BSMT'];
+  }
+  
+  if (name === 'Hard Hat') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('color:blue')) return PRODUCT_IMAGES['Hardhat-Blue'];
+    return PRODUCT_IMAGES['Hardhat-Yellow'];
+  }
+  
+  if (name === 'Pershing Cap') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('course:bsmare')) return PRODUCT_IMAGES['Pershing Cap BSMARE'];
+    return PRODUCT_IMAGES['Pershing Cap'];
+  }
+  
+  if (name === 'Cover All') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('color:blue')) return PRODUCT_IMAGES['Cover All BLUE'];
+    return PRODUCT_IMAGES['Coverall'];
+  }
+  
+  if (name === 'Belt') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('color:white')) return PRODUCT_IMAGES['White Belt'];
+    return PRODUCT_IMAGES['Black Belt'];
+  }
+  
+  if (name === 'Shoulder Board') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('course:bsmare')) return PRODUCT_IMAGES['Shoulder board 1'];
+    return PRODUCT_IMAGES['Shoulder board 2'];
+  }
+  
+  if (name === 'ROTC Manual') {
+    const keyLower = variantKey.toLowerCase();
+    if (keyLower.includes('part:part 1')) return PRODUCT_IMAGES['ROTC Manual Part 1'];
+    return PRODUCT_IMAGES['ROTC Manual'];
+  }
+  
+  if (name === 'BSNAME Uniform') return PRODUCT_IMAGES['BSNAME Uniform'];
+  if (name === 'ID Case') return PRODUCT_IMAGES['ID Case'];
+  if (name === 'Handbag') return PRODUCT_IMAGES['Handbag'];
+  if (name === 'Hard Bound') return PRODUCT_IMAGES['Hardbound'];
+  if (name === 'Safety Shoes') return PRODUCT_IMAGES['Safety Shoes'];
+  if (name === 'Gloves') return PRODUCT_IMAGES['Gloves'];
+  if (name === 'PE Tshirt') return PRODUCT_IMAGES['PE Shirt'];
+  if (name === 'PE Pants') return PRODUCT_IMAGES['PE Pants'];
+  if (name === 'Plotting Sheet') return PRODUCT_IMAGES['Plotting Sheet'];
+  if (name === 'PE Short') return PRODUCT_IMAGES['PE Shorts'];
+  if (name === 'Swimming Set') return PRODUCT_IMAGES['Swimming Trunks'];
+  if (name === 'Swimming Cap') return PRODUCT_IMAGES['Cap'];
+  if (name === 'CWTS Shirt') return PRODUCT_IMAGES['CWTS Shirt'];
+  if (name === 'White Shoes') return PRODUCT_IMAGES['White Shoes '];
+  if (name === 'Safety Goggles') return PRODUCT_IMAGES['Goggles'];
+  if (name === 'Rope') return PRODUCT_IMAGES['Rope'];
+
+  return customImage;
+};
+
+// Helper to get preset variant options based on product name
+const getPresetOptions = (productName: string) => {
+  const name = productName || '';
+  if (name === 'Type C Uniform') {
+    return [
+      { label: 'BSMT', value: PRODUCT_IMAGES['Type C-BSMT'] },
+      { label: 'BSMARE', value: PRODUCT_IMAGES['Type C-BSMARE'] },
+      { label: 'SHS', value: PRODUCT_IMAGES['Type C-SHS'] },
+    ];
+  }
+  if (name === 'Lanyard') {
+    return [
+      { label: 'BSMT', value: PRODUCT_IMAGES['Lanyard-BSMT'] },
+      { label: 'BSMARE', value: PRODUCT_IMAGES['Lanyard-BSMARE'] },
+      { label: 'SHS', value: PRODUCT_IMAGES['Lanyard-SHS'] },
+      { label: 'HM', value: PRODUCT_IMAGES['Lanyard-HM'] },
+      { label: 'TM', value: PRODUCT_IMAGES['Lanyard-TM'] },
+    ];
+  }
+  if (name === 'Hard Hat') {
+    return [
+      { label: 'Yellow', value: PRODUCT_IMAGES['Hardhat-Yellow'] },
+      { label: 'Blue', value: PRODUCT_IMAGES['Hardhat-Blue'] },
+    ];
+  }
+  if (name === 'Pershing Cap') {
+    return [
+      { label: 'BSMT', value: PRODUCT_IMAGES['Pershing Cap'] },
+      { label: 'BSMARE', value: PRODUCT_IMAGES['Pershing Cap BSMARE'] },
+    ];
+  }
+  if (name === 'Cover All') {
+    return [
+      { label: 'Orange', value: PRODUCT_IMAGES['Coverall'] },
+      { label: 'Blue', value: PRODUCT_IMAGES['Cover All BLUE'] },
+    ];
+  }
+  if (name === 'Belt') {
+    return [
+      { label: 'Black', value: PRODUCT_IMAGES['Black Belt'] },
+      { label: 'White', value: PRODUCT_IMAGES['White Belt'] },
+    ];
+  }
+  if (name === 'Shoulder Board') {
+    return [
+      { label: 'BSMT', value: PRODUCT_IMAGES['Shoulder board 2'] },
+      { label: 'BSMARE', value: PRODUCT_IMAGES['Shoulder board 1'] },
+    ];
+  }
+  if (name === 'ROTC Manual') {
+    return [
+      { label: 'Part 1', value: PRODUCT_IMAGES['ROTC Manual Part 1'] },
+      { label: 'Part 2', value: PRODUCT_IMAGES['ROTC Manual'] },
+    ];
+  }
+  if (name === 'Gala') {
+    return [
+      { label: 'Bundle A', value: PRODUCT_IMAGES['Gala Bundle A'] },
+      { label: 'Bundle B', value: PRODUCT_IMAGES['Gala Bundle B'] },
+      { label: 'Bundle C', value: PRODUCT_IMAGES['Gala Bundle C'] },
+      { label: 'Bundle D', value: PRODUCT_IMAGES['Gala Bundle D'] },
+      { label: 'Bundle E', value: PRODUCT_IMAGES['Gala Bundle E'] },
+      { label: 'Bundle F', value: PRODUCT_IMAGES['Gala Bundle F'] },
+      { label: 'Bundle G', value: PRODUCT_IMAGES['Gala Bundle G'] },
+      { label: 'Bundle H', value: PRODUCT_IMAGES['Gala Bundle H'] },
+      { label: 'Bundle I', value: PRODUCT_IMAGES['Gala Bundle I'] },
+    ];
+  }
+  return [];
+};
 
 export const InventoryPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -32,9 +203,12 @@ export const InventoryPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [variantStocks, setVariantStocks] = useState<Record<string, number>>({});
-  const [optionInputs, setOptionInputs] = useState<Record<string, string>>({});
+  const [variantPrices, setVariantPrices] = useState<Record<string, number>>({});
+  const [variantImages, setVariantImages] = useState<Record<string, string>>({});
+  const [newChoiceInputs, setNewChoiceInputs] = useState<Record<string, string>>({});
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; product: Product | null }>({ show: false, product: null });
   const [searchQuery, setSearchQuery] = useState('');
+  const [draggedOverChoice, setDraggedOverChoice] = useState<{ optionIndex: number; choiceIndex: number } | null>(null);
   
   // Stock Intake states
   const [stockIntakeRecords, setStockIntakeRecords] = useState<any[]>([]);
@@ -81,6 +255,8 @@ export const InventoryPage: React.FC = () => {
 
     const newCombinations = generateCombinations(editingProduct.options || []);
     const newVariantStocks: Record<string, number> = {};
+    const newVariantPrices: Record<string, number> = {};
+    const newVariantImages: Record<string, string> = {};
     
     newCombinations.forEach((combo: Record<string, string>) => {
       const variantKey = Object.entries(combo)
@@ -88,24 +264,18 @@ export const InventoryPage: React.FC = () => {
         .map(([key, val]) => `${key}:${val}`)
         .join('|');
       
-      // If we already have stock for this exact key, keep it!
+      // Sync Stocks
       if (variantStocks[variantKey] !== undefined) {
         newVariantStocks[variantKey] = variantStocks[variantKey];
       } else {
-        // Otherwise, try to find an old key that is a subset of this new key, or vice-versa!
         const newKeyParts = variantKey.split('|');
-        
         const matchingOldKey = Object.keys(variantStocks).find(oldKey => {
           const oldKeyParts = oldKey.split('|');
-          // Check if all parts of oldKey are in newKeyParts
           return oldKeyParts.every(part => newKeyParts.includes(part));
         });
-        
         if (matchingOldKey !== undefined) {
           newVariantStocks[variantKey] = variantStocks[matchingOldKey];
         } else {
-          // If no matching subset, but there's a simple product stock or previous variant, try to fallback
-          // E.g. if we are converting from a simple product to a variant product, use editingProduct.stock
           if (Object.keys(variantStocks).length === 0) {
             newVariantStocks[variantKey] = editingProduct.stock || 0;
           } else {
@@ -113,14 +283,50 @@ export const InventoryPage: React.FC = () => {
           }
         }
       }
+
+      // Sync Prices
+      if (variantPrices[variantKey] !== undefined) {
+        newVariantPrices[variantKey] = variantPrices[variantKey];
+      } else {
+        const newKeyParts = variantKey.split('|');
+        const matchingOldKey = Object.keys(variantPrices).find(oldKey => {
+          const oldKeyParts = oldKey.split('|');
+          return oldKeyParts.every(part => newKeyParts.includes(part));
+        });
+        if (matchingOldKey !== undefined) {
+          newVariantPrices[variantKey] = variantPrices[matchingOldKey];
+        } else {
+          newVariantPrices[variantKey] = 0;
+        }
+      }
+
+      // Sync Images
+      if (variantImages[variantKey] !== undefined) {
+        newVariantImages[variantKey] = variantImages[variantKey];
+      } else {
+        const newKeyParts = variantKey.split('|');
+        const matchingOldKey = Object.keys(variantImages).find(oldKey => {
+          const oldKeyParts = oldKey.split('|');
+          return oldKeyParts.every(part => newKeyParts.includes(part));
+        });
+        if (matchingOldKey !== undefined) {
+          newVariantImages[variantKey] = variantImages[matchingOldKey];
+        } else {
+          newVariantImages[variantKey] = '';
+        }
+      }
     });
     
-    // Check if the stocks record has actually changed to prevent infinite loops
+    // Check if the records have actually changed to prevent infinite loops
     const hasChanged = Object.keys(newVariantStocks).length !== Object.keys(variantStocks).length ||
-      Object.keys(newVariantStocks).some(k => newVariantStocks[k] !== variantStocks[k]);
+      Object.keys(newVariantStocks).some(k => newVariantStocks[k] !== variantStocks[k]) ||
+      Object.keys(newVariantPrices).some(k => newVariantPrices[k] !== variantPrices[k]) ||
+      Object.keys(newVariantImages).some(k => newVariantImages[k] !== variantImages[k]);
       
     if (hasChanged) {
       setVariantStocks(newVariantStocks);
+      setVariantPrices(newVariantPrices);
+      setVariantImages(newVariantImages);
     }
   }, [editingProduct?.options, editingProduct?.stock]);
 
@@ -376,6 +582,146 @@ export const InventoryPage: React.FC = () => {
     allowPreorder: true,
   });
   const [newVariantStocks, setNewVariantStocks] = useState<Record<string, number>>({});
+  const [newProductVariantPrices, setNewProductVariantPrices] = useState<Record<string, number>>({});
+  const [newProductVariantImages, setNewProductVariantImages] = useState<Record<string, string>>({});
+
+  const handleAddChoiceEdit = (optionId: string, optionIndex: number) => {
+    const inputVal = (newChoiceInputs[optionId] || '').trim();
+    if (!inputVal) return;
+    
+    const option = editingProduct?.options?.[optionIndex];
+    if (!option) return;
+    
+    if (option.choices.includes(inputVal)) {
+      showNotification('Choice already exists', 'error');
+      return;
+    }
+    
+    const newOptions = [...(editingProduct.options || [])];
+    newOptions[optionIndex] = {
+      ...newOptions[optionIndex],
+      choices: [...newOptions[optionIndex].choices, inputVal]
+    };
+    
+    setEditingProduct({ ...editingProduct, options: newOptions });
+    setNewChoiceInputs(prev => ({ ...prev, [optionId]: '' }));
+  };
+
+  const handleRemoveChoiceEdit = (optionIndex: number, choiceIndex: number) => {
+    if (!editingProduct) return;
+    const option = editingProduct.options?.[optionIndex];
+    if (!option) return;
+    
+    const newOptions = [...(editingProduct.options || [])];
+    newOptions[optionIndex] = {
+      ...newOptions[optionIndex],
+      choices: option.choices.filter((_, idx) => idx !== choiceIndex)
+    };
+    
+    setEditingProduct({ ...editingProduct, options: newOptions });
+  };
+
+  const handleAddChoiceAdd = (optionId: string, optionIndex: number) => {
+    const inputVal = (newChoiceInputs[optionId] || '').trim();
+    if (!inputVal) return;
+    
+    const option = formData.options?.[optionIndex];
+    if (!option) return;
+    
+    if (option.choices.includes(inputVal)) {
+      showNotification('Choice already exists', 'error');
+      return;
+    }
+    
+    const newOptions = [...(formData.options || [])];
+    newOptions[optionIndex] = {
+      ...newOptions[optionIndex],
+      choices: [...newOptions[optionIndex].choices, inputVal]
+    };
+    
+    setFormData({ ...formData, options: newOptions });
+    setNewChoiceInputs(prev => ({ ...prev, [optionId]: '' }));
+    setNewVariantStocks({});
+    setNewProductVariantPrices({});
+    setNewProductVariantImages({});
+  };
+
+  const handleRemoveChoiceAdd = (optionIndex: number, choiceIndex: number) => {
+    const option = formData.options?.[optionIndex];
+    if (!option) return;
+    
+    const newOptions = [...(formData.options || [])];
+    newOptions[optionIndex] = {
+      ...newOptions[optionIndex],
+      choices: option.choices.filter((_, idx) => idx !== choiceIndex)
+    };
+    
+    setFormData({ ...formData, options: newOptions });
+    setNewVariantStocks({});
+    setNewProductVariantPrices({});
+    setNewProductVariantImages({});
+  };
+
+  const handleDragStart = (e: React.DragEvent, optionIndex: number, choiceIndex: number) => {
+    e.dataTransfer.setData('text/plain', JSON.stringify({ optionIndex, choiceIndex }));
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent, targetOptionIndex: number, targetChoiceIndex: number, isEditMode: boolean) => {
+    e.preventDefault();
+    setDraggedOverChoice(null);
+    try {
+      const dataStr = e.dataTransfer.getData('text/plain');
+      if (!dataStr) return;
+      const { optionIndex: sourceOptionIndex, choiceIndex: sourceChoiceIndex } = JSON.parse(dataStr);
+      
+      // Only allow dragging within the same option row
+      if (sourceOptionIndex !== targetOptionIndex) return;
+      if (sourceChoiceIndex === targetChoiceIndex) return;
+      
+      if (isEditMode) {
+        if (!editingProduct) return;
+        const option = editingProduct.options?.[targetOptionIndex];
+        if (!option) return;
+        
+        const newChoices = [...option.choices];
+        const [movedChoice] = newChoices.splice(sourceChoiceIndex, 1);
+        newChoices.splice(targetChoiceIndex, 0, movedChoice);
+        
+        const newOptions = [...(editingProduct.options || [])];
+        newOptions[targetOptionIndex] = {
+          ...newOptions[targetOptionIndex],
+          choices: newChoices
+        };
+        
+        setEditingProduct({ ...editingProduct, options: newOptions });
+      } else {
+        const option = formData.options?.[targetOptionIndex];
+        if (!option) return;
+        
+        const newChoices = [...option.choices];
+        const [movedChoice] = newChoices.splice(sourceChoiceIndex, 1);
+        newChoices.splice(targetChoiceIndex, 0, movedChoice);
+        
+        const newOptions = [...(formData.options || [])];
+        newOptions[targetOptionIndex] = {
+          ...newOptions[targetOptionIndex],
+          choices: newChoices
+        };
+        
+        setFormData({ ...formData, options: newOptions });
+        setNewVariantStocks({});
+        setNewProductVariantPrices({});
+        setNewProductVariantImages({});
+      }
+    } catch (err) {
+      console.error('Drag drop error:', err);
+    }
+  };
 
   const handleAddProduct = async () => {
     // Validation
@@ -462,7 +808,7 @@ export const InventoryPage: React.FC = () => {
         const combinations = generateCombinations(formData.options);
         
         // Build variants object
-        const variants: Record<string, { stock: number; options: Record<string, string> }> = {};
+        const variants: Record<string, { stock: number; options: Record<string, string>; price?: number; image?: string }> = {};
         combinations.forEach((combo: Record<string, string>) => {
           const variantKey = Object.entries(combo)
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -471,7 +817,9 @@ export const InventoryPage: React.FC = () => {
           
           variants[variantKey] = {
             stock: newVariantStocks[variantKey] || 0,
-            options: combo
+            options: combo,
+            price: newProductVariantPrices[variantKey] || undefined,
+            image: newProductVariantImages[variantKey] || undefined
           };
         });
 
@@ -497,6 +845,8 @@ export const InventoryPage: React.FC = () => {
         allowPreorder: true,
       });
       setNewVariantStocks({});
+      setNewProductVariantPrices({});
+      setNewProductVariantImages({});
       setShowForm(false);
       showNotification(`${formData.name} added successfully`, 'success');
     }
@@ -505,12 +855,8 @@ export const InventoryPage: React.FC = () => {
   const handleEditProduct = (product: Product) => {
     setEditingProduct({ ...product });
     
-    // Initialize option inputs state for perfect comma-separated list typing
-    const inputs: Record<string, string> = {};
-    product.options?.forEach(opt => {
-      inputs[opt.id] = opt.choices.join(', ');
-    });
-    setOptionInputs(inputs);
+    // Clear choice inputs state
+    setNewChoiceInputs({});
 
     // Initialize variant stocks from product data
     if (product.variants) {
@@ -520,8 +866,22 @@ export const InventoryPage: React.FC = () => {
           return acc;
         }, {} as Record<string, number>)
       );
+      setVariantPrices(
+        Object.entries(product.variants).reduce((acc, [key, variant]) => {
+          acc[key] = (variant as any).price || 0;
+          return acc;
+        }, {} as Record<string, number>)
+      );
+      setVariantImages(
+        Object.entries(product.variants).reduce((acc, [key, variant]) => {
+          acc[key] = (variant as any).image || '';
+          return acc;
+        }, {} as Record<string, string>)
+      );
     } else {
       setVariantStocks({});
+      setVariantPrices({});
+      setVariantImages({});
     }
     setShowEditModal(true);
   };
@@ -533,6 +893,7 @@ export const InventoryPage: React.FC = () => {
         note: editingProduct.note,
         options: editingProduct.options,
         allowPreorder: editingProduct.allowPreorder !== false,
+        image: editingProduct.image,
       };
 
       // If product has variants, save variant stocks
@@ -565,7 +926,7 @@ export const InventoryPage: React.FC = () => {
         const combinations = generateCombinations(editingProduct.options);
         
         // Build variants object from variantStocks state
-        const variants: Record<string, { stock: number; options: Record<string, string> }> = {};
+        const variants: Record<string, { stock: number; options: Record<string, string>; price?: number; image?: string }> = {};
         combinations.forEach((combo: Record<string, string>) => {
           const variantKey = Object.entries(combo)
             .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -574,7 +935,9 @@ export const InventoryPage: React.FC = () => {
           
           variants[variantKey] = {
             stock: variantStocks[variantKey] || 0,
-            options: combo
+            options: combo,
+            price: variantPrices[variantKey] || undefined,
+            image: variantImages[variantKey] || undefined
           };
         });
 
@@ -598,7 +961,9 @@ export const InventoryPage: React.FC = () => {
       setShowEditModal(false);
       setEditingProduct(null);
       setVariantStocks({});
-      setOptionInputs({});
+      setVariantPrices({});
+      setVariantImages({});
+      setNewChoiceInputs({});
     }
   };
 
@@ -835,9 +1200,11 @@ export const InventoryPage: React.FC = () => {
                         onChange={(e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            // For now, we'll store the file name as a placeholder
-                            // In a real implementation, you'd upload to a server or cloud storage
-                            setFormData({ ...formData, image: file.name });
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setFormData({ ...formData, image: reader.result as string });
+                            };
+                            reader.readAsDataURL(file);
                           }
                         }}
                         className="hidden"
@@ -859,11 +1226,25 @@ export const InventoryPage: React.FC = () => {
                           </p>
                         </div>
                       </label>
+
                       {formData.image && (
-                        <div className="mt-3 p-2 bg-purple-50 rounded-lg">
-                          <p className="text-sm text-purple-700 font-medium">
-                            Selected: {formData.image}
-                          </p>
+                        <div className="mt-3 p-3 bg-purple-50 rounded-lg flex items-center gap-3">
+                          <div className="w-12 h-12 bg-white rounded-lg border border-purple-200 overflow-hidden flex items-center justify-center flex-shrink-0 shadow-sm">
+                            {(() => {
+                              const resolvedImage = getInventoryProductImage(formData.name || '', '', formData.image);
+                              const isImageUrl = resolvedImage && (resolvedImage.startsWith('data:') || resolvedImage.startsWith('http') || resolvedImage.includes('.'));
+                              return isImageUrl ? (
+                                <img src={resolvedImage} alt="Main Preview" className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-2xl">{resolvedImage || '📦'}</span>
+                              );
+                            })()}
+                          </div>
+                          <div className="min-w-0 flex-1 text-left">
+                            <p className="text-xs text-purple-700 font-semibold truncate" title={formData.image.startsWith('data:') ? 'Uploaded custom image' : formData.image}>
+                              Selected: {formData.image.startsWith('data:') ? 'Uploaded Image' : formData.image}
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -959,22 +1340,70 @@ export const InventoryPage: React.FC = () => {
                               <X size={18} />
                             </button>
                           </div>
-                          <div className="flex items-center space-x-2">
-                            <input
-                              type="text"
-                              placeholder="Enter choices separated by commas (e.g., Small, Medium, Large)"
-                              value={option.choices.join(', ')}
-                              onChange={(e) => {
-                                const newOptions = [...(formData.options || [])];
-                                newOptions[optionIndex].choices = e.target.value
-                                  .split(',')
-                                  .map(c => c.trim())
-                                  .filter(c => c.length > 0);
-                                setFormData({ ...formData, options: newOptions });
-                                setNewVariantStocks({});
-                              }}
-                              className="flex-1 border border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all"
-                            />
+                          <div className="space-y-2">
+                            {/* Tags List */}
+                            <div className="flex flex-wrap gap-1.5 mb-2">
+                              {option.choices.map((choice, choiceIdx) => (
+                                <span 
+                                  key={choiceIdx} 
+                                  draggable={true}
+                                  onDragStart={(e) => handleDragStart(e, optionIndex, choiceIdx)}
+                                  onDragOver={(e) => handleDragOver(e)}
+                                  onDragEnter={() => setDraggedOverChoice({ optionIndex, choiceIndex: choiceIdx })}
+                                  onDragLeave={() => setDraggedOverChoice(null)}
+                                  onDragEnd={() => setDraggedOverChoice(null)}
+                                  onDrop={(e) => handleDrop(e, optionIndex, choiceIdx, false)}
+                                  className={`inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs pl-2 pr-1.5 py-1 rounded-full font-medium border transition-all duration-200 group cursor-grab active:cursor-grabbing ${
+                                    draggedOverChoice?.optionIndex === optionIndex && draggedOverChoice?.choiceIndex === choiceIdx
+                                      ? 'border-purple-600 border-dashed border-2 bg-purple-100/70 scale-105 shadow-sm'
+                                      : 'border-purple-200'
+                                  }`}
+                                >
+                                  <GripVertical size={11} className="text-purple-400 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" />
+                                  <span className="mr-1 select-none">{choice}</span>
+                                  <span className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveChoiceAdd(optionIndex, choiceIdx)}
+                                      className="text-purple-400 hover:text-red-600 transition-colors active:scale-75 cursor-pointer"
+                                      title="Remove choice"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </span>
+                                </span>
+                              ))}
+                              {option.choices.length === 0 && (
+                                <span className="text-[11px] text-slate-400 italic">No choices added yet.</span>
+                              )}
+                            </div>
+
+                            {/* Add Choice Input & Button */}
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                placeholder="Add a choice (e.g. BSMT (₱3,000))"
+                                value={newChoiceInputs[option.id] || ''}
+                                onChange={(e) => setNewChoiceInputs(prev => ({
+                                  ...prev,
+                                  [option.id]: e.target.value
+                                }))}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    e.preventDefault();
+                                    handleAddChoiceAdd(option.id, optionIndex);
+                                  }
+                                }}
+                                className="flex-1 border border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-slate-700 font-medium"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleAddChoiceAdd(option.id, optionIndex)}
+                                className="bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 font-bold px-3 py-1.5 rounded-lg border border-purple-200 text-xs transition-all active:scale-95 whitespace-nowrap"
+                              >
+                                + Add
+                              </button>
+                            </div>
                           </div>
                         </div>
                       ))}
@@ -989,74 +1418,249 @@ export const InventoryPage: React.FC = () => {
                 {/* Variant Stock Management */}
                 {formData.options && formData.options.length > 0 && formData.options.every(opt => opt.label && opt.choices.length > 0) && (
                   <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
-                    <h4 className="font-semibold text-slate-900 mb-3">Set Stock for Each Variant</h4>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {(() => {
-                        // Generate all variant combinations
-                        const generateCombinations = (options: any[]) => {
-                          if (options.length === 0) return [{}];
-                          if (options.length === 1) {
-                            return options[0].choices.map((choice: string) => ({
-                              [options[0].id]: choice  // Use id instead of label
-                            }));
-                          }
-                          
-                          const [first, ...rest] = options;
-                          const restCombinations = generateCombinations(rest);
-                          const combinations: any[] = [];
-                          
-                          first.choices.forEach((choice: string) => {
-                            restCombinations.forEach((restCombo: any) => {
-                              combinations.push({
-                                [first.id]: choice,  // Use id instead of label
-                                ...restCombo
+                    <h4 className="font-semibold text-slate-900 mb-3">Set stock, override price, and upload variant images:</h4>
+                    <div className="overflow-x-auto bg-white rounded-lg border border-slate-200 shadow-sm max-h-96 overflow-y-auto mb-3">
+                      <table className="w-full border-collapse text-left">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase bg-slate-100/80">
+                            <th className="p-3">Variant Combination</th>
+                            <th className="p-3 w-20 text-center">Stock</th>
+                            <th className="p-3 w-28 text-center">Price (₱)</th>
+                            <th className="p-3 w-48">Image Settings</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(() => {
+                            // Generate all variant combinations
+                            const generateCombinations = (options: any[]) => {
+                              if (options.length === 0) return [{}];
+                              if (options.length === 1) {
+                                return options[0].choices.map((choice: string) => ({
+                                  [options[0].id]: choice  // Use id instead of label
+                                }));
+                              }
+                              
+                              const [first, ...rest] = options;
+                              const restCombinations = generateCombinations(rest);
+                              const combinations: any[] = [];
+                              
+                              first.choices.forEach((choice: string) => {
+                                restCombinations.forEach((restCombo: any) => {
+                                  combinations.push({
+                                    [first.id]: choice,  // Use id instead of label
+                                    ...restCombo
+                                  });
+                                });
                               });
-                            });
-                          });
-                          
-                          return combinations;
-                        };
+                              
+                              return combinations;
+                            };
 
-                        const combinations = generateCombinations(formData.options || []);
-                        
-                        return combinations.map((combo: Record<string, string>, idx: number) => {
-                          const variantKey = Object.entries(combo)
-                            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                            .map(([key, val]) => `${key}:${val}`)
-                            .join('|');
-                          
-                          return (
-                            <div key={idx} className="bg-white rounded-lg p-3 border border-slate-200 flex items-center justify-between">
-                              <div className="flex-1">
-                                {Object.entries(combo).map(([key, value], i) => (
-                                  <span key={i} className="text-sm">
-                                    <span className="font-semibold text-slate-700">{key}:</span>{' '}
-                                    <span className="text-slate-600">{value}</span>
-                                    {i < Object.entries(combo).length - 1 && <span className="text-slate-400 mx-2">•</span>}
-                                  </span>
-                                ))}
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <label className="text-xs font-semibold text-slate-600">Stock:</label>
-                                <input
-                                  type="number"
-                                  placeholder="0"
-                                  value={newVariantStocks[variantKey] || 0}
-                                  onChange={(e) => {
-                                    const newStock = parseInt(e.target.value) || 0;
-                                    setNewVariantStocks(prev => ({
-                                      ...prev,
-                                      [variantKey]: newStock
-                                    }));
-                                  }}
-                                  className="w-24 px-3 py-1.5 border border-purple-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                  min="0"
-                                />
-                              </div>
-                            </div>
-                          );
-                        });
-                      })()}
+                            const combinations = generateCombinations(formData.options || []);
+                            
+                            return combinations.map((combo: Record<string, string>, idx: number) => {
+                              const variantKey = Object.entries(combo)
+                                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                                .map(([key, val]) => `${key}:${val}`)
+                                .join('|');
+                              
+                              const isBaseImage = !newProductVariantImages[variantKey];
+
+                              return (
+                                <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors text-xs">
+                                  <td className="p-3 font-medium text-slate-700">
+                                    <div className="flex flex-wrap gap-1">
+                                      {Object.entries(combo).map(([, value], i) => (
+                                        <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
+                                          {value}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </td>
+                                  <td className="p-2 text-center">
+                                    <input
+                                      type="number"
+                                      value={newVariantStocks[variantKey] || 0}
+                                      onChange={(e) => {
+                                        const newStock = parseInt(e.target.value) || 0;
+                                        setNewVariantStocks(prev => ({
+                                          ...prev,
+                                          [variantKey]: newStock
+                                        }));
+                                      }}
+                                      className="w-16 px-1.5 py-1 text-center border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 text-xs"
+                                      min="0"
+                                    />
+                                  </td>
+                                  <td className="p-2">
+                                    <input
+                                      type="number"
+                                      placeholder={formData.price?.toString() || '0'}
+                                      value={newProductVariantPrices[variantKey] || ''}
+                                      onChange={(e) => {
+                                        const newPrice = parseFloat(e.target.value) || 0;
+                                        setNewProductVariantPrices(prev => ({
+                                          ...prev,
+                                          [variantKey]: newPrice
+                                        }));
+                                      }}
+                                      className="w-full px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 text-xs"
+                                      min="0"
+                                      step="0.01"
+                                    />
+                                  </td>
+                                  <td className="p-2">
+                                    <div className="flex items-center gap-2">
+                                      {(() => {
+                                        const activeImage = isBaseImage ? formData.image : newProductVariantImages[variantKey];
+                                        const resolvedImage = getInventoryProductImage(formData.name || '', variantKey, activeImage);
+                                        const isImageUrl = resolvedImage && (resolvedImage.startsWith('data:') || resolvedImage.startsWith('http') || resolvedImage.includes('.'));
+                                        return (
+                                          <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden flex items-center justify-center bg-slate-50 flex-shrink-0 shadow-sm" title={isBaseImage ? "Using main product image" : "Custom variant image"}>
+                                            {resolvedImage ? (
+                                              isImageUrl ? (
+                                                <img src={resolvedImage} alt="Variant" className="w-full h-full object-cover" />
+                                              ) : (
+                                                <span className="text-base">{resolvedImage}</span>
+                                              )
+                                            ) : (
+                                              <Package className="w-4 h-4 text-slate-400" />
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                      {(() => {
+                                        const productName = formData.name || '';
+                                        const presets = getPresetOptions(productName);
+                                        const activeImage = newProductVariantImages[variantKey] || '';
+                                        
+                                        if (presets.length > 0) {
+                                          const currentVal = (() => {
+                                            if (activeImage && (activeImage.startsWith('data:') || activeImage === 'custom-image.png')) {
+                                              return 'custom';
+                                            }
+                                            const matchedPreset = presets.find(p => p.value === activeImage);
+                                            if (matchedPreset) return matchedPreset.value;
+                                            
+                                            if (!activeImage) {
+                                              const resolvedImage = getInventoryProductImage(productName, variantKey, '');
+                                              const matchedResolved = presets.find(p => p.value === resolvedImage);
+                                              if (matchedResolved) return matchedResolved.value;
+                                            }
+                                            return presets[0].value;
+                                          })();
+                                          const showUpload = currentVal === 'custom';
+
+                                          return (
+                                            <>
+                                              <select
+                                                value={currentVal}
+                                                onChange={(e) => {
+                                                  const selectVal = e.target.value;
+                                                  if (selectVal === 'custom') {
+                                                    setNewProductVariantImages(prev => ({ ...prev, [variantKey]: 'custom-image.png' }));
+                                                  } else {
+                                                    setNewProductVariantImages(prev => ({ ...prev, [variantKey]: selectVal }));
+                                                  }
+                                                }}
+                                                className="border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none text-[11px] text-slate-700"
+                                              >
+                                                {presets.map((preset, pIdx) => (
+                                                  <option key={pIdx} value={preset.value}>{preset.label}</option>
+                                                ))}
+                                                <option value="custom">Custom Image</option>
+                                              </select>
+                                              {showUpload && (
+                                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    id={`add-variant-upload-${idx}`}
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                      const file = e.target.files?.[0];
+                                                      if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                          setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                      }
+                                                    }}
+                                                  />
+                                                  <label
+                                                    htmlFor={`add-variant-upload-${idx}`}
+                                                    className="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-700 text-[10px] whitespace-nowrap active:scale-95 transition-all"
+                                                  >
+                                                    Upload
+                                                  </label>
+                                                  <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={activeImage.startsWith('data:') ? 'Custom uploaded image' : activeImage}>
+                                                    {activeImage.startsWith('data:') ? 'Uploaded' : activeImage}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </>
+                                          );
+                                        } else {
+                                          const isBaseImage = !activeImage;
+                                          return (
+                                            <>
+                                              <select
+                                                value={isBaseImage ? 'base' : 'custom'}
+                                                onChange={(e) => {
+                                                  const selectVal = e.target.value;
+                                                  if (selectVal === 'base') {
+                                                    setNewProductVariantImages(prev => ({ ...prev, [variantKey]: '' }));
+                                                  } else {
+                                                    setNewProductVariantImages(prev => ({ ...prev, [variantKey]: 'custom-image.png' }));
+                                                  }
+                                                }}
+                                                className="border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none text-[11px] text-slate-700"
+                                              >
+                                                <option value="base">Same as Product</option>
+                                                <option value="custom">Custom Image</option>
+                                              </select>
+                                              {!isBaseImage && (
+                                                <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                  <input
+                                                    type="file"
+                                                    accept="image/*"
+                                                    id={`add-variant-upload-${idx}`}
+                                                    className="hidden"
+                                                    onChange={(e) => {
+                                                      const file = e.target.files?.[0];
+                                                      if (file) {
+                                                        const reader = new FileReader();
+                                                        reader.onloadend = () => {
+                                                          setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                        };
+                                                        reader.readAsDataURL(file);
+                                                      }
+                                                    }}
+                                                  />
+                                                  <label
+                                                    htmlFor={`add-variant-upload-${idx}`}
+                                                    className="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-700 text-[10px] whitespace-nowrap active:scale-95 transition-all"
+                                                  >
+                                                    Upload
+                                                  </label>
+                                                  <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={activeImage.startsWith('data:') ? 'Custom uploaded image' : activeImage}>
+                                                    {activeImage.startsWith('data:') ? 'Uploaded' : activeImage}
+                                                  </span>
+                                                </div>
+                                              )}
+                                            </>
+                                          );
+                                        }
+                                      })()}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            });
+                          })()}
+                        </tbody>
+                      </table>
                     </div>
                     <div className="mt-3 p-3 bg-white border border-purple-300 rounded-lg">
                       <div className="flex items-center justify-between">
@@ -1871,6 +2475,61 @@ export const InventoryPage: React.FC = () => {
                     </p>
                   </div>
 
+                  {/* Product Image Editing */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">
+                      Product Image
+                    </label>
+                    <div className="flex items-center gap-3">
+                      {(() => {
+                        const resolvedImage = getInventoryProductImage(editingProduct.name, '', editingProduct.image);
+                        const isImageUrl = resolvedImage && (resolvedImage.startsWith('data:') || resolvedImage.startsWith('http') || resolvedImage.includes('.'));
+                        return (
+                          <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
+                            {resolvedImage ? (
+                              isImageUrl ? (
+                                <img src={resolvedImage} alt={editingProduct.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xl">{resolvedImage}</span>
+                              )
+                            ) : (
+                              <Package className="w-6 h-6 text-slate-400" />
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <div className="flex-1 relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setEditingProduct({ ...editingProduct, image: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="hidden"
+                          id="edit-product-image-upload"
+                        />
+                        <label
+                          htmlFor="edit-product-image-upload"
+                          className="cursor-pointer inline-flex items-center justify-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 hover:border-purple-400 transition-colors shadow-sm"
+                        >
+                          Change Product Image
+                        </label>
+                        {editingProduct.image && (
+                          <span className="text-[10px] text-slate-500 ml-2 block truncate max-w-[200px] mt-1" title={editingProduct.image.startsWith('data:') ? 'Uploaded custom image' : editingProduct.image}>
+                            Selected: {editingProduct.image.startsWith('data:') ? 'Uploaded Image' : editingProduct.image}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   {/* Pre-Order Toggle */}
                   <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -1945,7 +2604,7 @@ export const InventoryPage: React.FC = () => {
                                   onClick={() => {
                                     const newOptions = editingProduct.options?.filter((_, i) => i !== optionIndex) || [];
                                     setEditingProduct({ ...editingProduct, options: newOptions });
-                                    setOptionInputs(prev => {
+                                    setNewChoiceInputs(prev => {
                                       const next = { ...prev };
                                       delete next[option.id];
                                       return next;
@@ -1959,32 +2618,70 @@ export const InventoryPage: React.FC = () => {
                               </div>
                               <div>
                                 <label className="block text-xs font-semibold text-slate-500 mb-1">Option Choices</label>
-                                <input
-                                  type="text"
-                                  placeholder="Type choices separated by commas (e.g. Small, Medium, Large)"
-                                  value={optionInputs[option.id] !== undefined ? optionInputs[option.id] : option.choices.join(', ')}
-                                  onChange={(e) => {
-                                    const inputValue = e.target.value;
-                                    setOptionInputs(prev => ({
+                                
+                                {/* Tags List */}
+                                <div className="flex flex-wrap gap-1.5 mb-2">
+                                  {option.choices.map((choice, choiceIdx) => (
+                                    <span 
+                                      key={choiceIdx} 
+                                      draggable={true}
+                                      onDragStart={(e) => handleDragStart(e, optionIndex, choiceIdx)}
+                                      onDragOver={(e) => handleDragOver(e)}
+                                      onDragEnter={() => setDraggedOverChoice({ optionIndex, choiceIndex: choiceIdx })}
+                                      onDragLeave={() => setDraggedOverChoice(null)}
+                                      onDragEnd={() => setDraggedOverChoice(null)}
+                                      onDrop={(e) => handleDrop(e, optionIndex, choiceIdx, true)}
+                                      className={`inline-flex items-center gap-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs pl-2 pr-1.5 py-1 rounded-full font-medium border transition-all duration-200 group cursor-grab active:cursor-grabbing ${
+                                        draggedOverChoice?.optionIndex === optionIndex && draggedOverChoice?.choiceIndex === choiceIdx
+                                          ? 'border-purple-600 border-dashed border-2 bg-purple-100/70 scale-105 shadow-sm'
+                                          : 'border-purple-200'
+                                      }`}
+                                    >
+                                      <GripVertical size={11} className="text-purple-400 cursor-grab opacity-50 group-hover:opacity-100 transition-opacity" />
+                                      <span className="mr-1 select-none">{choice}</span>
+                                      <span className="flex items-center gap-0.5 opacity-60 group-hover:opacity-100 transition-opacity duration-200">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveChoiceEdit(optionIndex, choiceIdx)}
+                                          className="text-purple-400 hover:text-red-600 transition-colors active:scale-75 cursor-pointer"
+                                          title="Remove choice"
+                                        >
+                                          <X size={12} />
+                                        </button>
+                                      </span>
+                                    </span>
+                                  ))}
+                                  {option.choices.length === 0 && (
+                                    <span className="text-[11px] text-slate-400 italic">No choices added yet.</span>
+                                  )}
+                                </div>
+
+                                {/* Add Choice Input & Button */}
+                                <div className="flex gap-2">
+                                  <input
+                                    type="text"
+                                    placeholder="Add a choice (e.g. BSMT (₱3,000))"
+                                    value={newChoiceInputs[option.id] || ''}
+                                    onChange={(e) => setNewChoiceInputs(prev => ({
                                       ...prev,
-                                      [option.id]: inputValue
-                                    }));
-                                    
-                                    const parsedChoices = inputValue
-                                      .split(',')
-                                      .map(c => c.trim())
-                                      .filter(c => c.length > 0);
-                                      
-                                    const newOptions = [...(editingProduct.options || [])];
-                                    newOptions[optionIndex] = {
-                                      ...newOptions[optionIndex],
-                                      choices: parsedChoices
-                                    };
-                                    setEditingProduct({ ...editingProduct, options: newOptions });
-                                  }}
-                                  className="w-full border border-slate-200 hover:border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-slate-700"
-                                />
-                                <span className="text-[10px] text-slate-400 mt-1 block">Separating choices with commas automatically registers them.</span>
+                                      [option.id]: e.target.value
+                                    }))}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddChoiceEdit(option.id, optionIndex);
+                                      }
+                                    }}
+                                    className="flex-1 border border-slate-200 hover:border-purple-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-slate-700 font-medium"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddChoiceEdit(option.id, optionIndex)}
+                                    className="bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-800 font-bold px-3 py-1.5 rounded-lg border border-purple-200 text-xs transition-all active:scale-95 whitespace-nowrap"
+                                  >
+                                    + Add
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           ))}
@@ -2044,89 +2741,258 @@ export const InventoryPage: React.FC = () => {
                       </div>
                     </div>
                   ) : editingProduct.options && editingProduct.options.length > 0 ? (
-                    <div className="bg-slate-50 rounded-lg p-4 max-h-[500px] overflow-y-auto">
-                      <p className="text-sm text-slate-600 mb-4">
-                        Set individual stock quantities for each variant combination:
+                    <div className="bg-slate-50 rounded-lg p-4 max-h-[600px] overflow-y-auto border border-slate-200">
+                      <p className="text-xs font-semibold text-slate-600 mb-3">
+                        Set stock, override price, and upload variant images:
                       </p>
-                      
-                      {/* Generate all variant combinations */}
-                      {(() => {
-                        // Helper function to generate all combinations
-                        const generateCombinations = (options: any[]) => {
-                          if (options.length === 0) return [{}];
-                          if (options.length === 1) {
-                            return options[0].choices.map((choice: string) => ({
-                              [options[0].id]: choice  // Use id instead of label
-                            }));
-                          }
-                          
-                          const [first, ...rest] = options;
-                          const restCombinations = generateCombinations(rest);
-                          const combinations: any[] = [];
-                          
-                          first.choices.forEach((choice: string) => {
-                            restCombinations.forEach((restCombo: any) => {
-                              combinations.push({
-                                [first.id]: choice,  // Use id instead of label
-                                ...restCombo
-                              });
-                            });
-                          });
-                          
-                          return combinations;
-                        };
 
-                        const combinations = generateCombinations(editingProduct.options || []);
-                        
-                        return (
-                          <div className="space-y-3">
-                            {combinations.map((combo: Record<string, string>, idx: number) => {
-                              const variantKey = Object.entries(combo)
-                                .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                                .map(([key, val]) => `${key}:${val}`)
-                                .join('|');
-                              
-                              return (
-                                <div key={idx} className="bg-white rounded-lg p-3 border border-slate-200">
-                                  <div className="flex items-center justify-between mb-2">
-                                    <div className="flex-1">
-                                      {Object.entries(combo).map(([key, value], i) => (
-                                        <span key={i} className="text-sm">
-                                          <span className="font-semibold text-slate-700">{key}:</span>{' '}
-                                          <span className="text-slate-600">{value}</span>
-                                          {i < Object.entries(combo).length - 1 && <span className="text-slate-400 mx-2">•</span>}
-                                        </span>
-                                      ))}
-                                    </div>
-                                  </div>
-                                  <div className="flex items-center space-x-2">
-                                    <label className="text-xs font-semibold text-slate-600">Stock:</label>
-                                    <input
-                                      type="number"
-                                      placeholder="0"
-                                      value={variantStocks[variantKey] || 0}
-                                      onChange={(e) => {
-                                        const newStock = parseInt(e.target.value) || 0;
-                                        setVariantStocks(prev => ({
-                                          ...prev,
-                                          [variantKey]: newStock
-                                        }));
-                                      }}
-                                      className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                      min="0"
-                                    />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        );
-                      })()}
-                      
+                      {/* Generate all variant combinations in a table */}
+                      <div className="overflow-x-auto bg-white rounded-lg border border-slate-200 shadow-sm">
+                        <table className="w-full border-collapse text-left">
+                          <thead>
+                            <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase bg-slate-100/80">
+                              <th className="p-3">Variant Combination</th>
+                              <th className="p-3 w-20 text-center">Stock</th>
+                              <th className="p-3 w-28 text-center">Price (₱)</th>
+                              <th className="p-3 w-48">Image Settings</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              // Helper function to generate all combinations
+                              const generateCombinations = (options: any[]) => {
+                                if (options.length === 0) return [{}];
+                                if (options.length === 1) {
+                                  return options[0].choices.map((choice: string) => ({
+                                    [options[0].id]: choice
+                                  }));
+                                }
+                                
+                                const [first, ...rest] = options;
+                                const restCombinations = generateCombinations(rest);
+                                const combinations: any[] = [];
+                                
+                                first.choices.forEach((choice: string) => {
+                                  restCombinations.forEach((restCombo: any) => {
+                                    combinations.push({
+                                      [first.id]: choice,
+                                      ...restCombo
+                                    });
+                                  });
+                                });
+                                
+                                return combinations;
+                              };
+
+                              const combinations = generateCombinations(editingProduct.options || []);
+                              return combinations.map((combo: Record<string, string>, idx: number) => {
+                                const variantKey = Object.entries(combo)
+                                  .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+                                  .map(([key, val]) => `${key}:${val}`)
+                                  .join('|');
+                                
+                                const isBaseImage = !variantImages[variantKey];
+
+                                return (
+                                  <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors text-xs">
+                                    <td className="p-3 font-medium text-slate-700">
+                                      <div className="flex flex-wrap gap-1">
+                                        {Object.entries(combo).map(([, value], i) => (
+                                          <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
+                                            {value}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    </td>
+                                    <td className="p-2 text-center">
+                                      <input
+                                        type="number"
+                                        value={variantStocks[variantKey] || 0}
+                                        onChange={(e) => {
+                                          const newStock = parseInt(e.target.value) || 0;
+                                          setVariantStocks(prev => ({
+                                            ...prev,
+                                            [variantKey]: newStock
+                                          }));
+                                        }}
+                                        className="w-16 px-1.5 py-1 text-center border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 text-xs"
+                                        min="0"
+                                      />
+                                    </td>
+                                    <td className="p-2">
+                                      <input
+                                        type="number"
+                                        placeholder={editingProduct.price?.toString()}
+                                        value={variantPrices[variantKey] || ''}
+                                        onChange={(e) => {
+                                          const newPrice = parseFloat(e.target.value) || 0;
+                                          setVariantPrices(prev => ({
+                                            ...prev,
+                                            [variantKey]: newPrice
+                                          }));
+                                        }}
+                                        className="w-full px-2 py-1 border border-slate-300 rounded focus:outline-none focus:ring-1 focus:ring-purple-500 text-xs"
+                                        min="0"
+                                        step="0.01"
+                                      />
+                                    </td>
+                                         <td className="p-2">
+                                       <div className="flex items-center gap-2">
+                                         {(() => {
+                                           const activeImage = isBaseImage ? editingProduct.image : variantImages[variantKey];
+                                           const resolvedImage = getInventoryProductImage(editingProduct.name, variantKey, activeImage);
+                                           const isImageUrl = resolvedImage && (resolvedImage.startsWith('data:') || resolvedImage.startsWith('http') || resolvedImage.includes('.'));
+                                           return (
+                                             <div className="w-8 h-8 rounded border border-slate-200 overflow-hidden flex items-center justify-center bg-slate-50 flex-shrink-0 shadow-sm" title={isBaseImage ? "Using main product image" : "Custom variant image"}>
+                                               {resolvedImage ? (
+                                                 isImageUrl ? (
+                                                   <img src={resolvedImage} alt="Variant" className="w-full h-full object-cover" />
+                                                 ) : (
+                                                   <span className="text-base">{resolvedImage}</span>
+                                                 )
+                                               ) : (
+                                                 <Package className="w-4 h-4 text-slate-400" />
+                                               )}
+                                             </div>
+                                           );
+                                         })()}
+                                         {(() => {
+                                           const productName = editingProduct.name || '';
+                                           const presets = getPresetOptions(productName);
+                                           const activeImage = variantImages[variantKey] || '';
+
+                                           if (presets.length > 0) {
+                                             const currentVal = (() => {
+                                               if (activeImage && (activeImage.startsWith('data:') || activeImage === 'custom-image.png')) {
+                                                 return 'custom';
+                                               }
+                                               const matchedPreset = presets.find(p => p.value === activeImage);
+                                               if (matchedPreset) return matchedPreset.value;
+
+                                               if (!activeImage) {
+                                                 const resolvedImage = getInventoryProductImage(productName, variantKey, '');
+                                                 const matchedResolved = presets.find(p => p.value === resolvedImage);
+                                                 if (matchedResolved) return matchedResolved.value;
+                                               }
+                                               return presets[0].value;
+                                             })();
+                                             const showUpload = currentVal === 'custom';
+
+                                             return (
+                                               <>
+                                                 <select
+                                                   value={currentVal}
+                                                   onChange={(e) => {
+                                                     const selectVal = e.target.value;
+                                                     if (selectVal === 'custom') {
+                                                       setVariantImages(prev => ({ ...prev, [variantKey]: 'custom-image.png' }));
+                                                     } else {
+                                                       setVariantImages(prev => ({ ...prev, [variantKey]: selectVal }));
+                                                     }
+                                                   }}
+                                                   className="border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none text-[11px] text-slate-700"
+                                                 >
+                                                   {presets.map((preset, pIdx) => (
+                                                     <option key={pIdx} value={preset.value}>{preset.label}</option>
+                                                   ))}
+                                                   <option value="custom">Custom Image</option>
+                                                 </select>
+                                                 {showUpload && (
+                                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                     <input
+                                                       type="file"
+                                                       accept="image/*"
+                                                       id={`edit-variant-upload-${idx}`}
+                                                       className="hidden"
+                                                       onChange={(e) => {
+                                                         const file = e.target.files?.[0];
+                                                         if (file) {
+                                                           const reader = new FileReader();
+                                                           reader.onloadend = () => {
+                                                             setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                           };
+                                                           reader.readAsDataURL(file);
+                                                         }
+                                                       }}
+                                                     />
+                                                     <label
+                                                       htmlFor={`edit-variant-upload-${idx}`}
+                                                       className="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-700 text-[10px] whitespace-nowrap active:scale-95 transition-all"
+                                                     >
+                                                       Upload
+                                                     </label>
+                                                     <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={activeImage.startsWith('data:') ? 'Custom uploaded image' : activeImage}>
+                                                       {activeImage.startsWith('data:') ? 'Uploaded' : activeImage}
+                                                     </span>
+                                                   </div>
+                                                 )}
+                                               </>
+                                             );
+                                           } else {
+                                             const isBaseImage = !activeImage;
+                                             return (
+                                               <>
+                                                 <select
+                                                   value={isBaseImage ? 'base' : 'custom'}
+                                                   onChange={(e) => {
+                                                     const selectVal = e.target.value;
+                                                     if (selectVal === 'base') {
+                                                       setVariantImages(prev => ({ ...prev, [variantKey]: '' }));
+                                                     } else {
+                                                       setVariantImages(prev => ({ ...prev, [variantKey]: 'custom-image.png' }));
+                                                     }
+                                                   }}
+                                                   className="border border-slate-300 rounded px-1.5 py-1 bg-white focus:outline-none text-[11px] text-slate-700"
+                                                 >
+                                                   <option value="base">Same as Product</option>
+                                                   <option value="custom">Custom Image</option>
+                                                 </select>
+                                                 {!isBaseImage && (
+                                                   <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                     <input
+                                                       type="file"
+                                                       accept="image/*"
+                                                       id={`edit-variant-upload-${idx}`}
+                                                       className="hidden"
+                                                       onChange={(e) => {
+                                                         const file = e.target.files?.[0];
+                                                         if (file) {
+                                                           const reader = new FileReader();
+                                                           reader.onloadend = () => {
+                                                             setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                           };
+                                                           reader.readAsDataURL(file);
+                                                         }
+                                                       }}
+                                                     />
+                                                     <label
+                                                       htmlFor={`edit-variant-upload-${idx}`}
+                                                       className="cursor-pointer bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded px-2 py-1 font-semibold text-slate-700 text-[10px] whitespace-nowrap active:scale-95 transition-all"
+                                                     >
+                                                       Upload
+                                                     </label>
+                                                     <span className="text-[10px] text-slate-500 truncate max-w-[80px]" title={activeImage.startsWith('data:') ? 'Custom uploaded image' : activeImage}>
+                                                       {activeImage.startsWith('data:') ? 'Uploaded' : activeImage}
+                                                     </span>
+                                                   </div>
+                                                 )}
+                                               </>
+                                             );
+                                           }
+                                         })()}
+                                       </div>
+                                     </td>
+                                  </tr>
+                                );
+                              });
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+
                       <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-xs text-yellow-800">
-                          <strong>Note:</strong> Each variant combination requires its own stock quantity. 
-                          The total stock will be calculated automatically.
+                          <strong>Note:</strong> Overridden prices will apply only to the selected variant options. Custom variant images will be displayed during option selection in the shop.
                         </p>
                       </div>
 
@@ -2151,14 +3017,16 @@ export const InventoryPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="px-8 py-6 border-t border-slate-200 bg-slate-50">
               <div className="flex justify-end space-x-3">
                 <button
                   onClick={() => {
                     setShowEditModal(false);
                     setEditingProduct(null);
-                    setOptionInputs({});
+                    setNewChoiceInputs({});
+                    setVariantStocks({});
+                    setVariantPrices({});
+                    setVariantImages({});
                   }}
                   className="px-6 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all"
                 >
