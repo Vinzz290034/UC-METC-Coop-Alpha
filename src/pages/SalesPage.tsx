@@ -1705,8 +1705,13 @@ export const SalesPage: React.FC = () => {
               </td>
             </tr>
             <tr>
-              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0; padding-bottom: 20px;">
+              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0;">
                 ucmetc.ecc@gmail.com tel no. 410-8811 local 5155
+              </td>
+            </tr>
+            <tr>
+              <td colspan="7" style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; color: #000000; padding: 4px 0; padding-bottom: 20px;">
+                Date: ${hardboundFilterDate ? new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'long' }) : new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}
               </td>
             </tr>
           </table>
