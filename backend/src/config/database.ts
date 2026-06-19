@@ -55,7 +55,6 @@ export async function testConnection() {
     // Auto-migrate: ensure allow_preorder and image exist in products table
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_preorder BOOLEAN NOT NULL DEFAULT true');
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image VARCHAR(255)');
-    
     // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
     try {
       await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');
@@ -63,7 +62,14 @@ export async function testConnection() {
     } catch (constraintErr) {
       console.warn('⚠️  Could not update role check constraint (might not exist yet):', constraintErr);
     }
-    
+
+    // Auto-migrate: ensure the orders status check constraint allows 'released'
+    try {
+      await pool.query('ALTER TABLE orders DROP CONSTRAINT IF EXISTS orders_status_check');
+      await pool.query("ALTER TABLE orders ADD CONSTRAINT orders_status_check CHECK (status IN ('pending', 'completed', 'cancelled', 'released'))");
+    } catch (constraintErr) {
+      console.warn('⚠️  Could not update orders status check constraint:', constraintErr);
+    }
     console.log('✓ Database self-healing migrations checked and applied successfully');
     
     return true;
