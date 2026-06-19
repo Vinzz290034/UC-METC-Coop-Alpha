@@ -6,13 +6,16 @@ export class AppDataSync {
     try {
       const cartItems: any[] = await apiClient.getCart(userId);
       const transformedItems = cartItems.map(item => ({
-        id: item.id,
+        id: item.id,          // DB row id — used for per-item updates/deletes
         productId: item.product_id,
         name: item.product_name,
         price: item.price,
         quantity: item.quantity,
         image: '📦',
         selectedOptions: item.selected_options || {},
+        paymentType: item.payment_type || undefined,
+        orderType: item.order_type || 'regular',
+        fullPrice: item.full_price || undefined,
       }));
       useAppStore.setState({ cart: transformedItems });
       return transformedItems;
@@ -22,27 +25,70 @@ export class AppDataSync {
     }
   }
 
-  static async syncCartToAPI(userId: string) {
+  /**
+   * Add a single item to the backend cart.
+   * Uses ON CONFLICT upsert — safe to call on "Add to Cart".
+   */
+  static async addCartItemToAPI(item: {
+    productId: string;
+    productName: string;
+    price: number;
+    quantity: number;
+    selectedOptions?: Record<string, string>;
+    paymentType?: string;
+    orderType?: string;
+    fullPrice?: number;
+  }, userId: string) {
     try {
-      const cart = useAppStore.getState().cart;
-      // Clear existing cart on backend
+      const result = await apiClient.addToCart({
+        productId: item.productId,
+        productName: item.productName,
+        price: item.price,
+        quantity: item.quantity,
+        selectedOptions: item.selectedOptions,
+        paymentType: item.paymentType,
+        orderType: item.orderType,
+        fullPrice: item.fullPrice,
+      }, userId);
+      // Reload cart to get the server-authoritative state (includes DB row id)
+      await AppDataSync.loadCartFromAPI(userId);
+      return result;
+    } catch (error) {
+      console.error('Failed to add cart item to API:', error);
+    }
+  }
+
+  /**
+   * Remove a single cart item from the backend by its DB row id.
+   */
+  static async removeCartItemFromAPI(dbRowId: string, userId: string) {
+    try {
+      await apiClient.removeFromCart(dbRowId, userId);
+    } catch (error) {
+      console.error('Failed to remove cart item from API:', error);
+    }
+  }
+
+  /**
+   * Update the quantity of a single cart item on the backend.
+   */
+  static async updateCartItemInAPI(dbRowId: string, quantity: number, userId: string) {
+    try {
+      await apiClient.updateCartItem(dbRowId, quantity, userId);
+    } catch (error) {
+      console.error('Failed to update cart item in API:', error);
+    }
+  }
+
+  /** @deprecated Use addCartItemToAPI / removeCartItemFromAPI / updateCartItemInAPI instead */
+  static async syncCartToAPI(userId: string) {
+    // Legacy: kept for safety but should not be called for normal cart mutations.
+    // Only used after order checkout to ensure the cart is truly cleared.
+    try {
       await apiClient.clearCart(userId);
-      // Add all items
-      for (const item of cart) {
-        await apiClient.addToCart({
-          productId: item.productId,
-          productName: item.name,
-          price: item.price,
-          quantity: item.quantity,
-          selectedOptions: item.selectedOptions,
-          paymentType: item.paymentType,
-          orderType: item.orderType,
-          fullPrice: item.fullPrice,
-        }, userId);
-      }
       return true;
     } catch (error) {
-      console.error('Failed to sync cart to API:', error);
+      console.error('Failed to clear cart on API:', error);
       return false;
     }
   }

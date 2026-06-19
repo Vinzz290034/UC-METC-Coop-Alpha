@@ -37,16 +37,16 @@ export const CartPage: React.FC = () => {
   const updateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeFromCart(id);
-      if (user?.id) AppDataSync.syncCartToAPI(user.id);
+      if (user?.id) AppDataSync.removeCartItemFromAPI(id, user.id);
       return;
     }
     updateCartItem(id, { quantity: newQuantity });
-    if (user?.id) AppDataSync.syncCartToAPI(user.id);
+    if (user?.id) AppDataSync.updateCartItemInAPI(id, newQuantity, user.id);
   };
 
   const removeItem = (id: string) => {
     removeFromCart(id);
-    if (user?.id) AppDataSync.syncCartToAPI(user.id);
+    if (user?.id) AppDataSync.removeCartItemFromAPI(id, user.id);
   };
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);

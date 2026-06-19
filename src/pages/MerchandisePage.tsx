@@ -607,12 +607,21 @@ export const MerchandisePage: React.FC = () => {
       orderType: orderType,
       fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
     });
-    
-    // Sync cart to API
+
+    // Persist to backend (item-level, cross-device safe)
     if (user?.id) {
-      AppDataSync.syncCartToAPI(user.id);
+      AppDataSync.addCartItemToAPI({
+        productId: product.id,
+        productName: product.name,
+        price: actualPrice,
+        quantity: 1,
+        selectedOptions: mergedOptions,
+        paymentType: isTailoredProduct ? paymentType : undefined,
+        orderType: orderType,
+        fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
+      }, user.id);
     }
-    
+
     // Trigger cart icon animation
     setCartAnimating(true);
     setTimeout(() => setCartAnimating(false), 400);
