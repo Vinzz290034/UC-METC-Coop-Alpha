@@ -5,18 +5,48 @@ export class AppDataSync {
   static async loadCartFromAPI(userId: string) {
     try {
       const cartItems: any[] = await apiClient.getCart(userId);
-      const transformedItems = cartItems.map(item => ({
-        id: item.id,          // DB row id — used for per-item updates/deletes
-        productId: item.product_id,
-        name: item.product_name,
-        price: item.price,
-        quantity: item.quantity,
-        image: '📦',
-        selectedOptions: item.selected_options || {},
-        paymentType: item.payment_type || undefined,
-        orderType: item.order_type || 'regular',
-        fullPrice: item.full_price || undefined,
-      }));
+      const products = useAppStore.getState().products;
+      const transformedItems = cartItems.map(item => {
+        const product = products.find(p => p.id === item.product_id);
+        // Find custom image in variants if available
+        let itemImage = product?.image || '📦';
+        const selectedOptions = item.selected_options || {};
+        if (product && product.variants && Object.keys(product.variants).length > 0) {
+          const variantKey = Object.entries(selectedOptions)
+            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+            .map(([key, value]) => `${key}:${value}`)
+            .join('|');
+          const variant = product.variants[variantKey];
+          if (variant && (variant as any).image) {
+            itemImage = (variant as any).image;
+          } else {
+            // Try to find first matching option variant
+            const matchingVariant = Object.entries(product.variants).find(([key, val]) => {
+              const parts = key.split('|').reduce((acc, part) => {
+                const [optId, optVal] = part.split(':');
+                if (optId && optVal) acc[optId] = optVal;
+                return acc;
+              }, {} as Record<string, string>);
+              return Object.entries(selectedOptions).every(([selId, selVal]) => parts[selId] === selVal) && (val as any).image;
+            });
+            if (matchingVariant) {
+              itemImage = (matchingVariant[1] as any).image;
+            }
+          }
+        }
+        return {
+          id: item.id,          // DB row id — used for per-item updates/deletes
+          productId: item.product_id,
+          name: item.product_name,
+          price: item.price,
+          quantity: item.quantity,
+          image: itemImage,
+          selectedOptions,
+          paymentType: item.payment_type || undefined,
+          orderType: item.order_type || 'regular',
+          fullPrice: item.full_price || undefined,
+        };
+      });
       useAppStore.setState({ cart: transformedItems });
       return transformedItems;
     } catch (error) {
@@ -353,11 +383,14 @@ export class AppDataSync {
     }
   }
 
+
   static async initializeAppData(userId: string) {
     try {
-      // Load all data in parallel
+      // Load products first so they are available in the store
+      await AppDataSync.loadProductsFromAPI();
+      
+      // Load the rest of the user data in parallel
       await Promise.all([
-        AppDataSync.loadProductsFromAPI(),
         AppDataSync.loadCartFromAPI(userId),
         AppDataSync.loadOrdersFromAPI(userId),
         AppDataSync.loadMessagesFromAPI(userId, 'inbox'),

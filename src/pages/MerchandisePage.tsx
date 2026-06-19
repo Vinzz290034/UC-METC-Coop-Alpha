@@ -594,21 +594,7 @@ export const MerchandisePage: React.FC = () => {
     // Get the product image based on selected options
     const productImage = getProductImage(product, selectedOptions);
     
-    // Add to global cart store
-    addToCart({
-      id: cartItemId,
-      productId: product.id,
-      name: product.name,
-      price: actualPrice,
-      quantity: 1,
-      image: productImage || product.image || '📦',
-      selectedOptions: mergedOptions,
-      paymentType: isTailoredProduct ? paymentType : undefined,
-      orderType: orderType,
-      fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
-    });
-
-    // Persist to backend (item-level, cross-device safe)
+    // Persist to backend if logged in; otherwise fallback to local store
     if (user?.id) {
       AppDataSync.addCartItemToAPI({
         productId: product.id,
@@ -620,8 +606,20 @@ export const MerchandisePage: React.FC = () => {
         orderType: orderType,
         fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
       }, user.id);
+    } else {
+      addToCart({
+        id: cartItemId,
+        productId: product.id,
+        name: product.name,
+        price: actualPrice,
+        quantity: 1,
+        image: productImage || product.image || '📦',
+        selectedOptions: mergedOptions,
+        paymentType: isTailoredProduct ? paymentType : undefined,
+        orderType: orderType,
+        fullPrice: isTailoredProduct && paymentType === 'downpayment' ? fullPrice : undefined,
+      });
     }
-
     // Trigger cart icon animation
     setCartAnimating(true);
     setTimeout(() => setCartAnimating(false), 400);

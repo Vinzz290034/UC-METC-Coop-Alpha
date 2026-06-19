@@ -5,6 +5,7 @@ import type { User, UserRole } from '../types';
 import { apiClient } from '../services/api';
 import { AppDataSync } from './appDataSync';
 import { useNotificationStore } from './notificationStore';
+import { useAppStore } from './appStore';
 
 interface AuthContextType {
   user: User | null;
@@ -50,11 +51,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Verify token by calling getCurrentUser (requires valid token)
         const response = await apiClient.getCurrentUser() as any;
-        
         // If backend confirms user is valid, restore session
         setToken(storedToken);
         setUser(response);
         console.log('[AUTH CONTEXT] Session validated successfully from backend');
+
+        // Initialize app data from backend
+        await AppDataSync.initializeAppData(response.id);
 
         // Initialize notification system
         useNotificationStore.getState().initialize(storedToken, response.id);
@@ -155,11 +158,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+
   const logout = useCallback(() => {
     console.log('[AUTH CONTEXT] Logging out user');
     
     // Cleanup notification system
     useNotificationStore.getState().cleanup();
+    
+    // Clear global Zustand state
+    useAppStore.getState().clearAll();
     
     // Clear sessionStorage first
     sessionStorage.removeItem('token');
