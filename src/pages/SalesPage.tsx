@@ -8,6 +8,42 @@ import { formatProductName, parseAndFormatLegacyProductName } from '../utils/pro
 import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
 
+const calculateEWalletFee = (amount: number): number => {
+  if (amount <= 0) return 0;
+  if (amount >= 1 && amount <= 200) return 10;
+  if (amount >= 201 && amount <= 500) return 15;
+  if (amount >= 501 && amount <= 1000) return 20;
+  if (amount >= 1001 && amount <= 1500) return 30;
+  if (amount >= 1501 && amount <= 2000) return 40;
+  if (amount >= 2001 && amount <= 2500) return 50;
+  if (amount >= 2501 && amount <= 3000) return 60;
+  if (amount >= 3001 && amount <= 3500) return 70;
+  if (amount >= 3501 && amount <= 4000) return 80;
+  if (amount >= 4001 && amount <= 4500) return 90;
+  if (amount >= 4501 && amount <= 5000) return 100;
+  if (amount >= 5001 && amount <= 5500) return 110;
+  if (amount >= 5501 && amount <= 6000) return 120;
+  if (amount >= 6001 && amount <= 6500) return 130;
+  if (amount >= 6501 && amount <= 7000) return 140;
+  if (amount >= 7001 && amount <= 7500) return 150;
+  if (amount >= 7501 && amount <= 8000) return 160;
+  if (amount >= 8001 && amount <= 8500) return 170;
+  if (amount >= 8501 && amount <= 9000) return 180;
+  if (amount >= 9001 && amount <= 9500) return 190;
+  if (amount >= 9501 && amount <= 10000) return 200;
+  if (amount >= 10001 && amount <= 10500) return 210;
+  if (amount >= 10501 && amount <= 11000) return 215;
+  if (amount >= 11001 && amount <= 11500) return 230;
+  if (amount >= 11501 && amount <= 12000) return 240;
+  if (amount >= 12001 && amount <= 12500) return 250;
+  if (amount >= 12501 && amount <= 13000) return 260;
+  if (amount >= 13001 && amount <= 13500) return 270;
+  if (amount >= 13501 && amount <= 14000) return 280;
+  if (amount >= 14001 && amount <= 14500) return 290;
+  if (amount >= 14501 && amount <= 15000) return 300;
+  return 300; // Default for amounts above 15000
+};
+
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
   useEffect(() => {
@@ -566,8 +602,8 @@ export const SalesPage: React.FC = () => {
       showNotification('Please enter a receipt number', 'error');
       return;
     }
-    if (paymentMethod === 'ewallet' && !referenceNumber.trim()) {
-      showNotification('Please enter GCash reference number', 'error');
+    if (paymentMethod === 'ewallet' && (!referenceNumber.trim() || referenceNumber.trim().length !== 4)) {
+      showNotification('Please enter the last 4 digits of the GCash reference number', 'error');
       return;
     }
 
@@ -576,6 +612,10 @@ export const SalesPage: React.FC = () => {
     try {
       const orderDateObj = new Date(`${transactionDate}T${transactionTime}:00`);
       
+      const subtotalAmount = manualItems.reduce((sum, item) => sum + item.subtotal, 0);
+      const ewalletFee = paymentMethod === 'ewallet' ? calculateEWalletFee(subtotalAmount) : 0;
+      const totalAmount = subtotalAmount + ewalletFee;
+
       const orderData = {
         isWalkIn: studentType === 'walkin',
         walkInName: studentType === 'walkin' ? walkInName.trim() : undefined,
@@ -594,7 +634,7 @@ export const SalesPage: React.FC = () => {
           orderType: item.orderType || 'regular',
           fullPrice: item.fullPrice || null
         })),
-        totalAmount: manualItems.reduce((sum, item) => sum + item.subtotal, 0),
+        totalAmount,
         paymentMethod,
         referenceNumber: paymentMethod === 'ewallet' ? referenceNumber : null,
         receiptNo: receiptNo.trim(),
@@ -1219,7 +1259,8 @@ export const SalesPage: React.FC = () => {
         const courseYear = order?.course && order?.year 
           ? `${order.course} - ${order.year}` 
           : order?.course || order?.year || 'N/A';
-        const time = order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
+        const orderDateStr = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
+        const time = orderDateStr ? new Date(orderDateStr).toLocaleString('en-US', {
           hour: 'numeric',
           minute: '2-digit',
           hour12: true
@@ -2314,11 +2355,14 @@ export const SalesPage: React.FC = () => {
                                 </span>
                               </td>
                               <td className="py-4 px-6 text-slate-700 text-xs">
-                                {order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                }) : 'N/A'}
+                                {(() => {
+                                  const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
+                                  return displayDate ? new Date(displayDate).toLocaleString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  }) : 'N/A';
+                                })()}
                               </td>
                               <td className="py-4 px-6 text-center">
                                 {itemIdx === 0 ? (
@@ -2377,13 +2421,16 @@ export const SalesPage: React.FC = () => {
                                 {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
                               </span>
                             </td>
-                            <td className="py-4 px-6 text-slate-700 text-xs">
-                              {order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
-                              }) : 'N/A'}
-                            </td>
+                             <td className="py-4 px-6 text-slate-700 text-xs">
+                               {(() => {
+                                 const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
+                                 return displayDate ? new Date(displayDate).toLocaleString('en-US', {
+                                   hour: 'numeric',
+                                   minute: '2-digit',
+                                   hour12: true
+                                 }) : 'N/A';
+                               })()}
+                             </td>
                             <td className="py-4 px-6 text-center">
                               <button
                                 onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
@@ -2868,12 +2915,15 @@ export const SalesPage: React.FC = () => {
                                   {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
                                 </span>
                               </td>
-                              <td className="py-4 px-6 text-slate-700 text-xs">
-                                {order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                }) : 'N/A'}
+                               <td className="py-4 px-6 text-slate-700 text-xs">
+                                {(() => {
+                                  const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
+                                  return displayDate ? new Date(displayDate).toLocaleString('en-US', {
+                                    hour: 'numeric',
+                                    minute: '2-digit',
+                                    hour12: true
+                                  }) : 'N/A';
+                                })()}
                               </td>
                               <td className="py-4 px-6 text-center">
                                 {itemIdx === 0 ? (
@@ -2933,11 +2983,14 @@ export const SalesPage: React.FC = () => {
                               </span>
                             </td>
                             <td className="py-4 px-6 text-slate-700 text-xs">
-                              {order?.created_at ? new Date(order?.created_at).toLocaleString('en-US', {
-                                hour: 'numeric',
-                                minute: '2-digit',
-                                hour12: true
-                              }) : 'N/A'}
+                              {(() => {
+                                const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
+                                return displayDate ? new Date(displayDate).toLocaleString('en-US', {
+                                  hour: 'numeric',
+                                  minute: '2-digit',
+                                  hour12: true
+                                }) : 'N/A';
+                              })()}
                             </td>
                             <td className="py-4 px-6 text-center">
                               <button
@@ -4712,13 +4765,19 @@ export const SalesPage: React.FC = () => {
 
                     {paymentMethod === 'ewallet' && (
                       <div className="animate-fade-in">
-                        <label className="block text-xs text-slate-500 mb-1 font-semibold">GCash Reference Number</label>
+                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Last 4 Digits of GCash Reference Number</label>
                         <input
                           type="text"
-                          placeholder="Enter 13-digit GCash Ref No"
+                          maxLength={4}
+                          placeholder="Enter last 4 digits"
                           value={referenceNumber}
-                          onChange={(e) => setReferenceNumber(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, '');
+                            if (val.length <= 4) {
+                              setReferenceNumber(val);
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white font-mono tracking-widest text-center text-lg"
                         />
                       </div>
                     )}
@@ -4739,12 +4798,33 @@ export const SalesPage: React.FC = () => {
 
                     {/* Summary Totals & Submit */}
                     <div className="pt-4 border-t border-slate-200 space-y-4 bg-slate-50 rounded-xl p-4">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="font-semibold text-slate-600">Total Bill</span>
-                        <span className="text-xl font-bold text-slate-900">
-                          ₱{manualItems.reduce((sum, item) => sum + item.subtotal, 0).toLocaleString()}
-                        </span>
-                      </div>
+                      {(() => {
+                        const subtotal = manualItems.reduce((sum, item) => sum + item.subtotal, 0);
+                        const fee = paymentMethod === 'ewallet' ? calculateEWalletFee(subtotal) : 0;
+                        const total = subtotal + fee;
+                        return (
+                          <>
+                            {paymentMethod === 'ewallet' && (
+                              <>
+                                <div className="flex justify-between items-center text-xs text-slate-600">
+                                  <span>Subtotal</span>
+                                  <span>₱{subtotal.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-xs text-slate-600">
+                                  <span>Service Fee (GCash)</span>
+                                  <span>₱{fee.toLocaleString()}</span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex justify-between items-center text-sm">
+                              <span className="font-semibold text-slate-600">Total Bill</span>
+                              <span className="text-xl font-bold text-slate-900">
+                                ₱{total.toLocaleString()}
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
                       
                       <button
                         type="button"

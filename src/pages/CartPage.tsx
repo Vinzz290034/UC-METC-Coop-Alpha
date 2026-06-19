@@ -54,6 +54,7 @@ export const CartPage: React.FC = () => {
 
   // Calculate GCash fee based on amount ranges
   const calculateEWalletFee = (amount: number): number => {
+    if (amount <= 0) return 0;
     if (amount >= 1 && amount <= 200) return 10;
     if (amount >= 201 && amount <= 500) return 15;
     if (amount >= 501 && amount <= 1000) return 20;
