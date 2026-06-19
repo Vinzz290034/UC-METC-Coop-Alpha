@@ -23,16 +23,20 @@ export const CartPage: React.FC = () => {
   const [confirmedNoRefund, setConfirmedNoRefund] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
-  // Ensure any existing modals are closed when CartPage mounts
+  // Ensure any existing modals are closed when CartPage mounts and load fresh cart data
   useEffect(() => {
     // Close any potential product modals or other modals that might be open
     document.body.style.overflow = 'unset';
+    
+    if (user?.id) {
+      AppDataSync.loadCartFromAPI(user.id);
+    }
     
     // Clean up any modal states that might be lingering
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, []);
+  }, [user?.id]);
 
   const updateQuantity = (id: string, newQuantity: number) => {
     if (newQuantity <= 0) {

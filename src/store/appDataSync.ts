@@ -1,5 +1,6 @@
 import { apiClient } from '../services/api';
 import { useAppStore } from './appStore';
+import { getProductImageByName } from '../utils/productImageResolver';
 
 export class AppDataSync {
   static async loadCartFromAPI(userId: string) {
@@ -34,17 +35,23 @@ export class AppDataSync {
             }
           }
         }
+        
+        // Fallback to client-side image resolver if database image is empty or placeholder
+        if (!itemImage || itemImage === '📦' || itemImage.trim() === '') {
+          itemImage = getProductImageByName(item.product_name, selectedOptions) || '📦';
+        }
+
         return {
           id: item.id,          // DB row id — used for per-item updates/deletes
           productId: item.product_id,
           name: item.product_name,
-          price: item.price,
+          price: Number(item.price),
           quantity: item.quantity,
           image: itemImage,
           selectedOptions,
           paymentType: item.payment_type || undefined,
           orderType: item.order_type || 'regular',
-          fullPrice: item.full_price || undefined,
+          fullPrice: item.full_price ? Number(item.full_price) : undefined,
         };
       });
       useAppStore.setState({ cart: transformedItems });
@@ -284,7 +291,7 @@ export class AppDataSync {
       return true;
     } catch (error) {
       console.error('Failed to update order status:', error);
-      return false;
+      throw error;
     }
   }
 
@@ -299,7 +306,7 @@ export class AppDataSync {
       return true;
     } catch (error) {
       console.error('Failed to cancel order:', error);
-      return false;
+      throw error;
     }
   }
 

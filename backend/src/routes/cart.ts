@@ -41,14 +41,27 @@ router.get('/', verifyUser, async (req: Request, res: Response) => {
     const userId = (req as any).userId;
 
     const result = await pool.query(
-      `SELECT * FROM cart_items WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT c.*, p.image FROM cart_items c
+       LEFT JOIN products p ON c.product_id = p.id
+       WHERE c.user_id = $1 
+       ORDER BY c.created_at DESC`,
       [userId]
     );
 
-    const cartItems = result.rows.map(item => ({
-      ...item,
-      selected_options: item.selected_options ? JSON.parse(item.selected_options) : {}
-    }));
+    const cartItems = result.rows.map(item => {
+      let selectedOptions = item.selected_options || {};
+      if (typeof selectedOptions === 'string') {
+        try {
+          selectedOptions = JSON.parse(selectedOptions);
+        } catch (e) {
+          selectedOptions = {};
+        }
+      }
+      return {
+        ...item,
+        selected_options: selectedOptions
+      };
+    });
 
     res.json(cartItems);
   } catch (error) {
