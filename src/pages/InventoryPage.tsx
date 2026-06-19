@@ -207,8 +207,10 @@ export const InventoryPage: React.FC = () => {
   const [variantImages, setVariantImages] = useState<Record<string, string>>({});
   const [newChoiceInputs, setNewChoiceInputs] = useState<Record<string, string>>({});
   const [deleteConfirmModal, setDeleteConfirmModal] = useState<{ show: boolean; product: Product | null }>({ show: false, product: null });
+  const [deleteIntakeConfirm, setDeleteIntakeConfirm] = useState<{ show: boolean; record: any | null; isDeleting: boolean }>({ show: false, record: null, isDeleting: false });
   const [searchQuery, setSearchQuery] = useState('');
   const [draggedOverChoice, setDraggedOverChoice] = useState<{ optionIndex: number; choiceIndex: number } | null>(null);
+
   
   // Stock Intake states
   const [stockIntakeRecords, setStockIntakeRecords] = useState<any[]>([]);
@@ -2270,12 +2272,13 @@ export const InventoryPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Total Cost</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Profit</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Supplier</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {stockIntakeRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                       <Package size={48} className="mx-auto mb-4 text-slate-300" />
                       <p className="text-lg font-semibold">No stock intake records yet</p>
                       <p className="text-sm mt-2">Click "Record Stock Intake" to add your first entry</p>
@@ -2320,6 +2323,15 @@ export const InventoryPage: React.FC = () => {
                         ₱{profit.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{record.supplier || '-'}</td>
+                      <td className="px-6 py-4 text-center">
+                        <button
+                          onClick={() => setDeleteIntakeConfirm({ show: true, record, isDeleting: false })}
+                          className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
+                          title="Delete record"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
                     </tr>
                     );
                   })
@@ -2330,6 +2342,70 @@ export const InventoryPage: React.FC = () => {
         </div>
       )}
       </div>
+
+      {/* Delete Stock Intake Confirmation Modal */}
+      {deleteIntakeConfirm.show && deleteIntakeConfirm.record && createPortal(
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-scale-in">
+            <div className="px-6 py-5 border-b border-slate-200">
+              <div className="flex items-center space-x-3">
+                <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                  <AlertTriangle size={24} className="text-red-600" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">Delete Stock Intake Record</h3>
+                  <p className="text-sm text-slate-600">This will also revert the added stock</p>
+                </div>
+              </div>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-slate-700 mb-4">
+                Delete the intake record for <span className="font-semibold text-slate-900">"{deleteIntakeConfirm.record.product_name || deleteIntakeConfirm.record.productName}"</span>?
+              </p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm text-amber-800">
+                  <strong>Note:</strong> The stock that was added by this intake will be automatically deducted. Record another intake if the amount was wrong.
+                </p>
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end space-x-3 rounded-b-2xl">
+              <button
+                onClick={() => setDeleteIntakeConfirm({ show: false, record: null, isDeleting: false })}
+                disabled={deleteIntakeConfirm.isDeleting}
+                className="px-5 py-2.5 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all hover:scale-105 active:scale-95 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteIntakeConfirm.isDeleting}
+                onClick={async () => {
+                  setDeleteIntakeConfirm(prev => ({ ...prev, isDeleting: true }));
+                  try {
+                    const userStr = sessionStorage.getItem('user');
+                    const user = userStr ? JSON.parse(userStr) : null;
+                    await apiClient.deleteStockIntakeRecord(deleteIntakeConfirm.record.id, user?.id || '');
+                    showNotification('Stock intake record deleted and stock reverted', 'success');
+                    setDeleteIntakeConfirm({ show: false, record: null, isDeleting: false });
+                    await loadStockIntakeRecords();
+                    AppDataSync.loadProductsFromAPI();
+                  } catch (error: any) {
+                    showNotification(error?.message || 'Failed to delete record', 'error');
+                    setDeleteIntakeConfirm(prev => ({ ...prev, isDeleting: false }));
+                  }
+                }}
+                className="px-5 py-2.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-semibold transition-all hover:scale-105 active:scale-95 flex items-center space-x-2 disabled:opacity-50"
+              >
+                {deleteIntakeConfirm.isDeleting ? (
+                  <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /><span>Deleting...</span></>
+                ) : (
+                  <><Trash2 size={18} /><span>Delete Record</span></>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Delete Confirmation Modal */}
       {deleteConfirmModal.show && deleteConfirmModal.product && createPortal(
