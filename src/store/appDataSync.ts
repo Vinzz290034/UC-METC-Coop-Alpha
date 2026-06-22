@@ -449,7 +449,7 @@ export class AppDataSync {
       return true;
     } catch (error) {
       console.error('Failed to sync product to API:', error);
-      return false;
+      throw error;
     }
   }
 

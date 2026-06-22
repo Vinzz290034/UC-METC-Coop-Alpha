@@ -367,6 +367,19 @@ export const MerchandisePage: React.FC = () => {
           return (matchingVariant[1] as any).image;
         }
       }
+
+      // If no options are selected, return the first variant's custom image if one is defined
+      if (!selectedOpts || Object.keys(selectedOpts).length === 0) {
+        const firstValWithImage = Object.values(product.variants).find(v => (v as any).image);
+        if (firstValWithImage && (firstValWithImage as any).image) {
+          return (firstValWithImage as any).image;
+        }
+      }
+    }
+
+    // 2. Return product's main image if it exists
+    if (product.image) {
+      return product.image;
     }
 
     // Products with variant images based on options
@@ -820,7 +833,16 @@ export const MerchandisePage: React.FC = () => {
             >
               {/* Product Image */}
               <div className="h-32 sm:h-48 bg-gradient-to-br from-slate-100 to-slate-200 flex items-center justify-center relative overflow-hidden group">
-                {product.name === 'Type A & B Uniform' && typeABUniformImage ? (
+                {(() => {
+                  const cardImg = getProductImage(product, {});
+                  return cardImg && (cardImg.startsWith('data:') || cardImg.startsWith('http') || cardImg.includes('.'));
+                })() ? (
+                  <img 
+                    src={getProductImage(product, {}) || ''} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                  />
+                ) : product.name === 'Type A & B Uniform' && typeABUniformImage ? (
                   <img 
                     src={typeABUniformImage} 
                     alt="Type A & B Uniform" 
@@ -995,8 +1017,8 @@ export const MerchandisePage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
-                  <span className="group-hover:scale-110 transition-transform duration-300">
-                    {product.image || '📦'}
+                  <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
+                    📦
                   </span>
                 )}
                 {product.stock <= 0 && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
@@ -1166,22 +1188,14 @@ export const MerchandisePage: React.FC = () => {
             
             {/* Modal content - reuse the same content structure */}
             <div className="w-full md:w-2/5 bg-slate-200 flex items-center justify-center p-4 md:p-8 flex-shrink-0 rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none">
-              {(selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'Type C Uniform' || selectedProduct.name === 'Lanyard' || selectedProduct.name === 'Hard Hat' || selectedProduct.name === 'Pershing Cap' || selectedProduct.name === 'Cover All' || selectedProduct.name === 'Belt' || selectedProduct.name === 'Shoulder Board' || selectedProduct.name === 'Gala' || selectedProduct.name === 'ROTC Manual') ? (
-                <img 
-                  key={getProductImage(selectedProduct, selectedOptions)}
-                  src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
-                  alt={selectedProduct.name} 
-                  className={`w-auto md:w-full h-32 md:h-auto rounded-xl shadow-md md:shadow-2xl animate-slide-in-right object-contain ${
-                    selectedProduct.name === 'Gala' ? 'max-h-[140px] md:max-h-[600px]' : 'max-h-[140px] md:max-h-[500px]'
-                  }`}
-                />
-              ) : (
-                <img 
-                  src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
-                  alt={selectedProduct.name} 
-                  className="w-auto md:w-full h-32 md:h-auto max-h-[140px] md:max-h-[500px] object-contain rounded-xl shadow-md md:shadow-2xl"
-                />
-              )}
+              <img 
+                key={getProductImage(selectedProduct, selectedOptions)}
+                src={getProductImage(selectedProduct, selectedOptions) || typeABUniformImage} 
+                alt={selectedProduct.name} 
+                className={`w-auto md:w-full h-32 md:h-auto rounded-xl shadow-md md:shadow-2xl animate-slide-in-right object-contain ${
+                  selectedProduct.name === 'Gala' ? 'max-h-[140px] md:max-h-[600px]' : 'max-h-[140px] md:max-h-[500px]'
+                }`}
+              />
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 bg-white flex flex-col rounded-b-2xl md:rounded-r-2xl md:rounded-bl-none">

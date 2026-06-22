@@ -742,9 +742,9 @@ export const InventoryPage: React.FC = () => {
       return;
     }
     
-    // If product has no variants, check stock
-    if ((!formData.options || formData.options.length === 0) && (!formData.stock || formData.stock < 0)) {
-      showNotification('Please enter a valid stock quantity', 'error');
+    // If product has no variants, check stock (optional, just ensure it is not negative)
+    if ((!formData.options || formData.options.length === 0) && formData.stock !== undefined && formData.stock < 0) {
+      showNotification('Stock quantity cannot be negative', 'error');
       return;
     }
     
@@ -757,100 +757,106 @@ export const InventoryPage: React.FC = () => {
         return;
       }
       
-      // Check if at least one variant has stock
-      const totalVariantStock = Object.values(newVariantStocks).reduce((sum, stock) => sum + stock, 0);
-      if (totalVariantStock === 0) {
-        showNotification('Please set stock for at least one variant', 'error');
+      // Validate that variant stocks are not negative
+      const hasNegativeStock = Object.values(newVariantStocks).some(stock => stock < 0);
+      if (hasNegativeStock) {
+        showNotification('Variant stock quantities cannot be negative', 'error');
         return;
       }
     }
     
     if (formData.name && formData.price && formData.sku) {
-      const newProduct: Product = {
-        id: Date.now().toString(),
-        name: formData.name as ItemType,
-        category: formData.category || 'uniform',
-        price: formData.price,
-        stock: formData.stock || 0,
-        sku: formData.sku,
-        note: formData.note,
-        image: formData.image,
-        options: formData.options && formData.options.length > 0 ? formData.options : undefined,
-        allowPreorder: formData.allowPreorder !== false,
-        createdAt: new Date().toISOString(),
-      };
-
-      // If product has variants, add variant stock data
-      if (formData.options && formData.options.length > 0) {
-        // Generate all variant combinations
-        const generateCombinations = (options: any[]) => {
-          if (options.length === 0) return [{}];
-          if (options.length === 1) {
-            return options[0].choices.map((choice: string) => ({
-              [options[0].id]: choice  // Use id instead of label
-            }));
-          }
-          
-          const [first, ...rest] = options;
-          const restCombinations = generateCombinations(rest);
-          const combinations: any[] = [];
-          
-          first.choices.forEach((choice: string) => {
-            restCombinations.forEach((restCombo: any) => {
-              combinations.push({
-                [first.id]: choice,  // Use id instead of label
-                ...restCombo
-              });
-            });
-          });
-          
-          return combinations;
+      try {
+        const newProduct: Product = {
+          id: Date.now().toString(),
+          name: formData.name as ItemType,
+          category: formData.category || 'uniform',
+          price: formData.price,
+          stock: formData.stock || 0,
+          sku: formData.sku,
+          note: formData.note,
+          image: formData.image,
+          options: formData.options && formData.options.length > 0 ? formData.options : undefined,
+          allowPreorder: formData.allowPreorder !== false,
+          createdAt: new Date().toISOString(),
         };
 
-        const combinations = generateCombinations(formData.options);
-        
-        // Build variants object
-        const variants: Record<string, { stock: number; options: Record<string, string>; price?: number; image?: string }> = {};
-        combinations.forEach((combo: Record<string, string>) => {
-          const variantKey = Object.entries(combo)
-            .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-            .map(([key, val]) => `${key}:${val}`)
-            .join('|');
-          
-          variants[variantKey] = {
-            stock: newVariantStocks[variantKey] || 0,
-            options: combo,
-            price: newProductVariantPrices[variantKey] || undefined,
-            image: newProductVariantImages[variantKey] || undefined
+        // If product has variants, add variant stock data
+        if (formData.options && formData.options.length > 0) {
+          // Generate all variant combinations
+          const generateCombinations = (options: any[]) => {
+            if (options.length === 0) return [{}];
+            if (options.length === 1) {
+              return options[0].choices.map((choice: string) => ({
+                [options[0].id]: choice  // Use id instead of label
+              }));
+            }
+            
+            const [first, ...rest] = options;
+            const restCombinations = generateCombinations(rest);
+            const combinations: any[] = [];
+            
+            first.choices.forEach((choice: string) => {
+              restCombinations.forEach((restCombo: any) => {
+                combinations.push({
+                  [first.id]: choice,  // Use id instead of label
+                  ...restCombo
+                });
+              });
+            });
+            
+            return combinations;
           };
+
+          const combinations = generateCombinations(formData.options);
+          
+          // Build variants object
+          const variants: Record<string, { stock: number; options: Record<string, string>; price?: number; image?: string }> = {};
+          combinations.forEach((combo: Record<string, string>) => {
+            const variantKey = Object.entries(combo)
+              .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+              .map(([key, val]) => `${key}:${val}`)
+              .join('|');
+            
+            variants[variantKey] = {
+              stock: newVariantStocks[variantKey] || 0,
+              options: combo,
+              price: newProductVariantPrices[variantKey] || undefined,
+              image: newProductVariantImages[variantKey] || undefined
+            };
+          });
+
+          newProduct.variants = variants;
+          // Calculate total stock from all variants
+          newProduct.stock = Object.values(variants).reduce((sum, v) => sum + v.stock, 0);
+        }
+
+        // Sync to API first - if it fails, it throws and skips the local store update
+        await AppDataSync.syncProductToAPI(newProduct);
+        
+        // If API sync is successful, add to local store
+        addProduct(newProduct);
+        
+        setFormData({
+          name: '',
+          price: 0,
+          stock: 0,
+          sku: '',
+          category: 'uniform',
+          note: '',
+          image: '',
+          options: [],
+          allowPreorder: true,
         });
-
-        newProduct.variants = variants;
-        // Calculate total stock from all variants
-        newProduct.stock = Object.values(variants).reduce((sum, v) => sum + v.stock, 0);
+        setNewVariantStocks({});
+        setNewProductVariantPrices({});
+        setNewProductVariantImages({});
+        setShowForm(false);
+        showNotification(`${formData.name} added successfully`, 'success');
+      } catch (error: any) {
+        console.error('Failed to add product:', error);
+        showNotification(error?.message || 'Failed to add product to database. Please check connection.', 'error');
       }
-
-      addProduct(newProduct);
-      
-      // Sync to API
-      await AppDataSync.syncProductToAPI(newProduct);
-      
-      setFormData({
-        name: '',
-        price: 0,
-        stock: 0,
-        sku: '',
-        category: 'uniform',
-        note: '',
-        image: '',
-        options: [],
-        allowPreorder: true,
-      });
-      setNewVariantStocks({});
-      setNewProductVariantPrices({});
-      setNewProductVariantImages({});
-      setShowForm(false);
-      showNotification(`${formData.name} added successfully`, 'success');
     }
   };
 
@@ -1422,13 +1428,13 @@ export const InventoryPage: React.FC = () => {
                   <div className="mb-6 p-4 bg-purple-50 rounded-lg border border-purple-200">
                     <h4 className="font-semibold text-slate-900 mb-3">Set stock, override price, and upload variant images:</h4>
                     <div className="overflow-x-auto bg-white rounded-lg border border-slate-200 shadow-sm max-h-96 overflow-y-auto mb-3">
-                      <table className="w-full border-collapse text-left">
+                      <table className="w-full border-collapse text-left table-fixed">
                         <thead>
                           <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase bg-slate-100/80">
-                            <th className="p-3">Variant Combination</th>
-                            <th className="p-3 w-20 text-center">Stock</th>
+                            <th className="p-3 w-48">Variant Combination</th>
+                            <th className="p-3 w-24 text-center">Stock</th>
                             <th className="p-3 w-28 text-center">Price (₱)</th>
-                            <th className="p-3 w-48">Image Settings</th>
+                            <th className="p-3 w-80">Image Settings</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -2824,13 +2830,13 @@ export const InventoryPage: React.FC = () => {
 
                       {/* Generate all variant combinations in a table */}
                       <div className="overflow-x-auto bg-white rounded-lg border border-slate-200 shadow-sm">
-                        <table className="w-full border-collapse text-left">
+                        <table className="w-full border-collapse text-left table-fixed">
                           <thead>
                             <tr className="border-b border-slate-200 text-[10px] font-bold text-slate-500 uppercase bg-slate-100/80">
-                              <th className="p-3">Variant Combination</th>
-                              <th className="p-3 w-20 text-center">Stock</th>
+                              <th className="p-3 w-48">Variant Combination</th>
+                              <th className="p-3 w-24 text-center">Stock</th>
                               <th className="p-3 w-28 text-center">Price (₱)</th>
-                              <th className="p-3 w-48">Image Settings</th>
+                              <th className="p-3 w-80">Image Settings</th>
                             </tr>
                           </thead>
                           <tbody>
