@@ -286,17 +286,35 @@ export const MerchandisePage: React.FC = () => {
     return null;
   };
 
-  // Function to get available prices from a product's options
+  // Function to get available prices from a product's options/variants
   const getAvailablePrices = (product: Product): { min: number; max: number } | null => {
-    if (!product.options || product.options.length === 0) return null;
-    
     const isMember = user?.membership_status === 'approved';
-    const prices = product.options
-      .flatMap(option => option.choices)
-      .map(choice => extractPrice(choice, isMember))
-      .filter((price): price is number => price !== null);
-    
+    const prices: number[] = [];
+
+    // 1. Extract prices from options choice text if they contain patterns like (₱150)
+    if (product.options && product.options.length > 0) {
+      const optionPrices = product.options
+        .flatMap(option => option.choices)
+        .map(choice => extractPrice(choice, isMember))
+        .filter((price): price is number => price !== null);
+      prices.push(...optionPrices);
+    }
+
+    // 2. Extract prices from variants if defined
+    if (product.variants && Object.keys(product.variants).length > 0) {
+      const variantPrices = Object.values(product.variants)
+        .map(v => (v as any).price)
+        .filter((price): price is number => price !== undefined && price !== null && price > 0);
+      prices.push(...variantPrices);
+    }
+
+    // 3. Include base product price
+    if (product.price) {
+      prices.push(product.price);
+    }
+
     if (prices.length === 0) return null;
+    
     return {
       min: Math.min(...prices),
       max: Math.max(...prices)
@@ -1343,7 +1361,7 @@ export const MerchandisePage: React.FC = () => {
                       }
                     }
                     
-                    if (availablePrices && displayPrice) {
+                    if (displayPrice) {
                       return <p className="text-3xl font-bold text-slate-900">₱{displayPrice.toLocaleString()}</p>;
                     } else if (availablePrices) {
                       if (availablePrices.min === availablePrices.max) {
