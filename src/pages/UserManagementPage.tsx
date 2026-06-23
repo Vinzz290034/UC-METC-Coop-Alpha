@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   X,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
@@ -42,6 +44,13 @@ export const UserManagementPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 25;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter]);
+
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<User | null>(null);
@@ -195,6 +204,11 @@ export const UserManagementPage: React.FC = () => {
     return matchesSearch && matchesRole;
   });
 
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const indexOfLastUser = currentPage * itemsPerPage;
+  const indexOfFirstUser = indexOfLastUser - itemsPerPage;
+  const currentUsers = filteredUsers.slice(indexOfFirstUser, indexOfLastUser);
+
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin': return 'bg-red-100 text-red-800 border-red-200';
@@ -315,7 +329,8 @@ export const UserManagementPage: React.FC = () => {
               <p className="mt-4 text-gray-600">Loading users...</p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+              <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
@@ -340,7 +355,7 @@ export const UserManagementPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredUsers.map((user) => (
+                  {currentUsers.map((user) => (
                     <tr key={user.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
@@ -462,8 +477,88 @@ export const UserManagementPage: React.FC = () => {
                 </div>
               )}
             </div>
-          )}
-        </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="bg-white px-6 py-4 border-t border-gray-200 flex items-center justify-between flex-wrap gap-4 select-none">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-semibold">{indexOfFirstUser + 1}</span> to{' '}
+                  <span className="font-semibold">
+                    {Math.min(indexOfLastUser, filteredUsers.length)}
+                  </span>{' '}
+                  of <span className="font-semibold">{filteredUsers.length}</span> users
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:hover:bg-white disabled:cursor-not-allowed text-slate-700"
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={18} />
+                  </button>
+                  
+                  {/* Page numbers */}
+                  <div className="flex items-center gap-1.5">
+                    {(() => {
+                      const pages: (number | string)[] = [];
+                      if (totalPages <= 7) {
+                        for (let i = 1; i <= totalPages; i++) pages.push(i);
+                      } else {
+                        pages.push(1);
+                        if (currentPage > 3) {
+                          pages.push('...');
+                        }
+                        const start = Math.max(2, currentPage - 1);
+                        const end = Math.min(totalPages - 1, currentPage + 1);
+                        for (let i = start; i <= end; i++) {
+                          pages.push(i);
+                        }
+                        if (currentPage < totalPages - 2) {
+                          pages.push('...');
+                        }
+                        pages.push(totalPages);
+                      }
+
+                      return pages.map((page, index) => {
+                        if (page === '...') {
+                          return (
+                            <span key={`ellipsis-${index}`} className="px-2 py-1 text-slate-400">
+                              ...
+                            </span>
+                          );
+                        }
+                        return (
+                          <button
+                            key={`page-${page}`}
+                            onClick={() => setCurrentPage(page as number)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all duration-200 active:scale-95 ${
+                              currentPage === page
+                                ? 'bg-purple-600 text-white shadow-md'
+                                : 'border border-gray-300 hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            {page}
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
+
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 border border-gray-300 rounded-lg hover:bg-slate-50 transition-colors disabled:opacity-50 disabled:hover:bg-white disabled:cursor-not-allowed text-slate-700"
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={18} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
       </div>
 
       {/* User Details Modal - Portal */}
