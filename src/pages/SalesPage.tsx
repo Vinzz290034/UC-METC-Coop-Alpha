@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle, BookOpen, User } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle, BookOpen, User, Upload, FileSpreadsheet, X } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -7,6 +7,7 @@ import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
+import * as XLSX from 'xlsx';
 
 const calculateEWalletFee = (amount: number): number => {
   if (amount <= 0) return 0;
@@ -134,6 +135,7 @@ export const SalesPage: React.FC = () => {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [historySearchQuery, setHistorySearchQuery] = useState<string>('');
+  const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
   const [preOrderOrders, setPreOrderOrders] = useState<any[]>([]);
   const [downpaymentOrders, setDownpaymentOrders] = useState<any[]>([]);
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
@@ -318,6 +320,23 @@ export const SalesPage: React.FC = () => {
   const [orderStatus, setOrderStatus] = useState<'completed' | 'released' | 'pending'>('completed');
   const [isSavingManualOrder, setIsSavingManualOrder] = useState<boolean>(false);
 
+  // Excel / CSV Importer States
+  const [showImportExcelModal, setShowImportExcelModal] = useState<boolean>(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importWorkbook, setImportWorkbook] = useState<any>(null);
+  const [importSheets, setImportSheets] = useState<string[]>([]);
+  const [selectedImportSheet, setSelectedImportSheet] = useState<string>('All Sheets');
+  const [parsedTransactions, setParsedTransactions] = useState<any[]>([]);
+  const [isParsing, setIsParsing] = useState<boolean>(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number } | null>(null);
+  const [importLogs, setImportLogs] = useState<string[]>([]);
+  const [isImporting, setIsImporting] = useState<boolean>(false);
+  const [importSettings, setImportSettings] = useState({
+    defaultPaymentMethod: 'cash',
+    autoCreateUsers: true,
+    skipDuplicates: true
+  });
+
   // Initialize and load users for manual transaction
   useEffect(() => {
     if (showRecordSaleModal) {
@@ -389,7 +408,7 @@ export const SalesPage: React.FC = () => {
   // Keep unitPrice updated when selectedProduct or options change
   useEffect(() => {
     if (selectedProduct) {
-      const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+      const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
       const isMember = studentType === 'registered' 
         ? selectedUser?.membership_status === 'approved' 
         : walkInMembership === 'approved';
@@ -464,10 +483,18 @@ export const SalesPage: React.FC = () => {
     if (!selectedProduct) return;
 
     if (selectedProduct.options && selectedProduct.options.length > 0) {
-      const missingOptions = selectedProduct.options.filter((opt: any) => !selectedOptions[opt.id]);
-      if (missingOptions.length > 0) {
-        showNotification(`Please select all options: ${missingOptions.map((o: any) => o.label).join(', ')}`, 'error');
-        return;
+      if (selectedProduct.name === 'BSNAME Uniform') {
+        const hasAnyOption = selectedProduct.options.some((opt: any) => selectedOptions[opt.id]);
+        if (!hasAnyOption) {
+          showNotification('Please select a size from either Uniform Set or Polo Only', 'error');
+          return;
+        }
+      } else {
+        const missingOptions = selectedProduct.options.filter((opt: any) => !selectedOptions[opt.id]);
+        if (missingOptions.length > 0) {
+          showNotification(`Please select all options: ${missingOptions.map((o: any) => o.label).join(', ')}`, 'error');
+          return;
+        }
       }
     }
 
@@ -509,7 +536,7 @@ export const SalesPage: React.FC = () => {
       }
     }
 
-    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
     const itemSubtotal = quantity * unitPrice;
     const itemId = `${selectedProduct.id}-${Date.now()}`;
 
@@ -583,6 +610,439 @@ export const SalesPage: React.FC = () => {
     }
     else if (activeTab === 'insurance') await loadInsuranceOrders();
     else if (activeTab === 'hardbound') await loadHardboundOrders();
+  };
+
+  // Excel / CSV Importer Helper Functions
+  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportFile(file);
+    setIsParsing(true);
+    setImportLogs(['Reading spreadsheet...']);
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = evt.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        setImportWorkbook(workbook);
+        
+        // Filter out system sheets and get list of sheets
+        const excludedSheets = ['template', 'edp', 'readme', 'instructions', 'sheet1', 'sheet2', 'sheet3'];
+        const validSheets = workbook.SheetNames.filter(name => 
+          !excludedSheets.includes(name.toLowerCase().trim())
+        );
+
+        setImportSheets(validSheets);
+        setImportLogs(prev => [...prev, `Found valid sheets: ${validSheets.join(', ')}`]);
+      } catch (err: any) {
+        console.error('Error reading excel file:', err);
+        setImportLogs(prev => [...prev, `ERROR: Failed to parse spreadsheet: ${err.message || err}`]);
+      } finally {
+        setIsParsing(false);
+      }
+    };
+    reader.onerror = (err) => {
+      setImportLogs(prev => [...prev, `ERROR: FileReader error: ${err}`]);
+      setIsParsing(false);
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const parseDateForImport = (dateStr: string, sheetName: string): Date => {
+    const defaultYear = 2026;
+    
+    // Helper to map month name to index (0-11)
+    const getMonthIndex = (name: string): number => {
+      const lower = name.toLowerCase();
+      if (lower.includes('jan')) return 0;
+      if (lower.includes('feb')) return 1;
+      if (lower.includes('mar')) return 2;
+      if (lower.includes('apr')) return 3;
+      if (lower.includes('may')) return 4;
+      if (lower.includes('jun')) return 5;
+      if (lower.includes('jul')) return 6;
+      if (lower.includes('aug')) return 7;
+      if (lower.includes('sep')) return 8;
+      if (lower.includes('oct')) return 9;
+      if (lower.includes('nov')) return 10;
+      if (lower.includes('dec')) return 11;
+      return 0; // fallback
+    };
+
+    let targetMonth = getMonthIndex(sheetName);
+    let targetDay = 1;
+    let targetYear = defaultYear;
+
+    const trimmed = dateStr.trim();
+    if (trimmed) {
+      // Check if it's an Excel serial number (a number above 40000)
+      const num = Number(trimmed);
+      if (!isNaN(num) && num > 40000) {
+        const date = new Date((num - 25569) * 86400 * 1000);
+        date.setFullYear(defaultYear);
+        return date;
+      }
+
+      // Check if it's just a day number (e.g. "12")
+      if (!isNaN(num) && num >= 1 && num <= 31) {
+        targetDay = Math.floor(num);
+      } else {
+        // Try parsing string like "5-Jan" or "5-Jan-2026" or "Jan 5"
+        const parsed = Date.parse(trimmed);
+        if (!isNaN(parsed)) {
+          const date = new Date(parsed);
+          date.setFullYear(defaultYear);
+          return date;
+        }
+        
+        // Custom parsing for formats like "2-Jan" or "Jan-2"
+        const parts = trimmed.split(/[-/,\s]+/);
+        if (parts.length >= 2) {
+          const part0Num = Number(parts[0]);
+          if (!isNaN(part0Num)) {
+            targetDay = part0Num;
+            targetMonth = getMonthIndex(parts[1]);
+          } else {
+            targetMonth = getMonthIndex(parts[0]);
+            const part1Num = Number(parts[1]);
+            if (!isNaN(part1Num)) {
+              targetDay = part1Num;
+            }
+          }
+        }
+      }
+    }
+
+    const res = new Date(targetYear, targetMonth, targetDay, 12, 0, 0); // set to noon to avoid timezone shifts
+    return res;
+  };
+
+  const mapSpreadsheetItemToProductForImport = (
+    itemName: string,
+    amountVal: number,
+    qnty: number,
+    size: string,
+    course: string
+  ) => {
+    const nameLower = itemName.toLowerCase().trim();
+    
+    // Normalize Item Name to match the standard products
+    let standardName = '';
+    
+    if (nameLower.includes('lanyard')) standardName = 'Lanyard';
+    else if (nameLower.includes('id case') || nameLower.includes('idcase') || nameLower.includes('id card') || nameLower.includes('id-card')) standardName = 'ID Case';
+    else if (nameLower.includes('handbag')) standardName = 'Handbag';
+    else if (nameLower.includes('hardbound') || nameLower.includes('hard bound') || nameLower.includes('hard-bound')) standardName = 'Hard Bound';
+    else if (nameLower.includes('safety shoes') || nameLower.includes('safety shoe')) standardName = 'Safety Shoes';
+    else if (nameLower.includes('goggles') || nameLower.includes('goggle')) standardName = 'Safety Goggles';
+    else if (nameLower.includes('cover all') || nameLower.includes('coverall') || nameLower.includes('cover-all')) standardName = 'Cover All';
+    else if (nameLower.includes('gloves') || nameLower.includes('glove')) standardName = 'Gloves';
+    else if (nameLower.includes('hard hat') || nameLower.includes('hardhat')) standardName = 'Hard Hat';
+    else if (nameLower.includes('pe tshirt') || nameLower.includes('pe shirt') || nameLower.includes('p.e. shirt') || nameLower.includes('pe t-shirt')) standardName = 'PE Tshirt';
+    else if (nameLower.includes('pe pants') || nameLower.includes('pe pant') || nameLower.includes('p.e. pants')) standardName = 'PE Pants';
+    else if (nameLower.includes('pershing')) standardName = 'Pershing Cap';
+    else if (nameLower.includes('plotting')) standardName = 'Plotting Sheet';
+    else if (nameLower.includes('gala')) standardName = 'Gala';
+    else if (nameLower.includes('bsname')) standardName = 'BSNAME Uniform';
+    else if (nameLower.includes('pe short') || nameLower.includes('pe shorts') || nameLower.includes('p.e. shorts')) standardName = 'PE Short';
+    else if (nameLower.includes('buttons') || nameLower.includes('button')) standardName = 'Buttons';
+    else if (nameLower.includes('anchor')) standardName = 'Anchor Pins';
+    else if (nameLower.includes('propeller')) standardName = 'Propeller Pins';
+    else if (nameLower.includes('shoulder')) standardName = 'Shoulder Board';
+    else if (nameLower.includes('swimming set') || nameLower.includes('swimset')) standardName = 'Swimming Set';
+    else if (nameLower.includes('cwts')) standardName = 'CWTS Shirt';
+    else if (nameLower.includes('rotc')) standardName = 'ROTC Manual';
+    else if (nameLower.includes('belt')) standardName = 'Belt';
+    else if (nameLower.includes('swim cap') || nameLower.includes('swimming cap')) standardName = 'Swimming Cap';
+    else if (nameLower.includes('white shoes') || nameLower.includes('white shoe')) standardName = 'White Shoes';
+    else if (nameLower.includes('rope')) standardName = 'Rope';
+    else if (nameLower.includes('type a') || nameLower.includes('type b') || nameLower.includes('type a & b')) standardName = 'Type A & B Uniform';
+    else if (nameLower.includes('type c')) standardName = 'Type C Uniform';
+    else if (nameLower.includes('locker')) standardName = 'Locker Rent';
+    else standardName = itemName; // default to whatever was in the sheet if no match
+
+    // Find the product in store
+    let matchedProduct: any = products.find(p => p.name.toLowerCase() === standardName.toLowerCase());
+    
+    // If not found in store, create a temporary mock object
+    if (!matchedProduct) {
+      if (standardName === 'Locker Rent') {
+        matchedProduct = {
+          id: 'prod-locker-rent',
+          name: 'Locker Rent',
+          sku: 'SRV-001',
+          price: 150, // default locker rent price
+          category: 'service',
+          available: true,
+          stock: 999,
+          createdAt: new Date().toISOString()
+        };
+      } else {
+        matchedProduct = {
+          id: `prod-temp-${standardName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
+          name: standardName,
+          sku: `TEMP-${standardName.toUpperCase().substring(0, 3)}`,
+          price: amountVal / (qnty || 1),
+          category: 'uniform',
+          available: true,
+          stock: 999,
+          createdAt: new Date().toISOString()
+        };
+      }
+    }
+
+    // Resolve Options
+    const selectedOptions: Record<string, string> = {};
+    
+    if (matchedProduct.options) {
+      const courseOption = matchedProduct.options.find((o: any) => o.id === 'course');
+      if (courseOption) {
+        const val = course.toUpperCase().trim();
+        const matchedChoice = courseOption.choices.find((c: any) => {
+          const cleanChoice = c.split(' ')[0].toUpperCase();
+          return val.includes(cleanChoice) || cleanChoice.includes(val);
+        }) || courseOption.choices[0];
+        
+        selectedOptions['course'] = matchedChoice;
+      }
+      
+      const sizeOption = matchedProduct.options.find((o: any) => o.id === 'size');
+      if (sizeOption) {
+        const val = size.toUpperCase().trim();
+        const matchedChoice = sizeOption.choices.find((c: any) => {
+          const cleanChoice = c.split(' ')[0].toUpperCase();
+          return val === cleanChoice || cleanChoice.includes(val) || val.includes(cleanChoice);
+        }) || sizeOption.choices[0];
+        
+        selectedOptions['size'] = matchedChoice;
+      }
+
+      const bundleOption = matchedProduct.options.find((o: any) => o.id === 'bundle');
+      if (bundleOption) {
+        const matchedChoice = bundleOption.choices.find((c: any) => {
+          const bundleLabel = c.split(' ')[0] + ' ' + c.split(' ')[1];
+          return nameLower.includes(bundleLabel.toLowerCase());
+        }) || bundleOption.choices[0];
+        
+        selectedOptions['bundle'] = matchedChoice;
+      }
+    }
+
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(matchedProduct.name);
+    let paymentType: 'full' | 'downpayment' = 'full';
+    let fullPrice: number | undefined = undefined;
+
+    if (isTailoredProduct) {
+      const rowUnitPrice = amountVal / (qnty || 1);
+      if (matchedProduct.name === 'Gala' && rowUnitPrice <= 500) {
+        paymentType = 'downpayment';
+        fullPrice = matchedProduct.price;
+      } else if ((matchedProduct.name === 'Type A & B Uniform' || matchedProduct.name === 'BSNAME Uniform') && rowUnitPrice <= 1500) {
+        paymentType = 'downpayment';
+        fullPrice = matchedProduct.price;
+      }
+    }
+
+    return {
+      productId: matchedProduct.id,
+      productName: matchedProduct.name,
+      unitPrice: amountVal / (qnty || 1),
+      selectedOptions,
+      paymentType,
+      orderType: isTailoredProduct ? 'preorder' : 'regular',
+      fullPrice
+    };
+  };
+
+  const executeImport = async () => {
+    if (parsedTransactions.length === 0) return;
+
+    setIsImporting(true);
+    setImportProgress({ current: 0, total: parsedTransactions.length });
+    const logs = [...importLogs, 'Starting batch import process...'];
+    setImportLogs(logs);
+
+    let successCount = 0;
+    let skipCount = 0;
+    let failCount = 0;
+
+    try {
+      const hasLockerItem = parsedTransactions.some(t => 
+        t.items.some((item: any) => item.productName === 'Locker Rent')
+      );
+      
+      let dbProducts = [...products];
+      if (hasLockerItem && !dbProducts.some(p => p.name.toLowerCase() === 'locker rent')) {
+        logs.push('Locker Rent product not found in database. Auto-creating Locker Rent service product...');
+        setImportLogs([...logs]);
+        try {
+          const newProd = await apiClient.createProduct({
+            name: 'Locker Rent',
+            sku: 'SRV-001',
+            price: 150,
+            category: 'service',
+            stock: 9999,
+            available: true,
+            image: '🔑'
+          });
+          logs.push(`Successfully created Locker Rent product: ${newProd.id}`);
+          setImportLogs([...logs]);
+          
+          await AppDataSync.loadProductsFromAPI();
+          dbProducts = useAppStore.getState().products;
+        } catch (prodErr: any) {
+          console.error('Failed to create Locker Rent product:', prodErr);
+          logs.push(`WARNING: Failed to auto-create Locker Rent product: ${prodErr.message || prodErr}. Using temp fallback.`);
+          setImportLogs([...logs]);
+        }
+      }
+
+      const uniqueTempProducts = new Map<string, any>();
+      parsedTransactions.forEach(t => {
+        t.items.forEach((item: any) => {
+          if (item.productId.startsWith('prod-temp-')) {
+            uniqueTempProducts.set(item.productName, item);
+          }
+        });
+      });
+
+      if (uniqueTempProducts.size > 0) {
+        logs.push(`Found ${uniqueTempProducts.size} custom product(s) in spreadsheet. Auto-creating them in DB to ensure database integrity...`);
+        setImportLogs([...logs]);
+        for (const [pName, item] of uniqueTempProducts.entries()) {
+          if (!dbProducts.some(p => p.name.toLowerCase() === pName.toLowerCase())) {
+            try {
+              const cleanSku = `UNI-${Math.floor(100 + Math.random() * 900)}`;
+              const created = await apiClient.createProduct({
+                name: pName,
+                sku: cleanSku,
+                price: item.unitPrice,
+                category: 'uniform',
+                stock: 9999,
+                available: true,
+                image: '👕'
+              });
+              logs.push(`Successfully created product: ${pName} (${created.id})`);
+              setImportLogs([...logs]);
+            } catch (prodErr: any) {
+              console.error(`Failed to create product ${pName}:`, prodErr);
+              logs.push(`WARNING: Failed to auto-create product ${pName}: ${prodErr.message || prodErr}`);
+              setImportLogs([...logs]);
+            }
+          }
+        }
+        
+        await AppDataSync.loadProductsFromAPI();
+        dbProducts = useAppStore.getState().products;
+      }
+
+      const updatedTransactions = parsedTransactions.map(t => {
+        const updatedItems = t.items.map((item: any) => {
+          const dbProd = dbProducts.find(p => p.name.toLowerCase() === item.productName.toLowerCase());
+          if (dbProd) {
+            return {
+              ...item,
+              productId: dbProd.id
+            };
+          }
+          return item;
+        });
+        return {
+          ...t,
+          items: updatedItems
+        };
+      });
+
+      for (let i = 0; i < updatedTransactions.length; i++) {
+        const t = updatedTransactions[i];
+        setImportProgress({ current: i + 1, total: updatedTransactions.length });
+
+        if (t.isDuplicate && importSettings.skipDuplicates) {
+          logs.push(`[SKIP] Transaction ${t.receiptNo} is a duplicate. Skipping.`);
+          setImportLogs([...logs]);
+          skipCount++;
+          continue;
+        }
+
+        let isWalkIn = true;
+        let userId = undefined;
+        const cleanName = t.walkInName.toLowerCase().trim();
+        
+        const matchedUser = allUsers?.find((u: any) => {
+          const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().trim();
+          return fullName === cleanName || u.name?.toLowerCase().trim() === cleanName;
+        });
+
+        if (matchedUser) {
+          isWalkIn = false;
+          userId = matchedUser.id;
+        }
+
+        const orderData = {
+          isWalkIn,
+          walkInName: isWalkIn ? t.walkInName : undefined,
+          walkInIdNumber: undefined,
+          walkInCourse: isWalkIn ? t.walkInCourse : undefined,
+          walkInMembershipStatus: isWalkIn ? t.walkInMembershipStatus : undefined,
+          userId,
+          items: t.items.map((item: any) => ({
+            productId: item.productId,
+            productName: item.productName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            subtotal: item.subtotal,
+            selectedOptions: item.selectedOptions,
+            paymentType: item.paymentType || null,
+            orderType: item.orderType || 'regular',
+            fullPrice: item.fullPrice || null
+          })),
+          totalAmount: t.totalAmount,
+          paymentMethod: t.paymentMethod,
+          referenceNumber: null,
+          receiptNo: t.receiptNo,
+          orderType: 'merchandise',
+          status: 'completed',
+          createdAt: t.createdAt,
+          completedAt: t.completedAt,
+          skipStockDeduction: true  // Historical import — do not touch current inventory
+        };
+
+        try {
+          await apiClient.createOrder(orderData, user?.id || '');
+          logs.push(`[SUCCESS] Imported receipt ${t.receiptNo} (${t.walkInName})`);
+          setImportLogs([...logs]);
+          successCount++;
+        } catch (orderErr: any) {
+          console.error(`Failed to import transaction ${t.receiptNo}:`, orderErr);
+          logs.push(`[ERROR] Failed to save transaction ${t.receiptNo}: ${orderErr.message || orderErr}`);
+          setImportLogs([...logs]);
+          failCount++;
+        }
+      }
+
+      logs.push(`Import completed! Success: ${successCount}, Skipped: ${skipCount}, Failed: ${failCount}.`);
+      setImportLogs([...logs]);
+      showNotification(`Import finished. Saved ${successCount} transactions successfully!`, 'success');
+
+      await refreshActiveTabData();
+      
+      setTimeout(() => {
+        setShowImportExcelModal(false);
+        setImportFile(null);
+        setImportWorkbook(null);
+        setParsedTransactions([]);
+      }, 3000);
+
+    } catch (err: any) {
+      console.error('Batch import process error:', err);
+      logs.push(`FATAL ERROR: Import process failed - ${err.message || err}`);
+      setImportLogs([...logs]);
+      showNotification('Import process encountered a fatal error', 'error');
+    } finally {
+      setIsImporting(false);
+    }
   };
 
   const handleSaveManualOrder = async () => {
@@ -770,13 +1230,17 @@ export const SalesPage: React.FC = () => {
       const productsSold: Record<string, { quantity: number; revenue: number }> = {};
       
       monthlyOrders.forEach((order: any) => {
+        const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                                 (order.receiptNo && order.receiptNo.startsWith('BAL-'));
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: any) => {
             const productName = formatProductNameWithVariants(item);
             if (!productsSold[productName]) {
               productsSold[productName] = { quantity: 0, revenue: 0 };
             }
-            productsSold[productName].quantity += item.quantity;
+            if (!isBalancePayment) {
+              productsSold[productName].quantity += item.quantity;
+            }
             productsSold[productName].revenue += parseFloat(item.subtotal);
           });
         }
@@ -1111,6 +1575,8 @@ export const SalesPage: React.FC = () => {
       remittanceOrders
         .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
         .forEach((order: any) => {
+          const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                                   (order.receiptNo && order.receiptNo.startsWith('BAL-'));
           if (order.items && Array.isArray(order.items)) {
             order.items.forEach((item: any) => {
               const productName = formatProductNameWithVariants(item);
@@ -1120,7 +1586,9 @@ export const SalesPage: React.FC = () => {
               if (!dailyProductsSold[productName]) {
                 dailyProductsSold[productName] = { quantity: 0, revenue: 0, category, sku, price: unitPrice };
               }
-              dailyProductsSold[productName].quantity += item.quantity;
+              if (!isBalancePayment) {
+                dailyProductsSold[productName].quantity += item.quantity;
+              }
               dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
             });
           }
@@ -1761,6 +2229,14 @@ export const SalesPage: React.FC = () => {
             >
               <PlusCircle size={18} className="sm:w-5 sm:h-5" />
               <span>Record Offline Sale</span>
+            </button>
+
+            <button
+              onClick={() => setShowImportExcelModal(true)}
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-green-500/20"
+            >
+              <Upload size={18} className="sm:w-5 sm:h-5" />
+              <span>Import Excel/CSV</span>
             </button>
 
             {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, and Hardbound tabs */}
@@ -2581,10 +3057,14 @@ export const SalesPage: React.FC = () => {
                     remittanceOrders
                       .filter((o: any) => o.status === 'completed' && o.order_type !== 'insurance')
                       .forEach((o: any) => {
+                        const isBalancePayment = (o.receipt_no && o.receipt_no.startsWith('BAL-')) ||
+                                                 (o.receiptNo && o.receiptNo.startsWith('BAL-'));
                         if (o.items && Array.isArray(o.items)) {
                           o.items.forEach((item: any) => {
                             const productName = formatProductNameWithVariants(item);
-                            dailyProductsSold[productName] = (dailyProductsSold[productName] || 0) + item.quantity;
+                            if (!isBalancePayment) {
+                              dailyProductsSold[productName] = (dailyProductsSold[productName] || 0) + item.quantity;
+                            }
                           });
                         }
                       });
@@ -2603,13 +3083,17 @@ export const SalesPage: React.FC = () => {
               remittanceOrders
                 .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
                 .forEach((order: any) => {
+                  const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                                           (order.receiptNo && order.receiptNo.startsWith('BAL-'));
                   if (order.items && Array.isArray(order.items)) {
                     order.items.forEach((item: any) => {
                       const productName = formatProductNameWithVariants(item);
                       if (!dailyProductsSold[productName]) {
                         dailyProductsSold[productName] = { quantity: 0, revenue: 0 };
                       }
-                      dailyProductsSold[productName].quantity += item.quantity;
+                      if (!isBalancePayment) {
+                        dailyProductsSold[productName].quantity += item.quantity;
+                      }
                       dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
                     });
                   }
@@ -3128,8 +3612,28 @@ export const SalesPage: React.FC = () => {
 
             {/* Products Sold Table */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-200">
+              <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
+                <div className="relative w-full sm:w-80">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search product name..."
+                    value={monthlySearchQuery}
+                    onChange={(e) => setMonthlySearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                  />
+                  {monthlySearchQuery && (
+                    <button
+                      onClick={() => setMonthlySearchQuery('')}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full">
@@ -3141,9 +3645,22 @@ export const SalesPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {Object.entries(monthlyData.productsSold)
-                      .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-                      .map(([productName, data]: [string, any]) => (
+                    {(() => {
+                      const filtered = Object.entries(monthlyData.productsSold)
+                        .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
+                        .sort((a: any, b: any) => b[1].quantity - a[1].quantity);
+
+                      if (filtered.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
+                              No products found matching "{monthlySearchQuery}"
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return filtered.map(([productName, data]: [string, any]) => (
                         <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
                           <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
                           <td className="px-6 py-4 text-sm text-right text-slate-600">{data.quantity} units</td>
@@ -3151,7 +3668,8 @@ export const SalesPage: React.FC = () => {
                             ₱{data.revenue.toLocaleString()}
                           </td>
                         </tr>
-                      ))}
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -4504,10 +5022,19 @@ export const SalesPage: React.FC = () => {
                                   </label>
                                   <select
                                     value={selectedOptions[option.id] || ''}
-                                    onChange={(e) => setSelectedOptions({
-                                      ...selectedOptions,
-                                      [option.id]: e.target.value
-                                    })}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      let next = { ...selectedOptions };
+                                      if (selectedProduct.name === 'BSNAME Uniform') {
+                                        next = {};
+                                      }
+                                      if (val) {
+                                        next[option.id] = val;
+                                      } else {
+                                        delete next[option.id];
+                                      }
+                                      setSelectedOptions(next);
+                                    }}
                                     className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
                                   >
                                     <option value="">-- Select {option.label} --</option>
@@ -4554,7 +5081,7 @@ export const SalesPage: React.FC = () => {
                               </select>
                             </div>
 
-                            {['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name) && (
+                            {['Gala', 'Type A & B Uniform'].includes(selectedProduct.name) && (
                               <div>
                                 <label className="block text-xs text-slate-500 mb-1 font-semibold">Payment Options</label>
                                 <select
@@ -4857,6 +5384,445 @@ export const SalesPage: React.FC = () => {
 
               </div>
 
+            </div>
+          </div>
+        )}
+
+        {/* Excel Import Modal */}
+        {showImportExcelModal && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in" onClick={() => !isImporting && setShowImportExcelModal(false)}>
+            <div 
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                    <FileSpreadsheet size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900">Import Transactions from Excel/CSV</h3>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium">Batch upload historical transaction lists directly to the system</p>
+                  </div>
+                </div>
+                <button
+                  disabled={isImporting}
+                  onClick={() => setShowImportExcelModal(false)}
+                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-all disabled:opacity-50"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                
+                {/* File Dropzone */}
+                {!importFile ? (
+                  <div className="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center hover:border-green-500 transition-colors bg-slate-50/50">
+                    <Upload className="mx-auto text-slate-400 mb-3" size={36} />
+                    <p className="text-sm font-semibold text-slate-700">Drag and drop your spreadsheet here</p>
+                    <p className="text-xs text-slate-500 mt-1">Supports Excel Workbook (.xlsx, .xls) and CSV (.csv)</p>
+                    <label className="mt-4 inline-flex items-center px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg shadow-sm cursor-pointer transition-colors">
+                      Browse Files
+                      <input 
+                        type="file" 
+                        accept=".xlsx,.xls,.csv" 
+                        onChange={handleImportFileChange} 
+                        className="hidden" 
+                      />
+                    </label>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className="p-2 bg-green-100 text-green-600 rounded-lg">
+                        <FileSpreadsheet size={20} />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-slate-800">{importFile.name}</p>
+                        <p className="text-xs text-slate-500">{(importFile.size / 1024).toFixed(1)} KB</p>
+                      </div>
+                    </div>
+                    {!isImporting && (
+                      <button 
+                        onClick={() => {
+                          setImportFile(null);
+                          setImportWorkbook(null);
+                          setParsedTransactions([]);
+                        }}
+                        className="text-xs text-red-600 hover:underline font-semibold"
+                      >
+                        Remove File
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* Configuration Options */}
+                {importFile && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Select Sheet / Month</label>
+                      <select
+                        value={selectedImportSheet}
+                        onChange={(e) => setSelectedImportSheet(e.target.value)}
+                        disabled={isParsing || isImporting}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="All Sheets">All Month Sheets ({importSheets.length})</option>
+                        {importSheets.map(s => (
+                          <option key={s} value={s}>{s}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Payment Method</label>
+                      <select
+                        value={importSettings.defaultPaymentMethod}
+                        onChange={(e) => setImportSettings({ ...importSettings, defaultPaymentMethod: e.target.value })}
+                        disabled={isParsing || isImporting}
+                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                      >
+                        <option value="cash">Cash (Default)</option>
+                        <option value="ewallet">GCash / E-Wallet</option>
+                      </select>
+                    </div>
+
+                    <div className="flex flex-col justify-end space-y-2">
+                      <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input 
+                          type="checkbox"
+                          checked={importSettings.skipDuplicates}
+                          onChange={(e) => setImportSettings({ ...importSettings, skipDuplicates: e.target.checked })}
+                          disabled={isParsing || isImporting}
+                          className="rounded text-green-600 focus:ring-green-500"
+                        />
+                        <span>Skip Duplicate Receipt Numbers</span>
+                      </label>
+                      <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
+                        <input 
+                          type="checkbox"
+                          checked={importSettings.autoCreateUsers}
+                          onChange={(e) => setImportSettings({ ...importSettings, autoCreateUsers: e.target.checked })}
+                          disabled={isParsing || isImporting}
+                          className="rounded text-green-600 focus:ring-green-500"
+                        />
+                        <span>Auto-create Walk-in Members</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {/* Parse Actions */}
+                {importFile && parsedTransactions.length === 0 && (
+                  <div className="text-center">
+                    <button
+                      onClick={() => {
+                        const runParser = async () => {
+                          setIsParsing(true);
+                          const sheetsToParse = selectedImportSheet === 'All Sheets' ? importSheets : [selectedImportSheet];
+                          const allParsed: any[] = [];
+                          const logs: string[] = [];
+
+                          try {
+                            logs.push('Fetching existing transactions for duplicate detection...');
+                            setImportLogs([...logs]);
+                            const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+                            const existingReceiptNoSet = new Set(
+                              allOrders.map(o => String(o.receipt_no || o.receiptNo || '').toUpperCase().trim())
+                            );
+                            
+                            sheetsToParse.forEach(sheetName => {
+                              const sheet = importWorkbook.Sheets[sheetName];
+                              if (!sheet) return;
+
+                              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+                              logs.push(`Parsing sheet "${sheetName}" (${rows.length} rows found)...`);
+                              setImportLogs([...logs]);
+
+                              let sheetTransactionsCount = 0;
+                              let currentHeaderDate: string = '';
+                              let currentTransaction: any = null;
+
+                              for (let r = 0; r < rows.length; r++) {
+                                const row = rows[r];
+                                if (!row || row.length === 0) continue;
+
+                                const colA = String(row[0] || '').trim();
+                                const colB = String(row[1] || '').trim();
+                                const colC = String(row[2] || '').trim();
+                                const colD = String(row[3] || '').trim();
+                                const colE = String(row[4] || '').trim();
+                                const colF = String(row[5] || '').trim();
+                                const colG = String(row[6] || '').trim();
+                                const colH = String(row[7] || '').trim();
+
+                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.') {
+                                  continue;
+                                }
+
+                                if (colC && !colE && !colH) {
+                                  const hasMonthName = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
+                                    .some(m => colC.toLowerCase().includes(m));
+                                  if (hasMonthName) {
+                                    currentHeaderDate = colC;
+                                    continue;
+                                  }
+                                }
+
+                                if (!colC && !colE && colH) {
+                                  continue;
+                                }
+
+                                if (!colE || !colH) {
+                                  continue;
+                                }
+
+                                let dateObj = new Date();
+                                if (colA) {
+                                  dateObj = parseDateForImport(colA, sheetName);
+                                } else if (currentHeaderDate) {
+                                  dateObj = new Date(currentHeaderDate);
+                                } else {
+                                  dateObj = parseDateForImport('', sheetName);
+                                }
+
+                                const trNo = colB;
+                                const clientName = colC || (currentTransaction ? currentTransaction.walkInName : 'Walk-in Student');
+                                const course = colD || (currentTransaction ? currentTransaction.walkInCourse : '');
+                                const itemName = colE;
+                                const qnty = parseInt(colF) || 1;
+                                const size = colG;
+                                const amountVal = parseFloat(colH.replace(/,/g, '')) || 0;
+
+                                const matched = mapSpreadsheetItemToProductForImport(itemName, amountVal, qnty, size, course);
+
+                                const item = {
+                                  productId: matched.productId,
+                                  productName: matched.productName,
+                                  quantity: qnty,
+                                  unitPrice: matched.unitPrice,
+                                  subtotal: amountVal,
+                                  selectedOptions: matched.selectedOptions,
+                                  paymentType: matched.paymentType || 'full',
+                                  orderType: matched.orderType || 'regular',
+                                  fullPrice: matched.fullPrice || undefined
+                                };
+
+                                const receiptIdStr = trNo ? `TR-${trNo}-${sheetName.toUpperCase()}-2026` : '';
+                                const isDuplicate = receiptIdStr ? existingReceiptNoSet.has(receiptIdStr.toUpperCase()) : false;
+
+                                if (trNo) {
+                                  if (currentTransaction) {
+                                    allParsed.push(currentTransaction);
+                                    sheetTransactionsCount++;
+                                  }
+
+                                  currentTransaction = {
+                                    isWalkIn: true,
+                                    walkInName: clientName,
+                                    walkInCourse: course,
+                                    walkInMembershipStatus: 'none',
+                                    items: [item],
+                                    totalAmount: amountVal,
+                                    paymentMethod: importSettings.defaultPaymentMethod,
+                                    receiptNo: receiptIdStr,
+                                    status: 'completed',
+                                    createdAt: dateObj.toISOString(),
+                                    completedAt: dateObj.toISOString(),
+                                    isDuplicate,
+                                    sheetName
+                                  };
+                                } else {
+                                  if (currentTransaction) {
+                                    currentTransaction.items.push(item);
+                                    currentTransaction.totalAmount += amountVal;
+                                  } else {
+                                    currentTransaction = {
+                                      isWalkIn: true,
+                                      walkInName: clientName,
+                                      walkInCourse: course,
+                                      walkInMembershipStatus: 'none',
+                                      items: [item],
+                                      totalAmount: amountVal,
+                                      paymentMethod: importSettings.defaultPaymentMethod,
+                                      receiptNo: `TR-TEMP-${Date.now()}-${sheetName.toUpperCase()}`,
+                                      status: 'completed',
+                                      createdAt: dateObj.toISOString(),
+                                      completedAt: dateObj.toISOString(),
+                                      isDuplicate: false,
+                                      sheetName
+                                    };
+                                  }
+                                }
+                              }
+
+                              if (currentTransaction) {
+                                allParsed.push(currentTransaction);
+                                sheetTransactionsCount++;
+                              }
+
+                              logs.push(`Successfully parsed ${sheetTransactionsCount} transactions from "${sheetName}".`);
+                              setImportLogs([...logs]);
+                            });
+
+                            setParsedTransactions(allParsed);
+                            logs.push(`Total parsed: ${allParsed.length} transactions.`);
+                            setImportLogs([...logs]);
+                          } catch (err: any) {
+                            console.error('Error parsing sheet:', err);
+                            logs.push(`ERROR: Failed to parse spreadsheet - ${err.message || err}`);
+                            setImportLogs([...logs]);
+                          } finally {
+                            setIsParsing(false);
+                          }
+                        };
+                        runParser();
+                      }}
+                      disabled={isParsing}
+                      className="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow transition-colors text-sm disabled:opacity-50"
+                    >
+                      {isParsing ? 'Analyzing Spreadsheet...' : 'Analyze & Preview Data'}
+                    </button>
+                  </div>
+                )}
+
+                {/* Progress bar */}
+                {importProgress && (
+                  <div className="space-y-2 animate-pulse">
+                    <div className="flex justify-between text-xs font-bold text-slate-700">
+                      <span>Importing Transactions...</span>
+                      <span>{importProgress.current} / {importProgress.total} ({Math.round((importProgress.current / importProgress.total) * 100)}%)</span>
+                    </div>
+                    <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-green-600 h-full transition-all duration-100" 
+                        style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Console Logs */}
+                {importLogs.length > 0 && (
+                  <div className="space-y-2">
+                    <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Log Terminal</p>
+                    <div className="bg-slate-900 text-emerald-400 font-mono text-[10px] sm:text-xs p-4 rounded-xl max-h-[160px] overflow-y-auto space-y-1 scrollbar-thin">
+                      {importLogs.map((log, idx) => (
+                        <div key={idx} className={log.includes('ERROR') ? 'text-red-400' : log.includes('Success') || log.includes('complete') ? 'text-green-400' : 'text-emerald-400'}>
+                          {log}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview Table */}
+                {parsedTransactions.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Transactions Preview</p>
+                      <div className="text-xs text-slate-500 font-medium">
+                        Total Amount: <span className="font-bold text-slate-900">₱{parsedTransactions.reduce((sum, t) => sum + t.totalAmount, 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-[280px] overflow-y-auto">
+                      <table className="w-full text-xs text-left">
+                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold sticky top-0">
+                          <tr>
+                            <th className="px-4 py-2">Receipt No</th>
+                            <th className="px-4 py-2">Date</th>
+                            <th className="px-4 py-2">Client / Course</th>
+                            <th className="px-4 py-2">Items</th>
+                            <th className="px-4 py-2 text-right">Amount</th>
+                            <th className="px-4 py-2 text-center">Status</th>
+                            <th className="px-4 py-2 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {parsedTransactions.map((t, idx) => (
+                            <tr key={idx} className={`hover:bg-slate-50 transition-colors ${t.isDuplicate && importSettings.skipDuplicates ? 'opacity-60' : ''}`}>
+                              <td className="px-4 py-2 font-mono font-semibold">{t.receiptNo}</td>
+                              <td className="px-4 py-2 text-slate-600">{new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
+                              <td className="px-4 py-2 font-medium">
+                                <div>{t.walkInName}</div>
+                                <div className="text-[10px] text-slate-500">{t.walkInCourse}</div>
+                              </td>
+                              <td className="px-4 py-2">
+                                <div className="space-y-0.5">
+                                  {t.items.map((it: any, iIdx: number) => (
+                                    <div key={iIdx} className="text-slate-700">
+                                      {it.productName} ({it.quantity}x)
+                                      {it.selectedOptions?.size && <span className="ml-1 text-[10px] bg-slate-100 px-1 py-0.2 rounded text-slate-600">{it.selectedOptions.size}</span>}
+                                      {it.paymentType === 'downpayment' && <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-semibold">Downpayment</span>}
+                                    </div>
+                                  ))}
+                                </div>
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-slate-900">₱{t.totalAmount.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-center">
+                                {t.isDuplicate ? (
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${importSettings.skipDuplicates ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                                    {importSettings.skipDuplicates ? 'Duplicate (Skip)' : 'Duplicate (Overwrite)'}
+                                  </span>
+                                ) : (
+                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-800">
+                                    New Transaction
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-center">
+                                <button
+                                  title="Remove from import"
+                                  disabled={isImporting}
+                                  onClick={() => setParsedTransactions(prev => prev.filter((_, i) => i !== idx))}
+                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-red-100 hover:border-red-300"
+                                >
+                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                                    <polyline points="3 6 5 6 21 6"/>
+                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                    <path d="M10 11v6M14 11v6"/>
+                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                  </svg>
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-between">
+                <button
+                  disabled={isImporting}
+                  onClick={() => {
+                    setShowImportExcelModal(false);
+                    setImportFile(null);
+                    setImportWorkbook(null);
+                    setParsedTransactions([]);
+                  }}
+                  className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg text-sm hover:bg-slate-100 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                {parsedTransactions.length > 0 && (
+                  <button
+                    disabled={isImporting}
+                    onClick={executeImport}
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition-colors text-sm disabled:opacity-50"
+                  >
+                    {isImporting ? 'Executing Import...' : `Confirm & Save ${parsedTransactions.length} Transactions`}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}

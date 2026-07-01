@@ -38,6 +38,7 @@ router.post('/', authMiddleware, async (req, res) => {
       notes,
       dateReceived,
       selectedVariant,
+      attachment,
     } = req.body;
 
     // Insert stock intake record
@@ -45,8 +46,8 @@ router.post('/', authMiddleware, async (req, res) => {
       `INSERT INTO stock_intake (
         product_id, product_name, quantity, cost_per_unit, selling_price,
         total_cost, potential_revenue, profit, profit_margin, supplier,
-        notes, date_received, selected_variant
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        notes, date_received, selected_variant, attachment
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
       RETURNING *`,
       [
         productId,
@@ -62,6 +63,7 @@ router.post('/', authMiddleware, async (req, res) => {
         notes,
         dateReceived,
         JSON.stringify(selectedVariant),
+        attachment || null,
       ]
     );
 

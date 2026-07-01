@@ -199,6 +199,7 @@ CREATE TABLE IF NOT EXISTS stock_intake (
   notes TEXT,
   date_received DATE NOT NULL,
   selected_variant JSONB,
+  attachment TEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

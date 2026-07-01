@@ -213,6 +213,7 @@ export const InventoryPage: React.FC = () => {
 
   
   // Stock Intake states
+  const [selectedReceiptUrl, setSelectedReceiptUrl] = useState<string | null>(null);
   const [stockIntakeRecords, setStockIntakeRecords] = useState<any[]>([]);
   const [showStockIntakeForm, setShowStockIntakeForm] = useState(false);
   const [stockIntakeFormData, setStockIntakeFormData] = useState({
@@ -225,6 +226,7 @@ export const InventoryPage: React.FC = () => {
     notes: '',
     dateReceived: new Date().toISOString().split('T')[0],
     selectedVariant: {} as Record<string, string>, // For variant options like course, size, color
+    attachment: '',
   });
 
   // Synchronize and migrate variant stocks when options are modified
@@ -232,6 +234,18 @@ export const InventoryPage: React.FC = () => {
     if (!editingProduct) return;
     
     const generateCombinations = (options: any[]) => {
+      if (editingProduct.name === 'BSNAME Uniform') {
+        const combinations: any[] = [];
+        options.forEach(option => {
+          option.choices.forEach((choice: string) => {
+            combinations.push({
+              [option.id]: choice
+            });
+          });
+        });
+        return combinations;
+      }
+
       if (options.length === 0) return [{}];
       if (options.length === 1) {
         return options[0].choices.map((choice: string) => ({
@@ -351,6 +365,8 @@ export const InventoryPage: React.FC = () => {
       console.error('Failed to load stock intake records:', error);
     }
   };
+
+
 
   const handleExportToExcel = () => {
     // 1. Prepare data rows
@@ -785,6 +801,18 @@ export const InventoryPage: React.FC = () => {
         if (formData.options && formData.options.length > 0) {
           // Generate all variant combinations
           const generateCombinations = (options: any[]) => {
+            if (formData.name === 'BSNAME Uniform') {
+              const combinations: any[] = [];
+              options.forEach(option => {
+                option.choices.forEach((choice: string) => {
+                  combinations.push({
+                    [option.id]: choice
+                  });
+                });
+              });
+              return combinations;
+            }
+
             if (options.length === 0) return [{}];
             if (options.length === 1) {
               return options[0].choices.map((choice: string) => ({
@@ -908,6 +936,18 @@ export const InventoryPage: React.FC = () => {
       if (editingProduct.options && editingProduct.options.length > 0) {
         // Generate all variant combinations
         const generateCombinations = (options: any[]) => {
+          if (editingProduct.name === 'BSNAME Uniform') {
+            const combinations: any[] = [];
+            options.forEach(option => {
+              option.choices.forEach((choice: string) => {
+                combinations.push({
+                  [option.id]: choice
+                });
+              });
+            });
+            return combinations;
+          }
+
           if (options.length === 0) return [{}];
           if (options.length === 1) {
             return options[0].choices.map((choice: string) => ({
@@ -959,19 +999,24 @@ export const InventoryPage: React.FC = () => {
         updates.variants = {}; // Clear variants if no options are defined
       }
 
-      updateProduct(editingProduct.id, updates);
-      
-      // Sync to API
-      const updatedProduct = { ...editingProduct, ...updates };
-      await AppDataSync.syncProductToAPI(updatedProduct);
-      
-      showNotification(`${editingProduct.name} updated successfully`, 'success');
-      setShowEditModal(false);
-      setEditingProduct(null);
-      setVariantStocks({});
-      setVariantPrices({});
-      setVariantImages({});
-      setNewChoiceInputs({});
+      try {
+        updateProduct(editingProduct.id, updates);
+        
+        // Sync to API
+        const updatedProduct = { ...editingProduct, ...updates };
+        await AppDataSync.syncProductToAPI(updatedProduct);
+        
+        showNotification(`${editingProduct.name} updated successfully`, 'success');
+        setShowEditModal(false);
+        setEditingProduct(null);
+        setVariantStocks({});
+        setVariantPrices({});
+        setVariantImages({});
+        setNewChoiceInputs({});
+      } catch (err: any) {
+        console.error('Failed to sync product to API:', err);
+        showNotification(err.message || 'Failed to save product changes to the server.', 'error');
+      }
     }
   };
 
@@ -1441,6 +1486,18 @@ export const InventoryPage: React.FC = () => {
                           {(() => {
                             // Generate all variant combinations
                             const generateCombinations = (options: any[]) => {
+                              if (formData.name === 'BSNAME Uniform') {
+                                const combinations: any[] = [];
+                                options.forEach(option => {
+                                  option.choices.forEach((choice: string) => {
+                                    combinations.push({
+                                      [option.id]: choice
+                                    });
+                                  });
+                                });
+                                return combinations;
+                              }
+
                               if (options.length === 0) return [{}];
                               if (options.length === 1) {
                                 return options[0].choices.map((choice: string) => ({
@@ -1478,11 +1535,15 @@ export const InventoryPage: React.FC = () => {
                                 <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors text-xs">
                                   <td className="p-3 font-medium text-slate-700">
                                     <div className="flex flex-wrap gap-1">
-                                      {Object.entries(combo).map(([, value], i) => (
-                                        <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
-                                          {value}
-                                        </span>
-                                      ))}
+                                      {Object.entries(combo).map(([key, value], i) => {
+                                        const option = formData.options?.find((opt: any) => opt.id === key);
+                                        const label = option ? `${option.label}: ${value}` : value;
+                                        return (
+                                          <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
+                                            {label}
+                                          </span>
+                                        );
+                                      })}
                                     </div>
                                   </td>
                                   <td className="p-2 text-center">
@@ -2128,6 +2189,54 @@ export const InventoryPage: React.FC = () => {
                 />
               </div>
 
+              {/* Receipt Attachment Upload */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Receipt Attachment (Supplier invoice, photo, etc.)</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 relative">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            setStockIntakeFormData({
+                              ...stockIntakeFormData,
+                              attachment: reader.result as string
+                            });
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                      className="hidden"
+                      id="stock-intake-attachment"
+                    />
+                    <label
+                      htmlFor="stock-intake-attachment"
+                      className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-purple-300 rounded-lg text-purple-700 font-semibold hover:bg-purple-50 hover:border-purple-500 cursor-pointer transition-all duration-300"
+                    >
+                      <Plus size={18} />
+                      <span>{stockIntakeFormData.attachment ? 'Change Attachment' : 'Upload Receipt Image'}</span>
+                    </label>
+                  </div>
+                  {stockIntakeFormData.attachment && (
+                    <div className="relative w-20 h-20 rounded-lg border border-slate-200 overflow-hidden bg-slate-50 flex-shrink-0 flex items-center justify-center shadow-sm">
+                      <img src={stockIntakeFormData.attachment} alt="Receipt preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setStockIntakeFormData({ ...stockIntakeFormData, attachment: '' })}
+                        className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors shadow-md"
+                        title="Remove attachment"
+                      >
+                        <X size={12} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Profit Calculation Summary */}
               {stockIntakeFormData.quantity > 0 && stockIntakeFormData.costPerUnit > 0 && stockIntakeFormData.sellingPrice > 0 && (
                 <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-green-50 rounded-lg border border-purple-200">
@@ -2209,6 +2318,7 @@ export const InventoryPage: React.FC = () => {
                         notes: stockIntakeFormData.notes,
                         dateReceived: stockIntakeFormData.dateReceived,
                         selectedVariant: stockIntakeFormData.selectedVariant,
+                        attachment: stockIntakeFormData.attachment,
                       };
                       
                       // Save to database
@@ -2232,6 +2342,7 @@ export const InventoryPage: React.FC = () => {
                         notes: '',
                         dateReceived: new Date().toISOString().split('T')[0],
                         selectedVariant: {},
+                        attachment: '',
                       });
                     } catch (error) {
                       console.error('Failed to save stock intake:', error);
@@ -2255,6 +2366,7 @@ export const InventoryPage: React.FC = () => {
                       notes: '',
                       dateReceived: new Date().toISOString().split('T')[0],
                       selectedVariant: {},
+                      attachment: '',
                     });
                   }}
                   className="bg-slate-200 text-slate-900 px-6 py-3 rounded-lg font-semibold hover:bg-slate-300 hover:shadow-md hover:scale-105 transition-all duration-300 active:scale-95"
@@ -2265,8 +2377,9 @@ export const InventoryPage: React.FC = () => {
             </div>
           )}
 
+
           {/* Stock Intake Records Table */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-fade-in">
             <table className="w-full">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
@@ -2278,13 +2391,14 @@ export const InventoryPage: React.FC = () => {
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Total Cost</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Profit</th>
                   <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Supplier</th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Receipt</th>
                   <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {stockIntakeRecords.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
+                    <td colSpan={10} className="px-6 py-12 text-center text-slate-500">
                       <Package size={48} className="mx-auto mb-4 text-slate-300" />
                       <p className="text-lg font-semibold">No stock intake records yet</p>
                       <p className="text-sm mt-2">Click "Record Stock Intake" to add your first entry</p>
@@ -2329,6 +2443,22 @@ export const InventoryPage: React.FC = () => {
                         ₱{profit.toFixed(2)}
                       </td>
                       <td className="px-6 py-4 text-sm text-slate-600">{record.supplier || '-'}</td>
+                      <td className="px-6 py-4 text-center">
+                        {record.attachment ? (
+                          <button
+                            onClick={() => setSelectedReceiptUrl(record.attachment)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-semibold rounded-md border border-purple-200 transition-all hover:scale-105 duration-200 shadow-sm"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                              <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                              <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7Z" />
+                            </svg>
+                            <span>View</span>
+                          </button>
+                        ) : (
+                          <span className="text-slate-400 text-xs">-</span>
+                        )}
+                      </td>
                       <td className="px-6 py-4 text-center">
                         <button
                           onClick={() => setDeleteIntakeConfirm({ show: true, record, isDeleting: false })}
@@ -2406,6 +2536,32 @@ export const InventoryPage: React.FC = () => {
                 ) : (
                   <><Trash2 size={18} /><span>Delete Record</span></>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* View Receipt Attachment Modal */}
+      {selectedReceiptUrl && createPortal(
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-[60] p-4 animate-fade-in" onClick={() => setSelectedReceiptUrl(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-hidden animate-scale-in flex flex-col" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b border-slate-200 flex justify-between items-center">
+              <h3 className="text-lg font-bold text-slate-900">Receipt Attachment</h3>
+              <button onClick={() => setSelectedReceiptUrl(null)} className="text-slate-500 hover:text-slate-700">
+                <X size={20} />
+              </button>
+            </div>
+            <div className="p-6 overflow-y-auto flex items-center justify-center bg-slate-50">
+              <img src={selectedReceiptUrl} alt="Receipt Attachment" className="max-w-full max-h-[60vh] object-contain rounded-lg border shadow-md" />
+            </div>
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                onClick={() => setSelectedReceiptUrl(null)}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold rounded-lg transition-colors"
+              >
+                Close
               </button>
             </div>
           </div>
@@ -2843,6 +2999,18 @@ export const InventoryPage: React.FC = () => {
                             {(() => {
                               // Helper function to generate all combinations
                               const generateCombinations = (options: any[]) => {
+                                if (editingProduct.name === 'BSNAME Uniform') {
+                                  const combinations: any[] = [];
+                                  options.forEach(option => {
+                                    option.choices.forEach((choice: string) => {
+                                      combinations.push({
+                                        [option.id]: choice
+                                      });
+                                    });
+                                  });
+                                  return combinations;
+                                }
+
                                 if (options.length === 0) return [{}];
                                 if (options.length === 1) {
                                   return options[0].choices.map((choice: string) => ({
@@ -2879,11 +3047,15 @@ export const InventoryPage: React.FC = () => {
                                   <tr key={idx} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors text-xs">
                                     <td className="p-3 font-medium text-slate-700">
                                       <div className="flex flex-wrap gap-1">
-                                        {Object.entries(combo).map(([, value], i) => (
-                                          <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
-                                            {value}
-                                          </span>
-                                        ))}
+                                        {Object.entries(combo).map(([key, value], i) => {
+                                          const option = editingProduct.options?.find(opt => opt.id === key);
+                                          const label = option ? `${option.label}: ${value}` : value;
+                                          return (
+                                            <span key={i} className="inline-block bg-purple-50 text-purple-700 text-[10px] px-2 py-0.5 rounded font-semibold border border-purple-100">
+                                              {label}
+                                            </span>
+                                          );
+                                        })}
                                       </div>
                                     </td>
                                     <td className="p-2 text-center">

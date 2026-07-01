@@ -149,7 +149,9 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
         );
 
         // Deduct inventory stock if the order is created as completed/released immediately (offline walk-in order)
-        if ((orderStatus === 'completed' || orderStatus === 'released') && finalOrderType !== 'insurance') {
+        // Skip stock deduction for historical imports (skipStockDeduction flag)
+        const skipStockDeduction = req.body.skipStockDeduction === true;
+        if (!skipStockDeduction && (orderStatus === 'completed' || orderStatus === 'released') && finalOrderType !== 'insurance') {
           // Get product to check if it has variants
           const productResult = await client.query(
             'SELECT stock, variants FROM products WHERE id = $1',
@@ -213,6 +215,7 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
             }
           }
         }
+
       }
 
       // Clear cart only if this is NOT a manual admin/staff recorded offline order for another student

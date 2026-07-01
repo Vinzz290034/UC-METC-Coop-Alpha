@@ -56,6 +56,10 @@ export async function testConnection() {
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_preorder BOOLEAN NOT NULL DEFAULT true');
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT');
     await pool.query('ALTER TABLE products ALTER COLUMN image TYPE TEXT');
+    
+    // Auto-migrate: ensure attachment exists in stock_intake table
+    await pool.query('ALTER TABLE stock_intake ADD COLUMN IF NOT EXISTS attachment TEXT');
+
     // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
     try {
       await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');

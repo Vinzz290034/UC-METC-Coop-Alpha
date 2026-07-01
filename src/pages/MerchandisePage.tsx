@@ -325,7 +325,11 @@ export const MerchandisePage: React.FC = () => {
   const getSelectedPrice = (product: Product, selectedOpts: Record<string, string>): number | null => {
     // 1. First, check if there is a specific variant price defined in product.variants
     if (product.variants && Object.keys(product.variants).length > 0 && product.options && product.options.length > 0) {
-      const allOptionsSelected = product.options.every(opt => selectedOpts[opt.id]);
+      const isBSNAME = product.name === 'BSNAME Uniform';
+      const allOptionsSelected = isBSNAME
+        ? Object.keys(selectedOpts).length > 0
+        : product.options.every(opt => selectedOpts[opt.id]);
+        
       if (allOptionsSelected) {
         const variantKey = Object.entries(selectedOpts)
           .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -545,21 +549,30 @@ export const MerchandisePage: React.FC = () => {
 
     // Check if product has required options
     if (product.options && product.options.length > 0) {
-      // Check if all required options have been selected
-      const missingOptions = product.options.filter(option => !selectedOptions[option.id]);
-      
-      if (missingOptions.length > 0) {
-        // Create a custom message based on missing option types
-        const missingLabels = missingOptions.map(opt => opt.label.toLowerCase());
-        let errorMessage = `Please select your ${missingLabels.join(' and ')}`;
+      if (product.name === 'BSNAME Uniform') {
+        // At least one option must be selected
+        const hasAnyOption = product.options.some(option => selectedOptions[option.id]);
+        if (!hasAnyOption) {
+          showNotification('Please select a size from either Uniform Set or Polo Only', 'error');
+          return;
+        }
+      } else {
+        // Check if all required options have been selected
+        const missingOptions = product.options.filter(option => !selectedOptions[option.id]);
         
-        showNotification(errorMessage, 'error');
-        return;
+        if (missingOptions.length > 0) {
+          // Create a custom message based on missing option types
+          const missingLabels = missingOptions.map(opt => opt.label.toLowerCase());
+          let errorMessage = `Please select your ${missingLabels.join(' and ')}`;
+          
+          showNotification(errorMessage, 'error');
+          return;
+        }
       }
     }
     
     // Determine if this is a tailored product
-    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(product.name);
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(product.name);
     
     // Strict Pre-Order Gate Check
     const isProductOutOfStock = (() => {
@@ -1240,7 +1253,7 @@ export const MerchandisePage: React.FC = () => {
                   <p className="text-sm text-slate-600 mb-1">Price</p>
                   {(() => {
                     const isMember = user?.membership_status === 'approved';
-                    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name);
+                    const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
                     const availablePrices = getAvailablePrices(selectedProduct);
                     const selectedPrice = getSelectedPrice(selectedProduct, selectedOptions);
                     
@@ -1443,12 +1456,20 @@ export const MerchandisePage: React.FC = () => {
                             return (
                               <button
                                 key={choice}
-                                onClick={() =>
-                                  setSelectedOptions({
-                                    ...selectedOptions,
-                                    [option.id]: choice,
-                                  })
-                                }
+                                onClick={() => {
+                                  let nextOptions = { ...selectedOptions };
+                                  if (selectedProduct.name === 'BSNAME Uniform') {
+                                    // Mutually exclusive options for BSNAME Uniform
+                                    nextOptions = {};
+                                  }
+                                  
+                                  if (selectedOptions[option.id] === choice) {
+                                    delete nextOptions[option.id];
+                                  } else {
+                                    nextOptions[option.id] = choice;
+                                  }
+                                  setSelectedOptions(nextOptions);
+                                }}
                                 className={`px-4 py-2 rounded-full font-semibold transition-all duration-300 ${
                                   selectedOptions[option.id] === choice
                                     ? 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-lg'
@@ -1484,7 +1505,7 @@ export const MerchandisePage: React.FC = () => {
                 )}
 
                 {/* Payment Type Selection for Tailored Products */}
-                {['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(selectedProduct.name) && (
+                {['Gala', 'Type A & B Uniform'].includes(selectedProduct.name) && (
                   <div className="pt-4 border-t border-slate-200">
                     <p className="text-sm text-slate-600 mb-3 font-semibold">Payment Type</p>
                     <div className="flex flex-wrap gap-2">
