@@ -1777,7 +1777,7 @@ export const InventoryPage: React.FC = () => {
                         ₱{product.price.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name) ? (
+                        {['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name) && (!product.options || product.options.length === 0) ? (
                           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 inline-flex items-center space-x-1">
                             <span>{product.name === 'Hard Bound' ? 'Service Only' : 'Made to Order'}</span>
                           </span>
@@ -2630,7 +2630,7 @@ export const InventoryPage: React.FC = () => {
                   </div>
 
                   {/* Manage Variants & Options Section */}
-                  {!['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(editingProduct.name) && (
+                  {true && (
                     <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm space-y-4">
                       <div className="flex items-center justify-between">
                         <div>
@@ -2788,7 +2788,7 @@ export const InventoryPage: React.FC = () => {
                   </h3>
 
                   {/* Check if product is made-to-order (no stock tracking needed) */}
-                  {['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(editingProduct.name) ? (
+                  {['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(editingProduct.name) && (!editingProduct.options || editingProduct.options.length === 0) ? (
                     <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
@@ -2805,7 +2805,7 @@ export const InventoryPage: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                  ) : editingProduct.name === 'Hard Bound' ? (
+                  ) : editingProduct.name === 'Hard Bound' && (!editingProduct.options || editingProduct.options.length === 0) ? (
                     <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
