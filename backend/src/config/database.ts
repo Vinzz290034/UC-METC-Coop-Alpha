@@ -54,7 +54,8 @@ export async function testConnection() {
     
     // Auto-migrate: ensure allow_preorder and image exist in products table
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_preorder BOOLEAN NOT NULL DEFAULT true');
-    await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image VARCHAR(255)');
+    await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT');
+    await pool.query('ALTER TABLE products ALTER COLUMN image TYPE TEXT');
     // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
     try {
       await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');

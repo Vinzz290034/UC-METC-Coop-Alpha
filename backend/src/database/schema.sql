@@ -162,7 +162,7 @@ CREATE TABLE IF NOT EXISTS products (
   stock INTEGER NOT NULL DEFAULT 0,
   sku VARCHAR(100) UNIQUE NOT NULL,
   note TEXT,
-  image VARCHAR(255),
+  image TEXT,
   options JSONB,
   variants JSONB,
   allow_preorder BOOLEAN NOT NULL DEFAULT true,
