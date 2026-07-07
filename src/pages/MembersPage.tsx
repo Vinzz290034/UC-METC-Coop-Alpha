@@ -287,7 +287,7 @@ export const MembersPage: React.FC = () => {
       closeEmailModal();
     } catch (error: any) {
       console.error('Failed to send email:', error);
-      showNotification(`  send email: ${error?.message || 'Unknown error'}`, 'error');
+      showNotification(`Failed to send email: ${error?.message || 'Unknown error'}`, 'error');
     } finally {
       setEmailState(prev => ({ ...prev, isSending: false }));
     }
@@ -505,6 +505,14 @@ export const MembersPage: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-center">
                         <div className="flex justify-center space-x-2">
+                          <button
+                            onClick={() => openEmailModal(request.email, formatNamePart(request.name))}
+                            disabled={approvingId === request.id}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Send Email"
+                          >
+                            <Mail size={18} />
+                          </button>
                           <button
                             onClick={() => handleApproveMember(request)}
                             disabled={approvingId === request.id}
