@@ -292,7 +292,7 @@ export const AnnouncementsPage: React.FC = () => {
                   </div>
 
                   {/* Content */}
-                  <p className="text-slate-700 text-sm sm:text-base leading-relaxed text-justify">{announcement.content}</p>
+                  <p className="text-slate-700 text-sm sm:text-base leading-relaxed text-left whitespace-pre-line">{announcement.content}</p>
                 </div>
               ))
             )}
