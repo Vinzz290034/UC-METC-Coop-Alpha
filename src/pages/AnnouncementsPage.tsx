@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { Calendar, User, ChevronLeft } from 'lucide-react';
 import { apiClient } from '../services/api';
+import { useAuth } from '../store/authContext';
 
 const styles = `
   @keyframes float {
@@ -87,6 +88,7 @@ const styles = `
 
 export const AnnouncementsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
 
   // Scroll to top when component mounts
   useEffect(() => {
@@ -187,39 +189,41 @@ export const AnnouncementsPage: React.FC = () => {
         </div>
 
         {/* Navigation Bar */}
-        <nav className={`fixed top-0 w-full z-50 backdrop-blur-md bg-gradient-to-b from-white/40 to-white/10 transition-transform duration-300 ease-in-out ${
-          isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
-        }`}>
-          <div className="max-w-7xl mx-auto px-4 xs:px-6 py-2 sm:py-4 flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <img 
-                src={COOP_LOGO_URL}
-                alt="UC METC Logo" 
-                className="w-7 h-7 xs:w-10 xs:h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
-              />
-              <h1 className="text-sm xs:text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
-                UC METC SILMS
-              </h1>
+        {!isAuthenticated && (
+          <nav className={`fixed top-0 w-full z-50 backdrop-blur-md bg-gradient-to-b from-white/40 to-white/10 transition-transform duration-300 ease-in-out ${
+            isHeaderVisible ? 'translate-y-0' : '-translate-y-full'
+          }`}>
+            <div className="max-w-7xl mx-auto px-4 xs:px-6 py-2 sm:py-4 flex items-center justify-between">
+              <div className="flex items-center space-x-2 sm:space-x-3">
+                <img 
+                  src={COOP_LOGO_URL}
+                  alt="UC METC Logo" 
+                  className="w-7 h-7 xs:w-10 xs:h-10 rounded-full shadow-lg hover:scale-110 transition-transform duration-300"
+                />
+                <h1 className="text-sm xs:text-2xl font-bold bg-gradient-to-r from-green-600 to-purple-600 bg-clip-text text-transparent">
+                  UC METC SILMS
+                </h1>
+              </div>
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={() => navigate('/login')}
+                  className="flex items-center space-x-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 xs:px-6 py-1.5 xs:py-2.5 rounded-lg hover:shadow-lg hover:shadow-green-400/40 transition-all duration-300 font-semibold min-h-0 min-w-0 text-xs xs:text-base"
+                >
+                  <span>Login</span>
+                </button>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/login')}
-                className="flex items-center space-x-1.5 bg-gradient-to-r from-green-600 to-green-500 text-white px-3 xs:px-6 py-1.5 xs:py-2.5 rounded-lg hover:shadow-lg hover:shadow-green-400/40 transition-all duration-300 font-semibold min-h-0 min-w-0 text-xs xs:text-base"
-              >
-                <span>Login</span>
-              </button>
-            </div>
-          </div>
-        </nav>
+          </nav>
+        )}
 
         {/* Page Content */}
-      <div className="relative z-10 pt-16 xs:pt-32 pb-10 sm:pb-20 px-4 xs:px-6">
+      <div className={`relative z-10 ${isAuthenticated ? 'pt-6 sm:pt-10' : 'pt-16 xs:pt-32'} pb-10 sm:pb-20 px-4 xs:px-6`}>
         <div className="max-w-4xl mx-auto">
           {/* Back Button */}
           <button
-            onClick={() => navigate('/')}
+            onClick={() => navigate(isAuthenticated ? '/dashboard' : '/')}
             className="flex items-center space-x-1 text-slate-600 hover:text-green-600 transition-colors mb-4 sm:mb-8 group font-semibold min-h-0 min-w-0 text-xs xs:text-base px-1 py-0.5"
-            title="Back to Landing Page"
+            title={isAuthenticated ? "Back to Dashboard" : "Back to Landing Page"}
           >
             <ChevronLeft size={16} className="group-hover:-translate-x-1 transition-transform sm:w-6 sm:h-6" />
             <span>Back</span>

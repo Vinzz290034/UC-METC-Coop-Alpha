@@ -631,16 +631,18 @@ export const StudentDashboard: React.FC = () => {
               {renderFeaturedCarousel(false)}
             </div>
 
-             {/* Announcements Section */}
+            {/* Announcements Section */}
             <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 sm:p-8 border border-white/50 shadow-lg">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-green-600 bg-clip-text text-transparent mb-4 sm:mb-6">
-                Announcements
-              </h2>
+              <div className="flex items-center justify-between mb-4 sm:mb-6">
+                <h2 className="text-2xl font-bold text-purple-600">
+                  Announcements
+                </h2>
+              </div>
               <div 
                 className="flex lg:flex-col overflow-x-auto lg:overflow-x-visible snap-x snap-mandatory gap-4 pb-3 lg:pb-0 lg:space-y-4"
                 style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
               >
-                {announcements.slice(0, 3).map((announcement) => {
+                {announcements.slice(0, 3).map((announcement, index) => {
                   // Category color mapping
                   const categoryColors: { [key: string]: string } = {
                     'Maintenance': 'border-l-orange-500 bg-orange-50/40',
@@ -654,7 +656,7 @@ export const StudentDashboard: React.FC = () => {
                     <div
                       key={announcement.id}
                       onClick={() => setSelectedAnnouncement(announcement)}
-                      className={`border-l-4 ${borderColor} rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-300 group cursor-pointer flex-shrink-0 w-[82vw] sm:w-[350px] lg:w-full snap-center`}
+                      className={`border-l-4 ${borderColor} rounded-lg p-4 sm:p-5 hover:shadow-md transition-all duration-300 group cursor-pointer flex-shrink-0 w-[82vw] sm:w-[350px] lg:w-full snap-center ${index > 0 ? 'hidden lg:block' : 'block'}`}
                     >
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
@@ -684,6 +686,28 @@ export const StudentDashboard: React.FC = () => {
                   );
                 })}
               </div>
+              {(announcements.length > 3 || announcements.length > 1) && (
+                <div className="mt-4 flex justify-end border-t border-slate-100 pt-4">
+                  {announcements.length > 3 && (
+                    <button
+                      onClick={() => navigate('/announcements')}
+                      className="hidden lg:flex text-xs sm:text-sm font-bold text-purple-600 hover:text-purple-750 transition-all items-center gap-1 group active:scale-[0.98] py-1.5 px-3 hover:bg-purple-50 rounded-lg animate-fadeIn"
+                    >
+                      <span>View Announcement History</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform text-purple-500" />
+                    </button>
+                  )}
+                  {announcements.length > 1 && (
+                    <button
+                      onClick={() => navigate('/announcements')}
+                      className="lg:hidden flex text-xs sm:text-sm font-bold text-purple-600 hover:text-purple-750 transition-all items-center gap-1 group active:scale-[0.98] py-1.5 px-3 hover:bg-purple-50 rounded-lg animate-fadeIn"
+                    >
+                      <span>View Announcement History</span>
+                      <ArrowRight size={14} className="group-hover:translate-x-0.5 transition-transform text-purple-500" />
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Recent Activities Section */}

@@ -96,6 +96,7 @@ function AppContent() {
             <Route path="/members" element={<MembersPage />} />
             <Route path="/user-management" element={<UserManagementPage />} />
             <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/announcements" element={<AnnouncementsPage />} />
             <Route path="/announcements-management" element={<AnnouncementsManagementPage />} />
             <Route path="/account-settings" element={<AccountSettingsPage />} />
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
