@@ -199,7 +199,7 @@ export const AnnouncementsManagementPage: React.FC = () => {
                       <span className="text-slate-500 text-sm">{announcement.date}</span>
                     </div>
                     <h3 className="text-xl font-bold text-slate-900 mb-2">{announcement.title}</h3>
-                    <p className="text-slate-600 mb-3">{announcement.content}</p>
+                    <p className="text-slate-600 mb-3 whitespace-pre-line text-left">{announcement.content}</p>
                     <p className="text-sm text-slate-500">by {announcement.author_name}</p>
                   </div>
                   <div className="flex items-center space-x-2 ml-4">

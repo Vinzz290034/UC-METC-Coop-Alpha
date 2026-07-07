@@ -944,7 +944,7 @@ export const StudentDashboard: React.FC = () => {
           onClick={() => setSelectedAnnouncement(null)}
         >
           <div 
-            className="bg-white rounded-2xl shadow-2xl p-6 xs:p-8 max-w-lg w-full animate-scale-in relative border border-slate-100"
+            className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-w-3xl w-full animate-scale-in relative border border-slate-100"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close Button */}
@@ -971,7 +971,7 @@ export const StudentDashboard: React.FC = () => {
             </div>
 
             {/* Title */}
-            <h2 className="text-2xl font-bold text-slate-900 mb-4 leading-tight">
+            <h2 className="text-2xl sm:text-3xl font-bold text-slate-900 mb-4 leading-tight">
               {selectedAnnouncement.title}
             </h2>
 
@@ -979,7 +979,7 @@ export const StudentDashboard: React.FC = () => {
             <div className="w-12 h-1 bg-purple-600 rounded-full mb-5"></div>
 
             {/* Content */}
-            <div className="text-slate-600 text-sm xs:text-base leading-relaxed mb-6 whitespace-pre-line text-justify max-h-[40vh] overflow-y-auto pr-2 scrollbar-thin">
+            <div className="text-slate-600 text-sm sm:text-base leading-relaxed mb-6 whitespace-pre-line text-left max-h-[45vh] overflow-y-auto pr-4 scrollbar-thin">
               {selectedAnnouncement.content}
             </div>
 
