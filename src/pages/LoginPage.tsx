@@ -50,6 +50,8 @@ export const LoginPage: React.FC = () => {
   const [adminStaffPassword, setAdminStaffPassword] = useState('');
   const [showAdminStaffPassword, setShowAdminStaffPassword] = useState(false);
   const [adminStaffError, setAdminStaffError] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMeAdmin, setRememberMeAdmin] = useState(false);
 
   // Sign Up States
   const [idNumber, setIdNumber] = useState('');
@@ -89,6 +91,29 @@ export const LoginPage: React.FC = () => {
   // Scroll to top when component mounts
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  // Load saved credentials if "Remember Me" was checked previously
+  useEffect(() => {
+    const savedStudentId = localStorage.getItem('remember_student_id');
+    const savedStudentPass = localStorage.getItem('remember_student_password');
+    if (savedStudentId) {
+      setEmail(savedStudentId);
+      setRememberMe(true);
+    }
+    if (savedStudentPass) {
+      setPassword(savedStudentPass);
+    }
+
+    const savedAdminEmail = localStorage.getItem('remember_admin_email');
+    const savedAdminPass = localStorage.getItem('remember_admin_password');
+    if (savedAdminEmail) {
+      setAdminStaffEmail(savedAdminEmail);
+      setRememberMeAdmin(true);
+    }
+    if (savedAdminPass) {
+      setAdminStaffPassword(savedAdminPass);
+    }
   }, []);
 
   // Handle query parameters for redirect after signup
@@ -155,6 +180,14 @@ export const LoginPage: React.FC = () => {
         await login(email, password); // use email normally for members
       }
       
+      if (rememberMe) {
+        localStorage.setItem('remember_student_id', email);
+        localStorage.setItem('remember_student_password', password);
+      } else {
+        localStorage.removeItem('remember_student_id');
+        localStorage.removeItem('remember_student_password');
+      }
+
       setEmail('');
       setPassword('');
       showNotification('Signed in successfully!', 'success');
@@ -324,6 +357,14 @@ export const LoginPage: React.FC = () => {
         }
       }
       
+      if (rememberMeAdmin) {
+        localStorage.setItem('remember_admin_email', adminStaffEmail);
+        localStorage.setItem('remember_admin_password', adminStaffPassword);
+      } else {
+        localStorage.removeItem('remember_admin_email');
+        localStorage.removeItem('remember_admin_password');
+      }
+
       setAdminStaffEmail('');
       setAdminStaffPassword('');
       showNotification('Signed in successfully!', 'success');
@@ -652,8 +693,34 @@ export const LoginPage: React.FC = () => {
                   onToggleVisibility={() => setShowAdminStaffPassword(!showAdminStaffPassword)}
                 />
 
-                {/* Forgot Password Link */}
-                <div className="flex justify-end">
+                 {/* Remember Me and Forgot Password Link */}
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={rememberMeAdmin}
+                      onChange={(e) => setRememberMeAdmin(e.target.checked)}
+                      className="sr-only"
+                    />
+                    <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-300 ${
+                      rememberMeAdmin 
+                        ? 'border-slate-800 bg-slate-800 scale-105 shadow-md shadow-slate-700/20' 
+                        : 'border-slate-300 bg-white hover:border-slate-400'
+                    }`}>
+                      <svg 
+                        className={`w-3.5 h-3.5 text-white transition-all duration-300 transform ${
+                          rememberMeAdmin ? 'scale-100 rotate-0 opacity-100' : 'scale-50 -rotate-12 opacity-0'
+                        }`} 
+                        fill="none" 
+                        stroke="currentColor" 
+                        strokeWidth="3.5" 
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </div>
+                    <span className="font-medium">Remember me</span>
+                  </label>
                   <button
                     type="button"
                     onClick={() => navigate('/forgot-password', { state: { fromAdminStaff: true } })}
@@ -774,8 +841,34 @@ export const LoginPage: React.FC = () => {
                     onToggleVisibility={() => setShowPassword(!showPassword)}
                   />
 
-                  {/* Forgot Password Link */}
-                  <div className="flex justify-end">
+                  {/* Remember Me and Forgot Password Link */}
+                  <div className="flex items-center justify-between">
+                    <label className="flex items-center space-x-2 text-sm text-slate-600 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={rememberMe}
+                        onChange={(e) => setRememberMe(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-300 ${
+                        rememberMe 
+                          ? 'border-purple-600 bg-purple-600 scale-105 shadow-md shadow-purple-500/20' 
+                          : 'border-slate-300 bg-white hover:border-slate-400'
+                      }`}>
+                        <svg 
+                          className={`w-3.5 h-3.5 text-white transition-all duration-300 transform ${
+                            rememberMe ? 'scale-100 rotate-0 opacity-100' : 'scale-50 -rotate-12 opacity-0'
+                          }`} 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="3.5" 
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      </div>
+                      <span className="font-medium">Remember me</span>
+                    </label>
                     <button
                       type="button"
                       onClick={() => navigate('/forgot-password', { state: { fromMember: loginMode === 'student' } })}
