@@ -52,8 +52,8 @@ export async function testConnection() {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_completed BOOLEAN NOT NULL DEFAULT false');
     
-    // Auto-migrate: ensure allow_preorder and image exist in products table
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_preorder BOOLEAN NOT NULL DEFAULT true');
+    await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS made_to_order BOOLEAN NOT NULL DEFAULT false');
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT');
     await pool.query('ALTER TABLE products ALTER COLUMN image TYPE TEXT');
     

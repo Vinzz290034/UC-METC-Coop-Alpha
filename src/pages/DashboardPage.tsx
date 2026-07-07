@@ -87,7 +87,7 @@ export const DashboardPage: React.FC = () => {
   
   const completedTransactions = sales
     .filter(s => {
-      if (s.status !== 'completed') return false;
+      if (s.status !== 'completed' && s.status !== 'released') return false;
       if (s.order_type === 'insurance') return false; // Exclude insurance
       // Use completedAt for completed orders, fallback to createdAt for legacy data
       const saleDate = new Date(s.completedAt || s.completed_at || s.created_at || s.createdAt);
@@ -96,7 +96,7 @@ export const DashboardPage: React.FC = () => {
   
   const monthlyRevenue = sales
     .filter(s => {
-      if (s.status !== 'completed') return false;
+      if (s.status !== 'completed' && s.status !== 'released') return false;
       if (s.order_type === 'insurance') return false; // Exclude insurance
       // Use completedAt for completed orders, fallback to createdAt for legacy data
       const saleDate = new Date(s.completedAt || s.completed_at || s.created_at || s.createdAt);
@@ -111,7 +111,7 @@ export const DashboardPage: React.FC = () => {
 
   // Get recent completed/paid orders sorted by date (most recent first, exclude insurance)
   const recentCompletedOrders = sales
-    .filter(s => s.status === 'completed' && s.order_type !== 'insurance')
+    .filter(s => (s.status === 'completed' || s.status === 'released') && s.order_type !== 'insurance')
     .sort((a, b) => {
       // Use completedAt for completed orders, fallback to createdAt for legacy data
       const dateA = new Date(a.completedAt || a.completed_at || a.created_at || a.createdAt || 0).getTime();
@@ -308,7 +308,7 @@ export const DashboardPage: React.FC = () => {
               const LOW_STOCK_THRESHOLD = 20;
               const lowStockItems = products
                 .filter((p) => {
-                  const isServiceItem = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(p.name);
+                  const isServiceItem = p.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(p.name);
                   if (isServiceItem) return false;
                   
                   if (p.variants && Object.keys(p.variants).length > 0) {

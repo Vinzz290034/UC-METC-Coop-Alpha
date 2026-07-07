@@ -57,6 +57,7 @@ router.get('/members', authMiddleware, adminMiddleware, async (req: Request, res
         SUM(CASE WHEN role = 'member' THEN 1 ELSE 0 END) as regular_members,
         SUM(CASE WHEN role IN ('admin', 'manager') THEN 1 ELSE 0 END) as staff_members
       FROM users
+      WHERE email NOT LIKE 'walkin-%@uc-metc-walkin.com'
     `);
     res.json({ stats: result.rows[0] });
   } catch (err) {

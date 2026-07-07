@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, PlusCircle, BookOpen, User, Upload, FileSpreadsheet, X } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, X, ChevronDown } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -9,41 +9,7 @@ import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
 import * as XLSX from 'xlsx';
 
-const calculateEWalletFee = (amount: number): number => {
-  if (amount <= 0) return 0;
-  if (amount >= 1 && amount <= 200) return 10;
-  if (amount >= 201 && amount <= 500) return 15;
-  if (amount >= 501 && amount <= 1000) return 20;
-  if (amount >= 1001 && amount <= 1500) return 30;
-  if (amount >= 1501 && amount <= 2000) return 40;
-  if (amount >= 2001 && amount <= 2500) return 50;
-  if (amount >= 2501 && amount <= 3000) return 60;
-  if (amount >= 3001 && amount <= 3500) return 70;
-  if (amount >= 3501 && amount <= 4000) return 80;
-  if (amount >= 4001 && amount <= 4500) return 90;
-  if (amount >= 4501 && amount <= 5000) return 100;
-  if (amount >= 5001 && amount <= 5500) return 110;
-  if (amount >= 5501 && amount <= 6000) return 120;
-  if (amount >= 6001 && amount <= 6500) return 130;
-  if (amount >= 6501 && amount <= 7000) return 140;
-  if (amount >= 7001 && amount <= 7500) return 150;
-  if (amount >= 7501 && amount <= 8000) return 160;
-  if (amount >= 8001 && amount <= 8500) return 170;
-  if (amount >= 8501 && amount <= 9000) return 180;
-  if (amount >= 9001 && amount <= 9500) return 190;
-  if (amount >= 9501 && amount <= 10000) return 200;
-  if (amount >= 10001 && amount <= 10500) return 210;
-  if (amount >= 10501 && amount <= 11000) return 215;
-  if (amount >= 11001 && amount <= 11500) return 230;
-  if (amount >= 11501 && amount <= 12000) return 240;
-  if (amount >= 12001 && amount <= 12500) return 250;
-  if (amount >= 12501 && amount <= 13000) return 260;
-  if (amount >= 13001 && amount <= 13500) return 270;
-  if (amount >= 13501 && amount <= 14000) return 280;
-  if (amount >= 14001 && amount <= 14500) return 290;
-  if (amount >= 14501 && amount <= 15000) return 300;
-  return 300; // Default for amounts above 15000
-};
+
 
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -152,6 +118,8 @@ export const SalesPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
+  const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; quantity: number } | null>(null);
+  const [productSoldSearchQuery, setProductSoldSearchQuery] = useState<string>('');
   const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -291,40 +259,13 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab]);
 
-  // States for manual offline transaction logging
-  const [showRecordSaleModal, setShowRecordSaleModal] = useState<boolean>(false);
   const [allUsers, setAllUsers] = useState<any[]>([]);
-  const [isLoadingUsers, setIsLoadingUsers] = useState<boolean>(false);
-  const [userSearchQuery, setUserSearchQuery] = useState<string>('');
-  const [selectedUser, setSelectedUser] = useState<any | null>(null);
-  
-  const [studentType, setStudentType] = useState<'registered' | 'walkin'>('registered');
-  const [walkInName, setWalkInName] = useState<string>('');
-  const [walkInIdNumber, setWalkInIdNumber] = useState<string>('');
-  const [walkInCourse, setWalkInCourse] = useState<string>('');
-  const [walkInMembership, setWalkInMembership] = useState<'none' | 'approved'>('none');
-
-  const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
-  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
-  const [paymentType, setPaymentType] = useState<'full' | 'downpayment'>('full');
-  const [orderType, setOrderType] = useState<'regular' | 'preorder'>('regular');
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unitPrice, setUnitPrice] = useState<number>(0);
-  const [manualItems, setManualItems] = useState<any[]>([]);
-  
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>('cash');
-  const [referenceNumber, setReferenceNumber] = useState<string>('');
-  const [receiptNo, setReceiptNo] = useState<string>('');
-  const [transactionDate, setTransactionDate] = useState<string>('');
-  const [transactionTime, setTransactionTime] = useState<string>('');
-  const [orderStatus, setOrderStatus] = useState<'completed' | 'released' | 'pending'>('completed');
-  const [isSavingManualOrder, setIsSavingManualOrder] = useState<boolean>(false);
-
   // Excel / CSV Importer States
   const [showImportExcelModal, setShowImportExcelModal] = useState<boolean>(false);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [importWorkbook, setImportWorkbook] = useState<any>(null);
   const [importSheets, setImportSheets] = useState<string[]>([]);
+  const [importSheetMeta, setImportSheetMeta] = useState<{ name: string; valid: boolean; reason?: string }[]>([]);
   const [selectedImportSheet, setSelectedImportSheet] = useState<string>('All Sheets');
   const [parsedTransactions, setParsedTransactions] = useState<any[]>([]);
   const [isParsing, setIsParsing] = useState<boolean>(false);
@@ -336,12 +277,12 @@ export const SalesPage: React.FC = () => {
     autoCreateUsers: true,
     skipDuplicates: true
   });
+  const [isSheetDropdownOpen, setIsSheetDropdownOpen] = useState(false);
 
-  // Initialize and load users for manual transaction
+  // Load users for excel imports
   useEffect(() => {
-    if (showRecordSaleModal) {
+    if (showImportExcelModal) {
       const loadUsers = async () => {
-        setIsLoadingUsers(true);
         try {
           const response = await apiClient.getUsers();
           const usersData = Array.isArray(response) ? response : (response.users || []);
@@ -350,252 +291,21 @@ export const SalesPage: React.FC = () => {
         } catch (e) {
           console.error('Failed to load users:', e);
           showNotification('Failed to load students list', 'error');
-        } finally {
-          setIsLoadingUsers(false);
         }
       };
       loadUsers();
-
-      const now = new Date();
-      setReceiptNo(`RCP-OFF-${Math.floor(100000 + Math.random() * 900000)}`);
-      
-      const year = now.getFullYear();
-      const month = String(now.getMonth() + 1).padStart(2, '0');
-      const day = String(now.getDate()).padStart(2, '0');
-      setTransactionDate(`${year}-${month}-${day}`);
-      
-      const hours = String(now.getHours()).padStart(2, '0');
-      const minutes = String(now.getMinutes()).padStart(2, '0');
-      setTransactionTime(`${hours}:${minutes}`);
-
-      setStudentType('registered');
-      setWalkInName('');
-      setWalkInIdNumber('');
-      setWalkInCourse('');
-      setWalkInMembership('none');
-      setSelectedUser(null);
-      setUserSearchQuery('');
-      setSelectedProduct(null);
-      setSelectedOptions({});
-      setPaymentType('full');
-      setQuantity(1);
-      setUnitPrice(0);
-      setPaymentMethod('cash');
-      setReferenceNumber('');
-      setOrderStatus('completed');
-
-      if (activeTab === 'insurance') {
-        setOrderType('regular');
-        setManualItems([
-          {
-            id: `ins-${Date.now()}`,
-            productId: null,
-            productName: 'I-CARD Micro-insurance',
-            quantity: 1,
-            unitPrice: 100,
-            subtotal: 100,
-            selectedOptions: {},
-            orderType: 'insurance'
-          }
-        ]);
-      } else {
-        setOrderType(activeTab === 'tailored' ? 'preorder' : 'regular');
-        setManualItems([]);
-      }
     }
-  }, [showRecordSaleModal, activeTab]);
+  }, [showImportExcelModal]);
 
-  // Keep unitPrice updated when selectedProduct or options change
+  // Reset parsed transactions when sheet selection changes
   useEffect(() => {
-    if (selectedProduct) {
-      const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
-      const isMember = studentType === 'registered' 
-        ? selectedUser?.membership_status === 'approved' 
-        : walkInMembership === 'approved';
-      
-      const extractPriceFromChoice = (choiceText: string, isMemberUser: boolean): number | null => {
-        const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
-        if (memberPriceMatch) {
-          const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
-          const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
-          return isMemberUser ? memberPrice : regularPrice;
-        }
-        const match = choiceText.match(/₱([\d,]+)/);
-        return match ? parseInt(match[1].replace(/,/g, '')) : null;
-      };
-
-      let basePrice = selectedProduct.price;
-      if (selectedProduct.options && selectedProduct.options.length > 0) {
-        for (const option of selectedProduct.options) {
-          const selectedVal = selectedOptions[option.id];
-          if (selectedVal) {
-            const optPrice = extractPriceFromChoice(selectedVal, isMember);
-            if (optPrice !== null) {
-              basePrice = optPrice;
-              break;
-            }
-          }
-        }
-      }
-
-      if (isTailoredProduct && paymentType === 'downpayment') {
-        if (selectedProduct.name === 'Gala') {
-          basePrice = 500;
-        } else if (selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'BSNAME Uniform') {
-          basePrice = 1500;
-        }
-      }
-
-      setUnitPrice(basePrice);
-
-      // Auto-set orderType if out of stock
-      const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
-      if (!isMadeToOrder) {
-        let isOutOfStock = false;
-        if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
-          const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
-          if (allOptionsSelected) {
-            const variantKey = Object.entries(selectedOptions)
-              .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-              .map(([key, value]) => `${key}:${value}`)
-              .join('|');
-            const variant = selectedProduct.variants[variantKey];
-            isOutOfStock = !variant || variant.stock <= 0;
-          }
-        } else {
-          isOutOfStock = selectedProduct.stock <= 0;
-        }
-
-        if (isOutOfStock) {
-          if (selectedProduct.allowPreorder !== false) {
-            setOrderType('preorder');
-          }
-        } else {
-          setOrderType('regular');
-        }
-      }
-    } else {
-      setUnitPrice(0);
+    if (importFile) {
+      setParsedTransactions([]);
+      setImportLogs(['Sheet selection changed. Ready to analyze.']);
+      setImportProgress(null);
     }
-  }, [selectedProduct, selectedOptions, paymentType, selectedUser, studentType, walkInMembership]);
+  }, [selectedImportSheet]);
 
-  const handleAddManualItem = () => {
-    if (!selectedProduct) return;
-
-    if (selectedProduct.options && selectedProduct.options.length > 0) {
-      if (selectedProduct.name === 'BSNAME Uniform') {
-        const hasAnyOption = selectedProduct.options.some((opt: any) => selectedOptions[opt.id]);
-        if (!hasAnyOption) {
-          showNotification('Please select a size from either Uniform Set or Polo Only', 'error');
-          return;
-        }
-      } else {
-        const missingOptions = selectedProduct.options.filter((opt: any) => !selectedOptions[opt.id]);
-        if (missingOptions.length > 0) {
-          showNotification(`Please select all options: ${missingOptions.map((o: any) => o.label).join(', ')}`, 'error');
-          return;
-        }
-      }
-    }
-
-    // Validate stock and pre-order availability
-    const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
-    if (isMadeToOrder) {
-      if (selectedProduct.allowPreorder === false) {
-        showNotification('This tailored product/service is currently unavailable.', 'error');
-        return;
-      }
-    } else {
-      let isOutOfStock = false;
-      let stockVal = 0;
-      if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
-        const variantKey = Object.entries(selectedOptions)
-          .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-          .map(([key, value]) => `${key}:${value}`)
-          .join('|');
-        const variant = selectedProduct.variants[variantKey];
-        stockVal = variant ? variant.stock : 0;
-        isOutOfStock = stockVal <= 0;
-      } else {
-        stockVal = selectedProduct.stock;
-        isOutOfStock = stockVal <= 0;
-      }
-
-      if (isOutOfStock) {
-        if (selectedProduct.allowPreorder === false) {
-          showNotification('This item is out of stock and not available for pre-order.', 'error');
-          return;
-        }
-        if (orderType !== 'preorder') {
-          showNotification('This item is out of stock. Please set Order Type to Pre-Order.', 'error');
-          return;
-        }
-      } else if (quantity > stockVal && orderType !== 'preorder') {
-        showNotification(`Requested quantity (${quantity}) exceeds available stock (${stockVal}). Choose Pre-Order or reduce quantity.`, 'error');
-        return;
-      }
-    }
-
-    const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
-    const itemSubtotal = quantity * unitPrice;
-    const itemId = `${selectedProduct.id}-${Date.now()}`;
-
-    const isMember = studentType === 'registered' 
-      ? selectedUser?.membership_status === 'approved' 
-      : walkInMembership === 'approved';
-    const extractPriceFromChoice = (choiceText: string, isMemberUser: boolean): number | null => {
-      const memberPriceMatch = choiceText.match(/₱([\d,]+)\s*\/\s*₱([\d,]+)\s*Member/);
-      if (memberPriceMatch) {
-        const regularPrice = parseInt(memberPriceMatch[1].replace(/,/g, ''));
-        const memberPrice = parseInt(memberPriceMatch[2].replace(/,/g, ''));
-        return isMemberUser ? memberPrice : regularPrice;
-      }
-      const match = choiceText.match(/₱([\d,]+)/);
-      return match ? parseInt(match[1].replace(/,/g, '')) : null;
-    };
-
-    let baseFullPrice = selectedProduct.price;
-    if (selectedProduct.options && selectedProduct.options.length > 0) {
-      for (const option of selectedProduct.options) {
-        const selectedVal = selectedOptions[option.id];
-        if (selectedVal) {
-          const optPrice = extractPriceFromChoice(selectedVal, isMember);
-          if (optPrice !== null) {
-            baseFullPrice = optPrice;
-            break;
-          }
-        }
-      }
-    }
-
-    const newItem = {
-      id: itemId,
-      productId: selectedProduct.id,
-      productName: selectedProduct.name,
-      quantity,
-      unitPrice,
-      subtotal: itemSubtotal,
-      selectedOptions: { ...selectedOptions },
-      paymentType: isTailoredProduct ? paymentType : undefined,
-      orderType: orderType,
-      fullPrice: isTailoredProduct && paymentType === 'downpayment' ? baseFullPrice : undefined
-    };
-
-    setManualItems([...manualItems, newItem]);
-    
-    setSelectedProduct(null);
-    setSelectedOptions({});
-    setPaymentType('full');
-    setOrderType('regular');
-    setQuantity(1);
-    setUnitPrice(0);
-    showNotification('Item added to transaction', 'success');
-  };
-
-  const handleRemoveManualItem = (idToRemove: string) => {
-    setManualItems(manualItems.filter(item => item.id !== idToRemove));
-    showNotification('Item removed from transaction');
-  };
 
   const refreshActiveTabData = async () => {
     if (activeTab === 'pending') await loadPendingOrders();
@@ -628,14 +338,72 @@ export const SalesPage: React.FC = () => {
         const workbook = XLSX.read(data, { type: 'array' });
         setImportWorkbook(workbook);
         
-        // Filter out system sheets and get list of sheets
-        const excludedSheets = ['template', 'edp', 'readme', 'instructions', 'sheet1', 'sheet2', 'sheet3'];
-        const validSheets = workbook.SheetNames.filter(name => 
-          !excludedSheets.includes(name.toLowerCase().trim())
-        );
+        // Known non-sales sheet names to always exclude
+        const alwaysExcluded = ['template', 'edp', 'readme', 'instructions', 'sheet1', 'sheet2', 'sheet3'];
 
+        /**
+         * Detect if a sheet matches the expected sales transaction format:
+         * Columns: Date | TR no. | Client | Course | Instructor | Item | Qty | Size | Amount
+         * We scan the first 10 rows looking for the header row or data rows that fit the pattern.
+         */
+        const detectSheetFormat = (sheetName: string): { valid: boolean; reason?: string } => {
+          const sheet = workbook.Sheets[sheetName];
+          if (!sheet) return { valid: false, reason: 'Sheet is empty or missing' };
+
+          const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 }) as any[][];
+          if (rows.length < 2) return { valid: false, reason: 'Too few rows' };
+
+          // Look for a header row containing the key columns within the first 10 rows
+          const salesHeaders = ['date', 'tr no', 'client', 'item', 'amount'];
+          for (let i = 0; i < Math.min(10, rows.length); i++) {
+            const row = rows[i];
+            if (!row) continue;
+            const cellValues = row.map(c => String(c || '').toLowerCase().trim());
+            const matchCount = salesHeaders.filter(h => cellValues.some(c => c.includes(h))).length;
+            if (matchCount >= 4) {
+              return { valid: true };
+            }
+          }
+
+          // No explicit header found — try heuristic: check if rows look like sales data
+          // A valid data row has: a date-like value in col A, a number in col B (TR no), a name in col C, an item in col E, a number in col H (amount)
+          let validDataRows = 0;
+          for (let i = 0; i < Math.min(20, rows.length); i++) {
+            const row = rows[i];
+            if (!row || row.length < 6) continue;
+            const colA = String(row[0] || '').trim();
+            const colB = String(row[1] || '').trim();
+            const colE = String(row[4] || '').trim() || String(row[5] || '').trim();
+            const colH = String(row[7] || '').trim() || String(row[8] || '').trim();
+            const hasDate = colA && (colA.includes('-') || colA.includes('/') || !isNaN(Number(colA)));
+            const hasTrNo = colB && !isNaN(Number(colB)) && Number(colB) > 100;
+            const hasItem = colE && colE.length > 2;
+            const hasAmount = colH && !isNaN(parseFloat(colH.replace(/,/g, ''))) && parseFloat(colH.replace(/,/g, '')) > 0;
+            if (hasDate && hasTrNo && hasItem && hasAmount) validDataRows++;
+          }
+
+          if (validDataRows >= 2) return { valid: true };
+
+          return { valid: false, reason: 'Does not match expected sales format (Date | TR no. | Client | Course | Item | Qty | Size | Amount)' };
+        };
+
+        const allSheetMeta = workbook.SheetNames
+          .filter(name => !alwaysExcluded.includes(name.toLowerCase().trim()))
+          .map(name => ({ name, ...detectSheetFormat(name) }));
+
+        const validSheets = allSheetMeta.filter(s => s.valid).map(s => s.name);
+        const invalidSheets = allSheetMeta.filter(s => !s.valid).map(s => s.name);
+
+        setImportSheetMeta(allSheetMeta);
         setImportSheets(validSheets);
-        setImportLogs(prev => [...prev, `Found valid sheets: ${validSheets.join(', ')}`]);
+
+        const logs: string[] = ['Reading spreadsheet...'];
+        logs.push(`Found ${validSheets.length} compatible sheet(s): ${validSheets.join(', ') || 'none'}`);
+        if (invalidSheets.length > 0) {
+          logs.push(`⚠ Skipped ${invalidSheets.length} incompatible sheet(s): ${invalidSheets.join(', ')}`);
+          logs.push('Incompatible sheets have a different column layout and cannot be auto-imported.');
+        }
+        setImportLogs(logs);
       } catch (err: any) {
         console.error('Error reading excel file:', err);
         setImportLogs(prev => [...prev, `ERROR: Failed to parse spreadsheet: ${err.message || err}`]);
@@ -1032,6 +800,7 @@ export const SalesPage: React.FC = () => {
         setShowImportExcelModal(false);
         setImportFile(null);
         setImportWorkbook(null);
+        setImportSheetMeta([]);
         setParsedTransactions([]);
       }, 3000);
 
@@ -1045,79 +814,6 @@ export const SalesPage: React.FC = () => {
     }
   };
 
-  const handleSaveManualOrder = async () => {
-    if (studentType === 'registered' && !selectedUser) {
-      showNotification('Please select a student/user', 'error');
-      return;
-    }
-    if (studentType === 'walkin' && !walkInName.trim()) {
-      showNotification('Please enter student name', 'error');
-      return;
-    }
-    if (manualItems.length === 0) {
-      showNotification('Please add at least one item to the transaction', 'error');
-      return;
-    }
-    if (!receiptNo.trim()) {
-      showNotification('Please enter a receipt number', 'error');
-      return;
-    }
-    if (paymentMethod === 'ewallet' && (!referenceNumber.trim() || referenceNumber.trim().length !== 4)) {
-      showNotification('Please enter the last 4 digits of the GCash reference number', 'error');
-      return;
-    }
-
-    setIsSavingManualOrder(true);
-
-    try {
-      const orderDateObj = new Date(`${transactionDate}T${transactionTime}:00`);
-      
-      const subtotalAmount = manualItems.reduce((sum, item) => sum + item.subtotal, 0);
-      const ewalletFee = paymentMethod === 'ewallet' ? calculateEWalletFee(subtotalAmount) : 0;
-      const totalAmount = subtotalAmount + ewalletFee;
-
-      const orderData = {
-        isWalkIn: studentType === 'walkin',
-        walkInName: studentType === 'walkin' ? walkInName.trim() : undefined,
-        walkInIdNumber: studentType === 'walkin' && walkInIdNumber.trim() ? walkInIdNumber.trim() : undefined,
-        walkInCourse: studentType === 'walkin' && walkInCourse.trim() ? walkInCourse.trim() : undefined,
-        walkInMembershipStatus: studentType === 'walkin' ? walkInMembership : undefined,
-        userId: studentType === 'registered' ? selectedUser.id : undefined,
-        items: manualItems.map(item => ({
-          productId: item.productId,
-          productName: item.productName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          subtotal: item.subtotal,
-          selectedOptions: item.selectedOptions,
-          paymentType: item.paymentType || null,
-          orderType: item.orderType || 'regular',
-          fullPrice: item.fullPrice || null
-        })),
-        totalAmount,
-        paymentMethod,
-        referenceNumber: paymentMethod === 'ewallet' ? referenceNumber : null,
-        receiptNo: receiptNo.trim(),
-        orderType: activeTab === 'insurance' ? 'insurance' : 'merchandise',
-        status: orderStatus,
-        createdAt: orderDateObj.toISOString(),
-        completedAt: orderStatus !== 'pending' ? orderDateObj.toISOString() : null
-      };
-
-      await apiClient.createOrder(orderData, user?.id || '');
-      
-      showNotification('Offline transaction recorded successfully!', 'success');
-      setShowRecordSaleModal(false);
-      
-      await AppDataSync.loadProductsFromAPI();
-      await refreshActiveTabData();
-    } catch (e: any) {
-      console.error('Failed to record manual order:', e);
-      showNotification(e.message || 'Failed to record transaction', 'error');
-    } finally {
-      setIsSavingManualOrder(false);
-    }
-  };
 
   // Load insurance orders when insurance tab is active
   useEffect(() => {
@@ -1154,10 +850,10 @@ export const SalesPage: React.FC = () => {
       
       const todayOrders = allOrders.filter((order: any) => {
         // Use completed_at for completed orders (payment date), created_at for cancelled orders
-        const orderDate = new Date(order.status === 'completed' && order.completed_at ? order.completed_at : order.created_at);
+        const orderDate = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
         orderDate.setHours(0, 0, 0, 0);
         const isToday = orderDate.getTime() === today.getTime();
-        const isCompletedOrCancelled = order.status === 'completed' || order.status === 'cancelled';
+        const isCompletedOrCancelled = order.status === 'completed' || order.status === 'released' || order.status === 'cancelled';
         const isNotInsurance = order.order_type !== 'insurance';
         
         console.log('[Daily Summary Filter]', {
@@ -1217,7 +913,7 @@ export const SalesPage: React.FC = () => {
         const orderDate = new Date(order.completed_at || order.created_at);
         return orderDate.getMonth() === selectedMonthValue && 
                orderDate.getFullYear() === selectedYear &&
-               order.status === 'completed' &&
+               (order.status === 'completed' || order.status === 'released') &&
                order.order_type !== 'insurance'; // Exclude insurance orders
       });
       
@@ -1257,6 +953,36 @@ export const SalesPage: React.FC = () => {
     }
   };
 
+  const getProductSoldOrders = (productName: string) => {
+    if (!monthlyData || !monthlyData.orders) return [];
+    
+    const matchingPurchases: any[] = [];
+    
+    monthlyData.orders.forEach((order: any) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const itemProductName = formatProductNameWithVariants(item);
+          if (itemProductName === productName) {
+            matchingPurchases.push({
+              id: order.id,
+              receipt_no: order.receipt_no || order.receiptNo || 'N/A',
+              date: order.completed_at || order.completedAt || order.created_at || order.createdAt,
+              name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
+              courseYear: order.course && order.year 
+                ? `${order.course} - ${order.year}` 
+                : order.course || order.year || 'N/A',
+              quantity: item.quantity || 0,
+              subtotal: parseFloat(item.subtotal || 0),
+            });
+          }
+        });
+      }
+    });
+    
+    // Sort by date (most recent first)
+    return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
   const loadHistorySummary = async () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
@@ -1267,10 +993,10 @@ export const SalesPage: React.FC = () => {
       
       const historyOrdersFiltered = allOrders.filter((order: any) => {
         // Use completed_at for completed orders (payment date), created_at for cancelled orders
-        const orderDate = new Date(order.status === 'completed' && order.completed_at ? order.completed_at : order.created_at);
+        const orderDate = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
         orderDate.setHours(0, 0, 0, 0);
         return orderDate.getTime() === targetDate.getTime() && 
-               (order.status === 'completed' || order.status === 'cancelled') &&
+               (order.status === 'completed' || order.status === 'released' || order.status === 'cancelled') &&
                order.order_type !== 'insurance'; // Exclude insurance orders
       });
       
@@ -1288,10 +1014,10 @@ export const SalesPage: React.FC = () => {
       targetDate.setHours(0, 0, 0, 0);
       
       const filtered = allOrders.filter((order: any) => {
-        const orderDate = new Date(order.status === 'completed' && order.completed_at ? order.completed_at : order.created_at);
+        const orderDate = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
         orderDate.setHours(0, 0, 0, 0);
         return orderDate.getTime() === targetDate.getTime() && 
-               (order.status === 'completed' || order.status === 'cancelled') &&
+               (order.status === 'completed' || order.status === 'released' || order.status === 'cancelled') &&
                order.order_type !== 'insurance';
       });
       
@@ -1419,9 +1145,9 @@ export const SalesPage: React.FC = () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
       
-      // Filter for insurance orders (order_type = 'insurance' and status = 'completed')
+      // Filter for insurance orders (order_type = 'insurance' and status = 'completed' or 'released')
       const insuranceOrdersFiltered = allOrders.filter((order: any) => 
-        order.order_type === 'insurance' && order.status === 'completed'
+        order.order_type === 'insurance' && (order.status === 'completed' || order.status === 'released')
       );
       
       // Calculate total insurance revenue
@@ -1573,7 +1299,7 @@ export const SalesPage: React.FC = () => {
       const dailyProductsSold: Record<string, { quantity: number; revenue: number; category: string; sku: string; price: number }> = {};
       
       remittanceOrders
-        .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
+        .filter((order: any) => (order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance')
         .forEach((order: any) => {
           const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
                                    (order.receiptNo && order.receiptNo.startsWith('BAL-'));
@@ -1639,7 +1365,7 @@ export const SalesPage: React.FC = () => {
         `Remittance Date: ${dateTitle}`,
         [
           { label: 'Total Sales', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
-          { label: 'Completed Orders', value: remittanceOrders.filter((o: any) => o.status === 'completed' && o.order_type !== 'insurance').length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
+          { label: 'Completed Orders', value: remittanceOrders.filter((o: any) => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance').length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
           { label: 'Products Sold', value: `${totalUnits} units`, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
         ],
         tableHeader,
@@ -1727,12 +1453,8 @@ export const SalesPage: React.FC = () => {
         const courseYear = order?.course && order?.year 
           ? `${order.course} - ${order.year}` 
           : order?.course || order?.year || 'N/A';
-        const orderDateStr = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
-        const time = orderDateStr ? new Date(orderDateStr).toLocaleString('en-US', {
-          hour: 'numeric',
-          minute: '2-digit',
-          hour12: true
-        }) : 'N/A';
+        const orderDateStr = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+        const date = orderDateStr ? new Date(orderDateStr).toLocaleDateString() : 'N/A';
 
         if (items.length > 0) {
           items.forEach((item: any) => {
@@ -1750,8 +1472,8 @@ export const SalesPage: React.FC = () => {
               subtotal: parseFloat(item?.subtotal || 0),
               paymentMethod: formatPaymentMethod(order?.payment_method),
               referenceNumber: order?.reference_number || 'N/A',
-              status: order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
-              time
+              status: order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED',
+              date
             });
           });
         } else {
@@ -1768,14 +1490,14 @@ export const SalesPage: React.FC = () => {
             subtotal: parseFloat(order?.total_amount || 0),
             paymentMethod: formatPaymentMethod(order?.payment_method),
             referenceNumber: order?.reference_number || 'N/A',
-            status: order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED',
-            time
+            status: order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED',
+            date
           });
         }
       });
 
-      const totalSales = rows.reduce((sum, r) => r.status === 'COMPLETED' ? sum + r.subtotal : sum, 0);
-      const completedCount = filteredOrders.filter(o => o.status === 'completed').length;
+      const totalSales = rows.reduce((sum, r) => (r.status === 'COMPLETED' || r.status === 'RELEASED') ? sum + r.subtotal : sum, 0);
+      const completedCount = filteredOrders.filter(o => o.status === 'completed' || o.status === 'released').length;
       const cancelledCount = filteredOrders.filter(o => o.status === 'cancelled').length;
 
       const tableHeader = `
@@ -1793,7 +1515,7 @@ export const SalesPage: React.FC = () => {
           <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Payment</th>
           <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 130px;">Ref Number</th>
           <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Status</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Time</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Date</th>
         </tr>
       `;
 
@@ -1817,7 +1539,7 @@ export const SalesPage: React.FC = () => {
             <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: #475569;">${row.paymentMethod}</td>
             <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #64748b;">${row.referenceNumber}</td>
             <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${statusColor}; background-color: ${statusBg};">${row.status}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.time}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; color: #64748b;">${row.date}</td>
           </tr>
         `;
       }).join('');
@@ -2223,13 +1945,7 @@ export const SalesPage: React.FC = () => {
           
           {/* Action buttons */}
           <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-            <button
-              onClick={() => setShowRecordSaleModal(true)}
-              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
-            >
-              <PlusCircle size={18} className="sm:w-5 sm:h-5" />
-              <span>Record Offline Sale</span>
-            </button>
+
 
             <button
               onClick={() => setShowImportExcelModal(true)}
@@ -2243,7 +1959,7 @@ export const SalesPage: React.FC = () => {
             {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound') && (
               <button
                 onClick={exportToExcel}
-                className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto"
+                className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
               >
                 <Download size={18} className="sm:w-5 sm:h-5" />
                 <span>Export</span>
@@ -2638,7 +2354,7 @@ export const SalesPage: React.FC = () => {
                   <CheckCircle size={24} />
                 </div>
                 <p className="text-3xl font-bold">
-                  {dailyOrders.filter(o => o.status === 'completed').length}
+                  {dailyOrders.filter(o => o.status === 'completed' || o.status === 'released').length}
                 </p>
                 <p className="text-sm opacity-75 mt-1">orders</p>
               </div>
@@ -2661,7 +2377,7 @@ export const SalesPage: React.FC = () => {
                 </div>
                 <p className="text-3xl font-bold">
                   ₱{dailyOrders
-                    .filter(o => o.status === 'completed' && o.order_type !== 'insurance')
+                    .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
                     .toLocaleString()}
                 </p>
@@ -2770,7 +2486,7 @@ export const SalesPage: React.FC = () => {
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Amount</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Time</th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Date</th>
                         <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
                       </tr>
                     </thead>
@@ -2830,19 +2546,17 @@ export const SalesPage: React.FC = () => {
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                   order?.status === 'completed' 
                                     ? 'bg-green-100 text-green-800' 
+                                    : order?.status === 'released'
+                                    ? 'bg-blue-100 text-blue-800'
                                     : 'bg-red-100 text-red-800'
                                   }`}>
-                                  {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
+                                  {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
                                 </span>
                               </td>
                               <td className="py-4 px-6 text-slate-700 text-xs">
                                 {(() => {
-                                  const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
-                                  return displayDate ? new Date(displayDate).toLocaleString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  }) : 'N/A';
+                                  const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+                                  return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
                                 })()}
                               </td>
                               <td className="py-4 px-6 text-center">
@@ -2897,19 +2611,17 @@ export const SalesPage: React.FC = () => {
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 order?.status === 'completed' 
                                   ? 'bg-green-100 text-green-800' 
+                                  : order?.status === 'released'
+                                  ? 'bg-blue-100 text-blue-800'
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
+                                {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
                               </span>
                             </td>
                              <td className="py-4 px-6 text-slate-700 text-xs">
                                {(() => {
-                                 const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
-                                 return displayDate ? new Date(displayDate).toLocaleString('en-US', {
-                                   hour: 'numeric',
-                                   minute: '2-digit',
-                                   hour12: true
-                                 }) : 'N/A';
+                                 const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+                                 return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
                                })()}
                              </td>
                             <td className="py-4 px-6 text-center">
@@ -3028,7 +2740,7 @@ export const SalesPage: React.FC = () => {
                 </div>
                 <p className="text-3xl font-bold">
                   ₱{remittanceOrders
-                    .filter(o => o.status === 'completed' && o.order_type !== 'insurance')
+                    .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
                     .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
@@ -3041,7 +2753,7 @@ export const SalesPage: React.FC = () => {
                   <CheckCircle size={24} />
                 </div>
                 <p className="text-3xl font-bold">
-                  {remittanceOrders.filter(o => o.status === 'completed' && o.order_type !== 'insurance').length}
+                  {remittanceOrders.filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance').length}
                 </p>
                 <p className="text-sm opacity-75 mt-1">orders</p>
               </div>
@@ -3055,7 +2767,7 @@ export const SalesPage: React.FC = () => {
                   {(() => {
                     const dailyProductsSold: Record<string, number> = {};
                     remittanceOrders
-                      .filter((o: any) => o.status === 'completed' && o.order_type !== 'insurance')
+                      .filter((o: any) => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
                       .forEach((o: any) => {
                         const isBalancePayment = (o.receipt_no && o.receipt_no.startsWith('BAL-')) ||
                                                  (o.receiptNo && o.receiptNo.startsWith('BAL-'));
@@ -3081,7 +2793,7 @@ export const SalesPage: React.FC = () => {
               const dailyProductsSold: Record<string, { quantity: number; revenue: number }> = {};
               
               remittanceOrders
-                .filter((order: any) => order.status === 'completed' && order.order_type !== 'insurance')
+                .filter((order: any) => (order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance')
                 .forEach((order: any) => {
                   const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
                                            (order.receiptNo && order.receiptNo.startsWith('BAL-'));
@@ -3225,7 +2937,7 @@ export const SalesPage: React.FC = () => {
                   <CheckCircle size={24} />
                 </div>
                 <p className="text-3xl font-bold">
-                  {historyOrders.filter(o => o.status === 'completed').length}
+                  {historyOrders.filter(o => o.status === 'completed' || o.status === 'released').length}
                 </p>
                 <p className="text-sm opacity-75 mt-1">orders</p>
               </div>
@@ -3248,7 +2960,7 @@ export const SalesPage: React.FC = () => {
                 </div>
                 <p className="text-3xl font-bold">
                   ₱{historyOrders
-                    .filter(o => o.status === 'completed' && o.order_type !== 'insurance')
+                    .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
                     .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
                     .toLocaleString()}
                 </p>
@@ -3341,7 +3053,7 @@ export const SalesPage: React.FC = () => {
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Amount</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
                         <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Time</th>
+                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Date</th>
                         <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
                       </tr>
                     </thead>
@@ -3399,19 +3111,17 @@ export const SalesPage: React.FC = () => {
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                   order?.status === 'completed' 
                                     ? 'bg-green-100 text-green-800' 
+                                    : order?.status === 'released'
+                                    ? 'bg-blue-100 text-blue-800'
                                     : 'bg-red-100 text-red-800'
                                 }`}>
-                                  {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
+                                  {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
                                 </span>
                               </td>
                                <td className="py-4 px-6 text-slate-700 text-xs">
                                 {(() => {
-                                  const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
-                                  return displayDate ? new Date(displayDate).toLocaleString('en-US', {
-                                    hour: 'numeric',
-                                    minute: '2-digit',
-                                    hour12: true
-                                  }) : 'N/A';
+                                  const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+                                  return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
                                 })()}
                               </td>
                               <td className="py-4 px-6 text-center">
@@ -3466,19 +3176,17 @@ export const SalesPage: React.FC = () => {
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                                 order?.status === 'completed' 
                                   ? 'bg-green-100 text-green-800' 
+                                  : order?.status === 'released'
+                                  ? 'bg-blue-100 text-blue-800'
                                   : 'bg-red-100 text-red-800'
                               }`}>
-                                {order?.status === 'completed' ? 'COMPLETED' : 'CANCELLED'}
+                                {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
                               </span>
                             </td>
                             <td className="py-4 px-6 text-slate-700 text-xs">
                               {(() => {
-                                const displayDate = order?.status === 'completed' && order?.completed_at ? order.completed_at : order?.created_at;
-                                return displayDate ? new Date(displayDate).toLocaleString('en-US', {
-                                  hour: 'numeric',
-                                  minute: '2-digit',
-                                  hour12: true
-                                }) : 'N/A';
+                                const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+                                return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
                               })()}
                             </td>
                             <td className="py-4 px-6 text-center">
@@ -3663,7 +3371,14 @@ export const SalesPage: React.FC = () => {
                       return filtered.map(([productName, data]: [string, any]) => (
                         <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
                           <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
-                          <td className="px-6 py-4 text-sm text-right text-slate-600">{data.quantity} units</td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <button
+                              onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
+                              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
+                            >
+                              {data.quantity} units
+                            </button>
+                          </td>
                           <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
                             ₱{data.revenue.toLocaleString()}
                           </td>
@@ -4652,741 +4367,6 @@ export const SalesPage: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Record Offline Sale Modal */}
-        {showRecordSaleModal && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto animate-fade-in" onClick={() => setShowRecordSaleModal(false)}>
-            <div 
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[90vh] overflow-hidden flex flex-col animate-scale-in"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">Record Offline Walk-in Transaction</h3>
-                  <p className="text-xs text-slate-500 mt-0.5 font-medium">Manually log direct payments, pre-orders, and downpayments</p>
-                </div>
-                <button
-                  onClick={() => setShowRecordSaleModal(false)}
-                  className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-full transition-all"
-                >
-                  ✕
-                </button>
-              </div>
-
-              {/* Modal Body - Two Column Layout */}
-              <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 lg:grid-cols-12 gap-8">
-                
-                {/* Column 1: Selector & Item Inputs (7 cols) */}
-                <div className="lg:col-span-7 space-y-6">
-                  
-                  {/* Step 1: Select Student */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <label className="block text-sm font-semibold text-slate-800">
-                        1. Select Student
-                      </label>
-                      <div className="flex bg-slate-200 p-0.5 rounded-lg text-xs font-semibold">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStudentType('registered');
-                            setSelectedUser(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-md transition-all ${studentType === 'registered' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Registered Student
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setStudentType('walkin');
-                            setSelectedUser(null);
-                          }}
-                          className={`px-3 py-1.5 rounded-md transition-all ${studentType === 'walkin' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Unregistered Walk-in
-                        </button>
-                      </div>
-                    </div>
-
-                    {studentType === 'registered' ? (
-                      <div>
-                        {!selectedUser ? (
-                          <div className="relative">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
-                              <input
-                                type="text"
-                                placeholder="Search by student name, ID number or email..."
-                                value={userSearchQuery}
-                                onChange={(e) => setUserSearchQuery(e.target.value)}
-                                className="w-full pl-10 pr-4 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm bg-white"
-                              />
-                            </div>
-                            {userSearchQuery.trim() !== '' && (
-                              <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto divide-y divide-slate-100">
-                                {(() => {
-                                  if (isLoadingUsers) {
-                                    return (
-                                      <div className="px-4 py-3 text-sm text-slate-500 text-center flex items-center justify-center gap-2 bg-white">
-                                        <div className="w-4.5 h-4.5 border-2 border-purple-500 border-t-transparent rounded-full animate-spin"></div>
-                                        Loading students...
-                                      </div>
-                                    );
-                                  }
-                                  const filteredUsers = allUsers.filter((u: any) => {
-                                    const query = userSearchQuery.toLowerCase();
-                                    return (
-                                      u.first_name.toLowerCase().includes(query) ||
-                                      (u.last_name || '').toLowerCase().includes(query) ||
-                                      (u.email || '').toLowerCase().includes(query) ||
-                                      (u.id_number || '').toLowerCase().includes(query)
-                                    );
-                                  });
-                                  return filteredUsers.length > 0 ? (
-                                    filteredUsers.map((u: any) => (
-                                      <button
-                                        key={u.id}
-                                        type="button"
-                                        onClick={() => {
-                                          setSelectedUser(u);
-                                          setUserSearchQuery('');
-                                        }}
-                                        className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center justify-between transition-colors bg-white"
-                                      >
-                                        <div>
-                                          <p className="font-semibold text-slate-900">{formatFullName(u.first_name, u.last_name)}</p>
-                                          <p className="text-xs text-slate-500">{u.email} • ID: {u.id_number || 'N/A'}</p>
-                                        </div>
-                                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${u.membership_status === 'approved' ? 'bg-purple-100 text-purple-800' : 'bg-slate-100 text-slate-800'}`}>
-                                          {u.membership_status === 'approved' ? 'Member' : 'Non-Member'}
-                                        </span>
-                                      </button>
-                                    ))
-                                  ) : (
-                                    <div className="px-4 py-3 text-sm text-slate-500 text-center bg-white">
-                                      No students found
-                                    </div>
-                                  );
-                                })()}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div className="bg-white border border-slate-200 rounded-lg p-3.5 flex items-center justify-between shadow-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center text-purple-700 font-bold">
-                                {`${selectedUser.first_name?.[0] || ''}${selectedUser.last_name?.[0] || ''}`.toUpperCase()}
-                              </div>
-                              <div>
-                                <p className="font-semibold text-slate-900">{formatFullName(selectedUser.first_name, selectedUser.last_name)}</p>
-                                <p className="text-xs text-slate-500">{selectedUser.email} • ID: {selectedUser.id_number || 'N/A'}</p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => setSelectedUser(null)}
-                              className="text-xs font-semibold text-red-600 hover:text-red-800 hover:bg-red-50 px-2.5 py-1.5 rounded-md border border-red-200 transition-colors bg-white"
-                            >
-                              Change
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1 font-semibold">Student Name *</label>
-                          <input
-                            type="text"
-                            placeholder="Enter full name..."
-                            value={walkInName}
-                            onChange={(e) => setWalkInName(e.target.value)}
-                            className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                            required
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1 font-semibold">ID Number (Optional)</label>
-                            <input
-                              type="text"
-                              placeholder="Enter ID number..."
-                              value={walkInIdNumber}
-                              onChange={(e) => setWalkInIdNumber(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-slate-500 mb-1 font-semibold">Course (Optional)</label>
-                            <input
-                              type="text"
-                              placeholder="e.g. BSMT, BSMARE..."
-                              value={walkInCourse}
-                              onChange={(e) => setWalkInCourse(e.target.value)}
-                              className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs text-slate-500 mb-1 font-semibold">Membership Status</label>
-                          <div className="flex gap-4">
-                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="walkInMembership"
-                                value="none"
-                                checked={walkInMembership === 'none'}
-                                onChange={() => setWalkInMembership('none')}
-                                className="text-purple-600 focus:ring-purple-500"
-                              />
-                              Non-Member
-                            </label>
-                            <label className="flex items-center gap-2 text-sm text-slate-700 cursor-pointer">
-                              <input
-                                type="radio"
-                                name="walkInMembership"
-                                value="approved"
-                                checked={walkInMembership === 'approved'}
-                                onChange={() => setWalkInMembership('approved')}
-                                className="text-purple-600 focus:ring-purple-500"
-                              />
-                              Coop Member
-                            </label>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Step 2: Add Product Item */}
-                  {activeTab === 'insurance' ? (
-                    <div className="bg-purple-50 border border-purple-200 rounded-xl p-5 space-y-3">
-                      <label className="block text-sm font-semibold text-purple-900">
-                        2. Transaction Item
-                      </label>
-                      <div className="p-4 bg-white border border-purple-100 rounded-lg flex items-center justify-between shadow-sm">
-                        <div>
-                          <p className="font-semibold text-slate-900">I-CARD Micro-insurance</p>
-                          <p className="text-xs text-slate-500">Fixed rate walk-in insurance coverage</p>
-                        </div>
-                        <span className="font-bold text-purple-700">₱100.00</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-5 space-y-4">
-                      <label className="block text-sm font-semibold text-slate-800">
-                        2. Add Product Item
-                      </label>
-
-                      {/* Product Selection */}
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Select Product</label>
-                        <select
-                          value={selectedProduct?.id || ''}
-                          onChange={(e) => {
-                            const p = products.find(prod => prod.id === e.target.value);
-                            setSelectedProduct(p || null);
-                            setSelectedOptions({});
-                            setQuantity(1);
-                          }}
-                          className="w-full px-3 py-2.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                        >
-                          <option value="">-- Choose Product --</option>
-                          {products.map(p => {
-                            const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(p.name);
-                            let stockText = '';
-                            if (isMadeToOrder) {
-                              stockText = p.allowPreorder !== false 
-                                ? ' - Made to Order' 
-                                : ' - Unavailable';
-                            } else {
-                              const hasVariants = p.variants && Object.keys(p.variants).length > 0;
-                              const stockVal = hasVariants 
-                                ? Object.values(p.variants!).reduce((sum, v) => sum + (v.stock || 0), 0)
-                                : p.stock;
-                              
-                              if (stockVal <= 0) {
-                                stockText = p.allowPreorder !== false 
-                                  ? ' - Out of Stock (Pre-order available)' 
-                                  : ' - Out of Stock (Unavailable)';
-                              } else {
-                                stockText = ` - Stock: ${stockVal}`;
-                              }
-                            }
-                            return (
-                              <option key={p.id} value={p.id}>
-                                {p.name} (₱{p.price}){stockText}
-                              </option>
-                            );
-                          })}
-                        </select>
-                      </div>
-
-                      {selectedProduct && (
-                        <div className="space-y-4 border-t border-slate-200 pt-4 animate-fade-in">
-                          {/* Live Stock Status Indicator */}
-                          <div className="bg-slate-100 rounded-lg p-2.5 flex items-center justify-between text-xs font-semibold">
-                            <span className="text-slate-600">Stock Availability:</span>
-                            {(() => {
-                              const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
-                              if (isMadeToOrder) {
-                                if (selectedProduct.allowPreorder === false) {
-                                  return (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200 animate-pulse">
-                                      ❌ Unavailable
-                                    </span>
-                                  );
-                                }
-                                return (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                    ✓ Made to Order (Always Available)
-                                  </span>
-                                );
-                              }
-
-                              const hasVariants = selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0;
-                              if (hasVariants) {
-                                const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
-                                if (!allOptionsSelected) {
-                                  const totalStock = Object.values(selectedProduct.variants!).reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
-                                  return (
-                                    <span className="text-xs text-slate-500 font-medium">
-                                      Select options to verify (Total: {totalStock})
-                                    </span>
-                                  );
-                                }
-
-                                const variantKey = Object.entries(selectedOptions)
-                                  .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                                  .map(([key, value]) => `${key}:${value}`)
-                                  .join('|');
-                                const variant = selectedProduct.variants![variantKey];
-                                const variantStock = variant ? variant.stock : 0;
-
-                                if (variantStock <= 0) {
-                                  if (selectedProduct.allowPreorder !== false) {
-                                    return (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                                        ⚠️ Out of Stock (Pre-order Only)
-                                      </span>
-                                    );
-                                  } else {
-                                    return (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
-                                        ❌ Out of Stock (Unavailable)
-                                      </span>
-                                    );
-                                  }
-                                } else {
-                                  return (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                      ✓ In Stock ({variantStock} left)
-                                    </span>
-                                  );
-                                }
-                              } else {
-                                const stockVal = selectedProduct.stock;
-                                if (stockVal <= 0) {
-                                  if (selectedProduct.allowPreorder !== false) {
-                                    return (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
-                                        ⚠️ Out of Stock (Pre-order Only)
-                                      </span>
-                                    );
-                                  } else {
-                                    return (
-                                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-red-100 text-red-800 border border-red-200">
-                                        ❌ Out of Stock (Unavailable)
-                                      </span>
-                                    );
-                                  }
-                                } else {
-                                  return (
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                      ✓ In Stock ({stockVal} left)
-                                    </span>
-                                  );
-                                }
-                              }
-                            })()}
-                          </div>
-
-                          {/* Dynamic Product Options */}
-                          {selectedProduct.options && selectedProduct.options.length > 0 && (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              {selectedProduct.options.map((option: any) => (
-                                <div key={option.id}>
-                                  <label className="block text-xs text-slate-500 mb-1 font-semibold">
-                                    {option.label}
-                                  </label>
-                                  <select
-                                    value={selectedOptions[option.id] || ''}
-                                    onChange={(e) => {
-                                      const val = e.target.value;
-                                      let next = { ...selectedOptions };
-                                      if (selectedProduct.name === 'BSNAME Uniform') {
-                                        next = {};
-                                      }
-                                      if (val) {
-                                        next[option.id] = val;
-                                      } else {
-                                        delete next[option.id];
-                                      }
-                                      setSelectedOptions(next);
-                                    }}
-                                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                                  >
-                                    <option value="">-- Select {option.label} --</option>
-                                    {option.choices.map((choice: string) => (
-                                      <option key={choice} value={choice}>
-                                        {choice}
-                                      </option>
-                                    ))}
-                                  </select>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Order & Payment Types */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Order Type</label>
-                              <select
-                                value={orderType}
-                                onChange={(e: any) => setOrderType(e.target.value)}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                              >
-                                <option value="regular" disabled={(() => {
-                                  if (!selectedProduct) return false;
-                                  const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
-                                  if (isMadeToOrder) return selectedProduct.allowPreorder === false;
-                                  
-                                  if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
-                                    const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
-                                    if (allOptionsSelected) {
-                                      const variantKey = Object.entries(selectedOptions)
-                                        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                                        .map(([key, value]) => `${key}:${value}`)
-                                        .join('|');
-                                      const variant = selectedProduct.variants[variantKey];
-                                      return !variant || variant.stock <= 0;
-                                    }
-                                    return false;
-                                  }
-                                  return selectedProduct.stock <= 0;
-                                })()}>Regular Purchase</option>
-                                <option value="preorder">Pre-Order</option>
-                              </select>
-                            </div>
-
-                            {['Gala', 'Type A & B Uniform'].includes(selectedProduct.name) && (
-                              <div>
-                                <label className="block text-xs text-slate-500 mb-1 font-semibold">Payment Options</label>
-                                <select
-                                  value={paymentType}
-                                  onChange={(e: any) => setPaymentType(e.target.value)}
-                                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                                >
-                                  <option value="full">Full Payment</option>
-                                  <option value="downpayment">Downpayment</option>
-                                </select>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Quantity & Unit Price Override */}
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Quantity</label>
-                              <input
-                                type="number"
-                                min="1"
-                                value={quantity}
-                                onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                              />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs text-slate-500 mb-1 font-semibold">Unit Price (₱)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                value={unitPrice}
-                                onChange={(e) => setUnitPrice(Math.max(0, parseFloat(e.target.value) || 0))}
-                                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                              />
-                            </div>
-                          </div>
-
-                          {/* Calculated Subtotal & Add Button */}
-                          <div className="flex items-center justify-between border-t border-slate-200 pt-4">
-                            <div>
-                              <p className="text-xs text-slate-500 font-semibold">Subtotal</p>
-                              <p className="text-xl font-bold text-slate-900">₱{(quantity * unitPrice).toLocaleString()}</p>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={handleAddManualItem}
-                              disabled={(() => {
-                                if (!selectedProduct) return true;
-                                const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name);
-                                if (isMadeToOrder) return selectedProduct.allowPreorder === false;
-
-                                let isOutOfStock = false;
-                                if (selectedProduct.variants && Object.keys(selectedProduct.variants).length > 0) {
-                                  const allOptionsSelected = selectedProduct.options?.every((opt: any) => selectedOptions[opt.id]);
-                                  if (allOptionsSelected) {
-                                    const variantKey = Object.entries(selectedOptions)
-                                      .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
-                                      .map(([key, value]) => `${key}:${value}`)
-                                      .join('|');
-                                    const variant = selectedProduct.variants[variantKey];
-                                    isOutOfStock = !variant || variant.stock <= 0;
-                                  } else {
-                                    return false;
-                                  }
-                                } else {
-                                  isOutOfStock = selectedProduct.stock <= 0;
-                                }
-
-                                return isOutOfStock && selectedProduct.allowPreorder === false;
-                              })()}
-                              className="px-5 py-2.5 bg-purple-600 text-white font-bold rounded-lg hover:bg-purple-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed transition-colors shadow-sm text-sm"
-                            >
-                              Add to Transaction
-                            </button>
-                          </div>
-
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {/* Column 2: Manual Cart & Transaction metadata (5 cols) */}
-                <div className="lg:col-span-5 border-t lg:border-t-0 lg:border-l border-slate-200 lg:pl-8 space-y-6">
-                  
-                  {/* Cart Items List */}
-                  <div>
-                    <h4 className="text-sm font-semibold text-slate-800 mb-3 flex items-center justify-between">
-                      <span>Transaction Cart</span>
-                      <span className="bg-purple-100 text-purple-700 text-xs font-bold px-2 py-0.5 rounded-full">
-                        {manualItems.length} items
-                      </span>
-                    </h4>
-                    
-                    {manualItems.length === 0 ? (
-                      <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-slate-400">
-                        <Package size={32} className="mx-auto mb-2 text-slate-300" />
-                        <p className="text-xs">No items added to this transaction yet</p>
-                      </div>
-                    ) : (
-                      <div className="space-y-3.5 max-h-[220px] overflow-y-auto pr-1">
-                        {manualItems.map(item => (
-                          <div key={item.id} className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center justify-between gap-3 shadow-xs">
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-slate-900 text-xs truncate">
-                                {item.productName}
-                              </p>
-                              {/* Display Option Subtitle */}
-                              {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
-                                <p className="text-[10px] text-slate-500 truncate font-medium">
-                                  {Object.entries(item.selectedOptions).map(([k, v]: any) => `${k}: ${v}`).join(', ')}
-                                </p>
-                              )}
-                              <p className="text-[10px] text-slate-600 mt-0.5 font-medium">
-                                {item.quantity} × ₱{item.unitPrice.toLocaleString()} 
-                                {item.paymentType && (
-                                  <span className="ml-1.5 px-1 bg-amber-100 text-amber-800 rounded font-bold text-[9px]">
-                                    {item.paymentType.toUpperCase()}
-                                  </span>
-                                )}
-                                {item.orderType === 'preorder' && (
-                                  <span className="ml-1.5 px-1 bg-blue-100 text-blue-800 rounded font-bold text-[9px]">
-                                    PRE-ORDER
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <span className="text-xs font-bold text-slate-900">
-                                ₱{item.subtotal.toLocaleString()}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveManualItem(item.id)}
-                                className="p-1 hover:bg-red-50 hover:text-red-600 rounded text-slate-400 transition-colors"
-                              >
-                                <Trash2 size={15} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Transaction Metadata Forms */}
-                  <div className="space-y-4 pt-4 border-t border-slate-200">
-                    
-                    {/* Custom Receipt Number */}
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Receipt Number</label>
-                      <input
-                        type="text"
-                        placeholder="Receipt / Order Number"
-                        value={receiptNo}
-                        onChange={(e) => setReceiptNo(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm font-bold bg-white text-slate-900"
-                      />
-                    </div>
-
-                    {/* Transaction Date & Time */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Date</label>
-                        <input
-                          type="date"
-                          value={transactionDate}
-                          onChange={(e) => setTransactionDate(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Time</label>
-                        <input
-                          type="time"
-                          value={transactionTime}
-                          onChange={(e) => setTransactionTime(e.target.value)}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white"
-                        />
-                      </div>
-                    </div>
-
-                    {/* Payment Method */}
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Payment Method</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('cash')}
-                          className={`py-2 rounded-lg text-xs font-bold transition-all border ${
-                            paymentMethod === 'cash'
-                              ? 'bg-slate-900 border-slate-900 text-white shadow-sm'
-                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          Cash
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('ewallet')}
-                          className={`py-2 rounded-lg text-xs font-bold transition-all border ${
-                            paymentMethod === 'ewallet'
-                              ? 'bg-purple-600 border-purple-600 text-white shadow-sm'
-                              : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                          }`}
-                        >
-                          GCash
-                        </button>
-                      </div>
-                    </div>
-
-                    {paymentMethod === 'ewallet' && (
-                      <div className="animate-fade-in">
-                        <label className="block text-xs text-slate-500 mb-1 font-semibold">Last 4 Digits of GCash Reference Number</label>
-                        <input
-                          type="text"
-                          maxLength={4}
-                          placeholder="Enter last 4 digits"
-                          value={referenceNumber}
-                          onChange={(e) => {
-                            const val = e.target.value.replace(/\D/g, '');
-                            if (val.length <= 4) {
-                              setReferenceNumber(val);
-                            }
-                          }}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white font-mono tracking-widest text-center text-lg"
-                        />
-                      </div>
-                    )}
-
-                    {/* Order Fulfillment/DB Status */}
-                    <div>
-                      <label className="block text-xs text-slate-500 mb-1 font-semibold">Fulfillment Status</label>
-                      <select
-                        value={orderStatus}
-                        onChange={(e: any) => setOrderStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm bg-white font-bold"
-                      >
-                        <option value="completed">Completed (Paid)</option>
-                        <option value="released">Released (Picked Up)</option>
-                        <option value="pending">Pending Approval</option>
-                      </select>
-                    </div>
-
-                    {/* Summary Totals & Submit */}
-                    <div className="pt-4 border-t border-slate-200 space-y-4 bg-slate-50 rounded-xl p-4">
-                      {(() => {
-                        const subtotal = manualItems.reduce((sum, item) => sum + item.subtotal, 0);
-                        const fee = paymentMethod === 'ewallet' ? calculateEWalletFee(subtotal) : 0;
-                        const total = subtotal + fee;
-                        return (
-                          <>
-                            {paymentMethod === 'ewallet' && (
-                              <>
-                                <div className="flex justify-between items-center text-xs text-slate-600">
-                                  <span>Subtotal</span>
-                                  <span>₱{subtotal.toLocaleString()}</span>
-                                </div>
-                                <div className="flex justify-between items-center text-xs text-slate-600">
-                                  <span>Service Fee (GCash)</span>
-                                  <span>₱{fee.toLocaleString()}</span>
-                                </div>
-                              </>
-                            )}
-                            <div className="flex justify-between items-center text-sm">
-                              <span className="font-semibold text-slate-600">Total Bill</span>
-                              <span className="text-xl font-bold text-slate-900">
-                                ₱{total.toLocaleString()}
-                              </span>
-                            </div>
-                          </>
-                        );
-                      })()}
-                      
-                      <button
-                        type="button"
-                        disabled={
-                          isSavingManualOrder || 
-                          manualItems.length === 0 || 
-                          (studentType === 'registered' ? !selectedUser : !walkInName.trim())
-                        }
-                        onClick={handleSaveManualOrder}
-                        className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl transition-all shadow-md active:scale-95 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-                      >
-                        {isSavingManualOrder ? (
-                          <>
-                            <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                            Saving Transaction...
-                          </>
-                        ) : (
-                          'Save Offline Transaction'
-                        )}
-                      </button>
-                    </div>
-
-                  </div>
-                </div>
-
-              </div>
-
-            </div>
-          </div>
-        )}
 
         {/* Excel Import Modal */}
         {showImportExcelModal && (
@@ -5450,6 +4430,7 @@ export const SalesPage: React.FC = () => {
                         onClick={() => {
                           setImportFile(null);
                           setImportWorkbook(null);
+                          setImportSheetMeta([]);
                           setParsedTransactions([]);
                         }}
                         className="text-xs text-red-600 hover:underline font-semibold"
@@ -5463,33 +4444,101 @@ export const SalesPage: React.FC = () => {
                 {/* Configuration Options */}
                 {importFile && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-100 text-sm">
-                    <div>
+                    <div className="relative">
                       <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Select Sheet / Month</label>
-                      <select
-                        value={selectedImportSheet}
-                        onChange={(e) => setSelectedImportSheet(e.target.value)}
-                        disabled={isParsing || isImporting}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
+                      <button
+                        type="button"
+                        disabled={isParsing || isImporting || importSheets.length === 0}
+                        onClick={() => setIsSheetDropdownOpen(o => !o)}
+                        className={`w-full flex items-center justify-between px-3 py-2 border-2 rounded-lg text-xs text-left font-semibold focus:outline-none transition-all duration-200 ${
+                          isParsing || isImporting || importSheets.length === 0
+                            ? 'opacity-60 cursor-not-allowed bg-slate-50 border-slate-200 text-slate-400'
+                            : isSheetDropdownOpen
+                              ? 'border-green-500 ring-2 ring-green-200 bg-white text-slate-800'
+                              : 'border-slate-300 hover:border-slate-400 bg-white text-slate-800'
+                        }`}
                       >
-                        <option value="All Sheets">All Month Sheets ({importSheets.length})</option>
-                        {importSheets.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
+                        <span className={selectedImportSheet ? 'text-slate-800' : 'text-slate-400'}>
+                          {importSheets.length === 0
+                            ? 'No compatible sheets found'
+                            : selectedImportSheet === 'All Sheets'
+                              ? `All Compatible Sheets (${importSheets.length})`
+                              : `✅ ${selectedImportSheet}`
+                          }
+                        </span>
+                        <ChevronDown size={14} className={`text-slate-500 transition-transform duration-200 flex-shrink-0 ml-2 ${isSheetDropdownOpen ? 'rotate-180' : ''}`} />
+                      </button>
+
+                      {isSheetDropdownOpen && importSheets.length > 0 && (
+                        <>
+                          {/* Overlay to close */}
+                          <div className="fixed inset-0 z-10" onClick={() => setIsSheetDropdownOpen(false)} />
+                          <div className="absolute left-0 right-0 mt-1 bg-white border-2 border-slate-200 rounded-xl shadow-2xl z-20 overflow-hidden" style={{ maxHeight: '280px', overflowY: 'auto' }}>
+                            {/* All Sheets option */}
+                            <button
+                              type="button"
+                              onClick={() => { setSelectedImportSheet('All Sheets'); setIsSheetDropdownOpen(false); }}
+                              className={`w-full text-left px-3 py-2.5 text-xs font-bold transition-colors border-b border-slate-100 ${
+                                selectedImportSheet === 'All Sheets'
+                                  ? 'bg-green-50 text-green-700'
+                                  : 'text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              📋 All Compatible Sheets ({importSheets.length})
+                            </button>
+
+                            {/* Compatible sheets group header */}
+                            <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100">
+                              <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">✅ Compatible</span>
+                            </div>
+                            {importSheets.map(s => (
+                              <button
+                                key={s}
+                                type="button"
+                                onClick={() => { setSelectedImportSheet(s); setIsSheetDropdownOpen(false); }}
+                                className={`w-full text-left px-3 py-2 text-xs font-semibold transition-colors ${
+                                  selectedImportSheet === s
+                                    ? 'bg-green-50 text-green-700'
+                                    : 'text-slate-700 hover:bg-slate-50'
+                                }`}
+                              >
+                                {s}
+                              </button>
+                            ))}
+
+                            {/* Incompatible sheets group */}
+                            {importSheetMeta.filter(s => !s.valid).length > 0 && (
+                              <>
+                                <div className="px-3 py-1.5 bg-amber-50 border-t border-b border-amber-100">
+                                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">⚠ Incompatible — will be skipped</span>
+                                </div>
+                                {importSheetMeta.filter(s => !s.valid).map(s => (
+                                  <div
+                                    key={s.name}
+                                    className="px-3 py-2 text-xs text-slate-400 bg-slate-50/60 flex items-start gap-2"
+                                    title={s.reason || 'Different column format'}
+                                  >
+                                    <span className="flex-shrink-0 mt-0.5">⚠</span>
+                                    <div>
+                                      <span className="font-semibold text-slate-500">{s.name}</span>
+                                      <span className="text-slate-400"> — Different format</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+
+                      {importSheetMeta.filter(s => !s.valid).length > 0 && (
+                        <p className="text-[10px] text-amber-600 font-semibold mt-1.5">
+                          ⚠ {importSheetMeta.filter(s => !s.valid).length} sheet(s) have a different format and will be skipped.
+                        </p>
+                      )}
                     </div>
 
-                    <div>
-                      <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-2">Payment Method</label>
-                      <select
-                        value={importSettings.defaultPaymentMethod}
-                        onChange={(e) => setImportSettings({ ...importSettings, defaultPaymentMethod: e.target.value })}
-                        disabled={isParsing || isImporting}
-                        className="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-green-500"
-                      >
-                        <option value="cash">Cash (Default)</option>
-                        <option value="ewallet">GCash / E-Wallet</option>
-                      </select>
-                    </div>
+
 
                     <div className="flex flex-col justify-end space-y-2">
                       <label className="flex items-center space-x-2 text-xs font-semibold text-slate-700 cursor-pointer">
@@ -5822,6 +4871,148 @@ export const SalesPage: React.FC = () => {
                     {isImporting ? 'Executing Import...' : `Confirm & Save ${parsedTransactions.length} Transactions`}
                   </button>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Product Sold Details Modal */}
+        {selectedProductSoldDetails && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+            onClick={() => {
+              setSelectedProductSoldDetails(null);
+              setProductSoldSearchQuery('');
+            }}
+          >
+            <div
+              className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+                <div>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {selectedProductSoldDetails.productName}
+                  </h3>
+                  <p className="text-sm text-slate-500 mt-1">
+                    Purchases in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total units sold: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.quantity} units</span>
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedProductSoldDetails(null);
+                    setProductSoldSearchQuery('');
+                  }}
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors text-lg font-bold"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Search Bar inside Modal */}
+              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+                <div className="relative w-80">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={18} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search by customer name..."
+                    value={productSoldSearchQuery}
+                    onChange={(e) => setProductSoldSearchQuery(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                  />
+                  {productSoldSearchQuery && (
+                    <button
+                      onClick={() => setProductSoldSearchQuery('')}
+                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Modal Body / Table */}
+              <div className="flex-1 overflow-y-auto p-6">
+                {(() => {
+                  const purchases = getProductSoldOrders(selectedProductSoldDetails.productName);
+                  const filteredPurchases = purchases.filter(p => 
+                    productSoldSearchQuery === '' || 
+                    p.name.toLowerCase().includes(productSoldSearchQuery.toLowerCase())
+                  );
+
+                  if (filteredPurchases.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-500">
+                          {productSoldSearchQuery 
+                            ? `No purchases found matching "${productSoldSearchQuery}"` 
+                            : 'No purchase records found for this product.'}
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                      <table className="w-full text-sm">
+                        <thead className="bg-slate-50 border-b border-slate-200">
+                          <tr>
+                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Date</th>
+                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Receipt No.</th>
+                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Name</th>
+                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Course & Year</th>
+                            <th className="text-center py-3 px-6 font-semibold text-slate-900">Quantity</th>
+                            <th className="text-right py-3 px-6 font-semibold text-slate-900">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {filteredPurchases.map((purchase, idx) => (
+                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                              <td className="py-4 px-6 text-slate-600 whitespace-nowrap">
+                                {new Date(purchase.date).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                }) || 'N/A'}
+                              </td>
+                              <td className="py-4 px-6 font-mono text-slate-500 text-xs">
+                                {purchase.receipt_no}
+                              </td>
+                              <td className="py-4 px-6 font-semibold text-slate-900">
+                                {purchase.name}
+                              </td>
+                              <td className="py-4 px-6 text-slate-700">
+                                {purchase.courseYear}
+                              </td>
+                              <td className="py-4 px-6 text-center font-medium text-slate-800">
+                                {purchase.quantity}
+                              </td>
+                              <td className="py-4 px-6 text-right font-bold text-green-700 whitespace-nowrap">
+                                ₱{purchase.subtotal.toFixed(2)}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+                <button
+                  onClick={() => {
+                    setSelectedProductSoldDetails(null);
+                    setProductSoldSearchQuery('');
+                  }}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-sm font-semibold transition-all active:scale-95 shadow-sm"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>

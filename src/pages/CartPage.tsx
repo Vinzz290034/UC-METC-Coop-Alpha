@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { ChevronLeft, Trash2, Plus, Minus, ShoppingCart } from 'lucide-react';
+import { ChevronLeft, Trash2, Plus, Minus, ShoppingCart, Package } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { getProductImageByName } from '../utils/productImageResolver';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
@@ -154,19 +155,28 @@ export const CartPage: React.FC = () => {
                       <div className="flex items-center space-x-4 sm:space-x-6 flex-1">
                         {/* Product Image */}
                         <div className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 bg-gradient-to-br from-purple-100 to-green-100 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0 shadow-inner">
-                          {item.image && typeof item.image === 'string' && item.image !== '📦' && (item.image.startsWith('/') || item.image.includes('assets') || item.image.includes('.jpeg') || item.image.includes('.jpg') || item.image.includes('.png') || item.image.startsWith('data:') || item.image.startsWith('http')) ? (
-                            <img 
-                              src={item.image} 
-                              alt={item.name}
-                              className={`w-full h-full ${item.name === 'Lanyard' ? 'object-contain p-1' : 'object-cover'}`}
-                              onError={(e) => {
-                                e.currentTarget.style.display = 'none';
-                                e.currentTarget.parentElement!.innerHTML = '<span class="text-3xl">📦</span>';
-                              }}
-                            />
-                          ) : (
-                            <span className="text-3xl">{item.image || '📦'}</span>
-                          )}
+                          {(() => {
+                            const resolvedImg = (item.image && typeof item.image === 'string' && item.image !== '📦' && (item.image.startsWith('/') || item.image.includes('assets') || item.image.includes('.jpeg') || item.image.includes('.jpg') || item.image.includes('.png') || item.image.startsWith('data:') || item.image.startsWith('http')))
+                              ? item.image 
+                              : getProductImageByName(item.name, item.selectedOptions || {});
+
+                            return resolvedImg ? (
+                              <img 
+                                src={resolvedImg} 
+                                alt={item.name}
+                                className={`w-full h-full ${item.name === 'Lanyard' ? 'object-contain p-1' : 'object-cover'}`}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                  e.currentTarget.parentElement!.innerHTML = '<div class="flex flex-col items-center justify-center text-slate-400 p-1"><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="w-6 h-6 text-slate-300 mb-0.5"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg><span class="text-[9px] font-medium text-slate-400 uppercase">No Image</span></div>';
+                                }}
+                              />
+                            ) : (
+                              <div className="flex flex-col items-center justify-center text-slate-400 p-1">
+                                <Package className="w-6 h-6 text-slate-300 mb-0.5" />
+                                <span className="text-[9px] font-medium text-slate-400 uppercase">No Image</span>
+                              </div>
+                            );
+                          })()}
                         </div>
 
                         {/* Product Info */}

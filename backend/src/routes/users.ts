@@ -63,7 +63,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     const result = await query(
       `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at 
        FROM users 
-       WHERE role NOT IN ('admin', 'staff')
+       WHERE role NOT IN ('admin', 'staff') AND email NOT LIKE 'walkin-%@uc-metc-walkin.com'
        ORDER BY created_at DESC`
     );
     
@@ -91,7 +91,7 @@ router.get('/members', authMiddleware, async (req: Request, res: Response) => {
     const result = await query(
       `SELECT id, id_number, email, first_name, middle_name, last_name, role, course, year, membership_status, status, created_at 
        FROM users 
-       WHERE role NOT IN ('admin', 'staff')
+       WHERE role NOT IN ('admin', 'staff') AND email NOT LIKE 'walkin-%@uc-metc-walkin.com'
        ORDER BY created_at DESC`
     );
     
@@ -115,7 +115,7 @@ router.get('/for-messaging/list', authMiddleware, async (req: Request, res: Resp
     const result = await query(
       `SELECT id, email, first_name, last_name, role, membership_status, status
        FROM users 
-       WHERE status = 'active'
+       WHERE status = 'active' AND email NOT LIKE 'walkin-%@uc-metc-walkin.com'
        ORDER BY first_name, last_name`
     );
     

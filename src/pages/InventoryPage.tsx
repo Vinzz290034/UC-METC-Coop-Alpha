@@ -8,6 +8,7 @@ import { FloatingInput } from '../components/FloatingInput';
 import { apiClient } from '../services/api';
 import type { Product, ItemType } from '../types';
 import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
+import { uploadToCloudinary } from '../utils/cloudinary';
 
 // Helper to resolve dynamic Cloudinary product images for display in admin inventory management
 const getInventoryProductImage = (productName: string, variantKey: string = '', customImage: string = ''): string => {
@@ -588,6 +589,7 @@ export const InventoryPage: React.FC = () => {
       choices: string[];
     }>;
     allowPreorder?: boolean;
+    madeToOrder?: boolean;
   }>({
     name: '',
     price: 0,
@@ -598,6 +600,7 @@ export const InventoryPage: React.FC = () => {
     image: '',
     options: [],
     allowPreorder: true,
+    madeToOrder: false,
   });
   const [newVariantStocks, setNewVariantStocks] = useState<Record<string, number>>({});
   const [newProductVariantPrices, setNewProductVariantPrices] = useState<Record<string, number>>({});
@@ -741,6 +744,47 @@ export const InventoryPage: React.FC = () => {
     }
   };
 
+  const generateNextSKU = (category: string) => {
+    let prefix = 'UNI';
+    if (category === 'accessory') prefix = 'ACC';
+    else if (category === 'equipment') prefix = 'EQUIP';
+    else if (category === 'service') prefix = 'SERV';
+    
+    const categorySkus = products
+      .filter(p => p.category === category && p.sku && p.sku.startsWith(`${prefix}-`))
+      .map(p => {
+        const parts = p.sku.split('-');
+        const numPart = parts[parts.length - 1];
+        const num = parseInt(numPart, 10);
+        return isNaN(num) ? 0 : num;
+      });
+      
+    const maxNum = categorySkus.length > 0 ? Math.max(...categorySkus) : 0;
+    const nextNum = maxNum + 1;
+    const nextNumStr = String(nextNum).padStart(3, '0');
+    return `${prefix}-${nextNumStr}`;
+  };
+
+  const handleOpenAddForm = () => {
+    const defaultCategory = 'uniform';
+    setFormData({
+      name: '',
+      price: 0,
+      stock: 0,
+      sku: generateNextSKU(defaultCategory),
+      category: defaultCategory,
+      note: '',
+      image: '',
+      options: [],
+      allowPreorder: true,
+      madeToOrder: false,
+    });
+    setNewVariantStocks({});
+    setNewProductVariantPrices({});
+    setNewProductVariantImages({});
+    setShowForm(true);
+  };
+
   const handleAddProduct = async () => {
     // Validation
     if (!formData.name || formData.name.trim() === '') {
@@ -794,6 +838,7 @@ export const InventoryPage: React.FC = () => {
           image: formData.image,
           options: formData.options && formData.options.length > 0 ? formData.options : undefined,
           allowPreorder: formData.allowPreorder !== false,
+          madeToOrder: formData.madeToOrder === true,
           createdAt: new Date().toISOString(),
         };
 
@@ -875,6 +920,7 @@ export const InventoryPage: React.FC = () => {
           image: '',
           options: [],
           allowPreorder: true,
+          madeToOrder: false,
         });
         setNewVariantStocks({});
         setNewProductVariantPrices({});
@@ -929,6 +975,7 @@ export const InventoryPage: React.FC = () => {
         note: editingProduct.note,
         options: editingProduct.options,
         allowPreorder: editingProduct.allowPreorder !== false,
+        madeToOrder: editingProduct.madeToOrder === true,
         image: editingProduct.image,
       };
 
@@ -1046,7 +1093,7 @@ export const InventoryPage: React.FC = () => {
                   <span>Export Excel</span>
                 </button>
                 <button
-                  onClick={() => setShowForm(true)}
+                  onClick={handleOpenAddForm}
                   className="flex items-center space-x-2 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 hover:shadow-lg transition-all font-semibold"
                 >
                   <Plus size={20} />
@@ -1090,7 +1137,7 @@ export const InventoryPage: React.FC = () => {
                     <span>Export Excel</span>
                   </button>
                   <button
-                    onClick={() => setShowForm(true)}
+                    onClick={handleOpenAddForm}
                     className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
                   >
                     <Plus size={16} className="sm:w-5 sm:h-5" />
@@ -1190,12 +1237,14 @@ export const InventoryPage: React.FC = () => {
                   <div className="relative">
                     <select
                       value={formData.category || 'uniform'}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const newCat = e.target.value as 'uniform' | 'accessory' | 'equipment' | 'service';
                         setFormData({
                           ...formData,
-                          category: e.target.value as 'uniform' | 'accessory' | 'equipment' | 'service',
-                        })
-                      }
+                          category: newCat,
+                          sku: generateNextSKU(newCat),
+                        });
+                      }}
                       className="peer w-full px-4 pt-6 pb-2 border-2 border-slate-300 rounded-lg text-slate-900 bg-white focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200 transition-all duration-300 hover:border-purple-400 hover:shadow-md cursor-pointer appearance-none"
                     >
                       <option value="uniform">Uniform</option>
@@ -1250,14 +1299,29 @@ export const InventoryPage: React.FC = () => {
                       <input
                         type="file"
                         accept="image/*"
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files?.[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormData({ ...formData, image: reader.result as string });
-                            };
-                            reader.readAsDataURL(file);
+                            showNotification('Uploading image to Cloudinary...');
+                            try {
+                              const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                              if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                setFormData({ ...formData, image: cloudinaryUrl });
+                                showNotification('Image uploaded successfully', 'success');
+                              } else {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setFormData({ ...formData, image: reader.result as string });
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            } catch (err) {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setFormData({ ...formData, image: reader.result as string });
+                              };
+                              reader.readAsDataURL(file);
+                            }
                           }
                         }}
                         className="hidden"
@@ -1289,7 +1353,7 @@ export const InventoryPage: React.FC = () => {
                               return isImageUrl ? (
                                 <img src={resolvedImage} alt="Main Preview" className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-2xl">{resolvedImage || '📦'}</span>
+                                <Package className="w-6 h-6 text-slate-400" />
                               );
                             })()}
                           </div>
@@ -1326,21 +1390,41 @@ export const InventoryPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Pre-Order Toggle */}
-                <div className="mb-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                  <div>
-                    <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
-                    <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                {/* Toggles */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                  {/* Pre-Order Toggle */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
+                      <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.allowPreorder !== false}
+                        onChange={(e) => setFormData({ ...formData, allowPreorder: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={formData.allowPreorder !== false}
-                      onChange={(e) => setFormData({ ...formData, allowPreorder: e.target.checked })}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
+
+                  {/* Made to Order Toggle */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <label className="font-bold text-slate-800 text-sm block">Made to Order</label>
+                      <span className="text-xs text-slate-500">Mark this product as customized or made-to-order (bypasses stock check)</span>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={formData.madeToOrder === true}
+                        onChange={(e) => setFormData({ ...formData, madeToOrder: e.target.checked })}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
                 </div>
 
                 {/* Variant Options Section */}
@@ -1646,14 +1730,29 @@ export const InventoryPage: React.FC = () => {
                                                     accept="image/*"
                                                     id={`add-variant-upload-${idx}`}
                                                     className="hidden"
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                       const file = e.target.files?.[0];
                                                       if (file) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                          setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
-                                                        };
-                                                        reader.readAsDataURL(file);
+                                                        showNotification('Uploading image to Cloudinary...');
+                                                        try {
+                                                          const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                                                          if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                                            setNewProductVariantImages(prev => ({ ...prev, [variantKey]: cloudinaryUrl }));
+                                                            showNotification('Image uploaded successfully', 'success');
+                                                          } else {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                              setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                          }
+                                                        } catch (err) {
+                                                          const reader = new FileReader();
+                                                          reader.onloadend = () => {
+                                                            setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                          };
+                                                          reader.readAsDataURL(file);
+                                                        }
                                                       }
                                                     }}
                                                   />
@@ -1696,14 +1795,29 @@ export const InventoryPage: React.FC = () => {
                                                     accept="image/*"
                                                     id={`add-variant-upload-${idx}`}
                                                     className="hidden"
-                                                    onChange={(e) => {
+                                                    onChange={async (e) => {
                                                       const file = e.target.files?.[0];
                                                       if (file) {
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => {
-                                                          setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
-                                                        };
-                                                        reader.readAsDataURL(file);
+                                                        showNotification('Uploading image to Cloudinary...');
+                                                        try {
+                                                          const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                                                          if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                                            setNewProductVariantImages(prev => ({ ...prev, [variantKey]: cloudinaryUrl }));
+                                                            showNotification('Image uploaded successfully', 'success');
+                                                          } else {
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                              setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                          }
+                                                        } catch (err) {
+                                                          const reader = new FileReader();
+                                                          reader.onloadend = () => {
+                                                            setNewProductVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                          };
+                                                          reader.readAsDataURL(file);
+                                                        }
                                                       }
                                                     }}
                                                   />
@@ -1815,8 +1929,9 @@ export const InventoryPage: React.FC = () => {
                     if (product.variants) {
                       totalStock = Object.values(product.variants).reduce((sum, v) => sum + v.stock, 0);
                     }
-                    const isLowStock = totalStock <= 10 && !['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
-                    const isCriticalStock = totalStock === 0 && !['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
+                    const isMadeToOrder = product.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
+                    const isLowStock = totalStock <= 10 && !isMadeToOrder;
+                    const isCriticalStock = totalStock === 0 && !isMadeToOrder;
                     
                     return (
                       <tr
@@ -1838,7 +1953,7 @@ export const InventoryPage: React.FC = () => {
                         ₱{product.price.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name) && (!product.options || product.options.length === 0) ? (
+                        {isMadeToOrder && (!product.options || product.options.length === 0) ? (
                           <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800 inline-flex items-center space-x-1">
                             <span>{product.name === 'Hard Bound' ? 'Service Only' : 'Made to Order'}</span>
                           </span>
@@ -2197,17 +2312,38 @@ export const InventoryPage: React.FC = () => {
                     <input
                       type="file"
                       accept="image/*"
-                      onChange={(e) => {
+                      onChange={async (e) => {
                         const file = e.target.files?.[0];
                         if (file) {
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setStockIntakeFormData({
-                              ...stockIntakeFormData,
-                              attachment: reader.result as string
-                            });
-                          };
-                          reader.readAsDataURL(file);
+                          showNotification('Uploading receipt to Cloudinary...');
+                          try {
+                            const cloudinaryUrl = await uploadToCloudinary(file, 'receipts');
+                            if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                              setStockIntakeFormData({
+                                ...stockIntakeFormData,
+                                attachment: cloudinaryUrl
+                              });
+                              showNotification('Receipt uploaded successfully', 'success');
+                            } else {
+                              const reader = new FileReader();
+                              reader.onloadend = () => {
+                                setStockIntakeFormData({
+                                  ...stockIntakeFormData,
+                                  attachment: reader.result as string
+                                });
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          } catch (err) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              setStockIntakeFormData({
+                                ...stockIntakeFormData,
+                                attachment: reader.result as string
+                              });
+                            };
+                            reader.readAsDataURL(file);
+                          }
                         }
                       }}
                       className="hidden"
@@ -2662,7 +2798,7 @@ export const InventoryPage: React.FC = () => {
                   </div>
 
                   {/* Total Stock (if no variants) */}
-                  {(!editingProduct.options || editingProduct.options.length === 0) && !['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(editingProduct.name) && (
+                  {(!editingProduct.options || editingProduct.options.length === 0) && !editingProduct.madeToOrder && !['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(editingProduct.name) && (
                     <div>
                       <label className="block text-sm font-semibold text-slate-700 mb-2">
                         Stock Quantity
@@ -2724,12 +2860,8 @@ export const InventoryPage: React.FC = () => {
                         const isImageUrl = resolvedImage && (resolvedImage.startsWith('data:') || resolvedImage.startsWith('http') || resolvedImage.includes('.'));
                         return (
                           <div className="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 overflow-hidden flex-shrink-0">
-                            {resolvedImage ? (
-                              isImageUrl ? (
-                                <img src={resolvedImage} alt={editingProduct.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <span className="text-xl">{resolvedImage}</span>
-                              )
+                            {resolvedImage && isImageUrl ? (
+                              <img src={resolvedImage} alt={editingProduct.name} className="w-full h-full object-cover" />
                             ) : (
                               <Package className="w-6 h-6 text-slate-400" />
                             )}
@@ -2740,14 +2872,29 @@ export const InventoryPage: React.FC = () => {
                         <input
                           type="file"
                           accept="image/*"
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const file = e.target.files?.[0];
                             if (file) {
-                              const reader = new FileReader();
-                              reader.onloadend = () => {
-                                setEditingProduct({ ...editingProduct, image: reader.result as string });
-                              };
-                              reader.readAsDataURL(file);
+                              showNotification('Uploading image to Cloudinary...');
+                              try {
+                                const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                                if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                  setEditingProduct({ ...editingProduct, image: cloudinaryUrl });
+                                  showNotification('Image uploaded successfully', 'success');
+                                } else {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    setEditingProduct({ ...editingProduct, image: reader.result as string });
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              } catch (err) {
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setEditingProduct({ ...editingProduct, image: reader.result as string });
+                                };
+                                reader.readAsDataURL(file);
+                              }
                             }
                           }}
                           className="hidden"
@@ -2768,21 +2915,41 @@ export const InventoryPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Pre-Order Toggle */}
-                  <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
-                    <div>
-                      <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
-                      <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                  {/* Toggles */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    {/* Pre-Order Toggle */}
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                      <div>
+                        <label className="font-bold text-slate-800 text-sm block">Allow Pre-Order</label>
+                        <span className="text-xs text-slate-500">Allow customers to pre-order this product when it is out of stock</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingProduct.allowPreorder !== false}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, allowPreorder: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      </label>
                     </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={editingProduct.allowPreorder !== false}
-                        onChange={(e) => setEditingProduct({ ...editingProduct, allowPreorder: e.target.checked })}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                    </label>
+
+                    {/* Made to Order Toggle */}
+                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                      <div>
+                        <label className="font-bold text-slate-800 text-sm block">Made to Order</label>
+                        <span className="text-xs text-slate-500">Mark this product as customized or made-to-order (bypasses stock check)</span>
+                      </div>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={editingProduct.madeToOrder === true}
+                          onChange={(e) => setEditingProduct({ ...editingProduct, madeToOrder: e.target.checked })}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                      </label>
+                    </div>
                   </div>
 
                   {/* Manage Variants & Options Section */}
@@ -2944,7 +3111,7 @@ export const InventoryPage: React.FC = () => {
                   </h3>
 
                   {/* Check if product is made-to-order (no stock tracking needed) */}
-                  {['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(editingProduct.name) && (!editingProduct.options || editingProduct.options.length === 0) ? (
+                  {(editingProduct.madeToOrder || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(editingProduct.name)) && (!editingProduct.options || editingProduct.options.length === 0) ? (
                     <div className="bg-blue-50 rounded-lg p-6 border border-blue-200">
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
@@ -3158,14 +3325,29 @@ export const InventoryPage: React.FC = () => {
                                                        accept="image/*"
                                                        id={`edit-variant-upload-${idx}`}
                                                        className="hidden"
-                                                       onChange={(e) => {
+                                                       onChange={async (e) => {
                                                          const file = e.target.files?.[0];
                                                          if (file) {
-                                                           const reader = new FileReader();
-                                                           reader.onloadend = () => {
-                                                             setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
-                                                           };
-                                                           reader.readAsDataURL(file);
+                                                           showNotification('Uploading image to Cloudinary...');
+                                                           try {
+                                                             const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                                                             if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                                               setVariantImages(prev => ({ ...prev, [variantKey]: cloudinaryUrl }));
+                                                               showNotification('Image uploaded successfully', 'success');
+                                                             } else {
+                                                               const reader = new FileReader();
+                                                               reader.onloadend = () => {
+                                                                 setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                               };
+                                                               reader.readAsDataURL(file);
+                                                             }
+                                                           } catch (err) {
+                                                             const reader = new FileReader();
+                                                             reader.onloadend = () => {
+                                                               setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                             };
+                                                             reader.readAsDataURL(file);
+                                                           }
                                                          }
                                                        }}
                                                      />
@@ -3208,14 +3390,29 @@ export const InventoryPage: React.FC = () => {
                                                        accept="image/*"
                                                        id={`edit-variant-upload-${idx}`}
                                                        className="hidden"
-                                                       onChange={(e) => {
+                                                       onChange={async (e) => {
                                                          const file = e.target.files?.[0];
                                                          if (file) {
-                                                           const reader = new FileReader();
-                                                           reader.onloadend = () => {
-                                                             setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
-                                                           };
-                                                           reader.readAsDataURL(file);
+                                                           showNotification('Uploading image to Cloudinary...');
+                                                           try {
+                                                             const cloudinaryUrl = await uploadToCloudinary(file, 'products');
+                                                             if (cloudinaryUrl && cloudinaryUrl.startsWith('http')) {
+                                                               setVariantImages(prev => ({ ...prev, [variantKey]: cloudinaryUrl }));
+                                                               showNotification('Image uploaded successfully', 'success');
+                                                             } else {
+                                                               const reader = new FileReader();
+                                                               reader.onloadend = () => {
+                                                                 setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                               };
+                                                               reader.readAsDataURL(file);
+                                                             }
+                                                           } catch (err) {
+                                                             const reader = new FileReader();
+                                                             reader.onloadend = () => {
+                                                               setVariantImages(prev => ({ ...prev, [variantKey]: reader.result as string }));
+                                                             };
+                                                             reader.readAsDataURL(file);
+                                                           }
                                                          }
                                                        }}
                                                      />

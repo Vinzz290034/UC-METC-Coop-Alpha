@@ -42,25 +42,41 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
         const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0] || 'Walk-in';
         const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : 'Student';
         
-        const email = `walkin-${Date.now()}-${Math.floor(Math.random() * 1000)}@uc-metc-walkin.com`;
-        
-        const userInsertResult = await pool.query(
-          `INSERT INTO users (email, password, id_number, first_name, last_name, course, role, status, membership_status)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-           RETURNING id`,
-          [
-            email,
-            '', // No password
-            walkInIdNumber || null,
-            firstName,
-            lastName,
-            walkInCourse || null,
-            'user',
-            'active',
-            walkInMembershipStatus || 'none'
-          ]
+        // Check if walk-in user already exists to prevent duplicate ghost accounts
+        const existingWalkinResult = await pool.query(
+          `SELECT id FROM users 
+           WHERE first_name = $1 
+             AND last_name = $2 
+             AND (id_number = $3 OR (id_number IS NULL AND $3 IS NULL))
+             AND (course = $4 OR (course IS NULL AND $4 IS NULL))
+             AND email LIKE 'walkin-%@uc-metc-walkin.com'
+           LIMIT 1`,
+          [firstName, lastName, walkInIdNumber || null, walkInCourse || null]
         );
-        userId = userInsertResult.rows[0].id;
+
+        if (existingWalkinResult.rows.length > 0) {
+          userId = existingWalkinResult.rows[0].id;
+        } else {
+          const email = `walkin-${Date.now()}-${Math.floor(Math.random() * 1000)}@uc-metc-walkin.com`;
+          
+          const userInsertResult = await pool.query(
+            `INSERT INTO users (email, password, id_number, first_name, last_name, course, role, status, membership_status)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+             RETURNING id`,
+            [
+              email,
+              '', // No password
+              walkInIdNumber || null,
+              firstName,
+              lastName,
+              walkInCourse || null,
+              'user',
+              'active',
+              walkInMembershipStatus || 'none'
+            ]
+          );
+          userId = userInsertResult.rows[0].id;
+        }
       } else if (req.body.userId) {
         userId = req.body.userId;
       }

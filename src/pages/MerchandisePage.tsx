@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingBag, ShoppingCart, Filter, X, Eye } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Filter, X, Eye, Package } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
@@ -577,7 +577,7 @@ export const MerchandisePage: React.FC = () => {
     // Strict Pre-Order Gate Check
     const isProductOutOfStock = (() => {
       // Skip for made-to-order products
-      if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name)) {
+      if (product.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name)) {
         return product.allowPreorder === false;
       }
       
@@ -657,7 +657,7 @@ export const MerchandisePage: React.FC = () => {
         name: product.name,
         price: actualPrice,
         quantity: 1,
-        image: productImage || product.image || '📦',
+        image: productImage || product.image || '',
         selectedOptions: mergedOptions,
         paymentType: isTailoredProduct ? paymentType : undefined,
         orderType: orderType,
@@ -1048,11 +1048,12 @@ export const MerchandisePage: React.FC = () => {
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                 ) : (
-                  <span className="text-4xl group-hover:scale-110 transition-transform duration-300">
-                    📦
-                  </span>
+                  <div className="flex flex-col items-center justify-center text-slate-400 p-4">
+                    <Package className="w-12 h-12 text-slate-300 mb-2" />
+                    <span className="text-xs font-medium text-slate-400">No Image</span>
+                  </div>
                 )}
-                {product.stock <= 0 && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
+                {product.stock <= 0 && product.madeToOrder !== true && product.name !== 'Type A & B Uniform' && product.name !== 'Gala' && product.name !== 'BSNAME Uniform' && product.name !== 'Hard Bound' && (
                   <div className="absolute inset-0 bg-slate-900/60 flex items-center justify-center">
                     <span className="text-white font-bold">Out of Stock</span>
                   </div>
@@ -1134,7 +1135,7 @@ export const MerchandisePage: React.FC = () => {
                 </div>
 
                 {/* Stock */}
-                {['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(product.name) ? (
+                {product.madeToOrder === true || ['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(product.name) ? (
                   <div className="mb-2 sm:mb-4">
                     {product.allowPreorder === false ? (
                       <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-[8px] sm:text-[10px] font-semibold leading-none">
@@ -1171,7 +1172,7 @@ export const MerchandisePage: React.FC = () => {
                     setSelectedOptions({});
                     setPaymentType('full');
                     // Automatically set to pre-order if product is out of stock (excluding made-to-order products) and pre-order is allowed
-                    const isMadeToOrder = ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
+                    const isMadeToOrder = product.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(product.name);
                     const isOutOfStock = isMadeToOrder ? (product.allowPreorder === false) : (product.stock <= 0);
                     const canPreorder = product.allowPreorder !== false;
                     setOrderType((isOutOfStock && canPreorder) ? 'preorder' : 'regular');
@@ -1387,7 +1388,7 @@ export const MerchandisePage: React.FC = () => {
                   })()}
                 </div>
 
-                {['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name) ? (
+                {selectedProduct.madeToOrder === true || ['Type A & B Uniform', 'Hard Bound', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name) ? (
                   <div>
                     <p className="text-sm text-slate-600 mb-1">Availability</p>
                     <p className={`text-lg font-bold ${selectedProduct.allowPreorder !== false ? 'text-green-600' : 'text-red-600'}`}>
@@ -1543,7 +1544,7 @@ export const MerchandisePage: React.FC = () => {
                   // Check if product is out of stock
                   const isOutOfStock = (() => {
                     // Skip for made-to-order products
-                    if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name)) {
+                    if (selectedProduct.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name)) {
                       return false;
                     }
                     
@@ -1614,7 +1615,7 @@ export const MerchandisePage: React.FC = () => {
                   onClick={() => handleAddToCart(selectedProduct)}
                   disabled={(() => {
                     // Made-to-order products are always available (unless allowPreorder is false)
-                    if (['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name)) {
+                    if (selectedProduct.madeToOrder === true || ['Type A & B Uniform', 'Gala', 'BSNAME Uniform'].includes(selectedProduct.name)) {
                       return selectedProduct.allowPreorder === false;
                     }
                     

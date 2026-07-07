@@ -10,7 +10,7 @@ export class AppDataSync {
       const transformedItems = cartItems.map(item => {
         const product = products.find(p => p.id === item.product_id);
         // Find custom image in variants if available
-        let itemImage = product?.image || '📦';
+        let itemImage = product?.image || '';
         const selectedOptions = item.selected_options || {};
         if (product && product.variants && Object.keys(product.variants).length > 0) {
           const variantKey = Object.entries(selectedOptions)
@@ -38,7 +38,7 @@ export class AppDataSync {
         
         // Fallback to client-side image resolver if database image is empty or placeholder
         if (!itemImage || itemImage === '📦' || itemImage.trim() === '') {
-          itemImage = getProductImageByName(item.product_name, selectedOptions) || '📦';
+          itemImage = getProductImageByName(item.product_name, selectedOptions) || '';
         }
 
         return {
@@ -424,6 +424,7 @@ export class AppDataSync {
         options: p.options,
         variants: p.variants,
         allowPreorder: p.allow_preorder !== false,
+        madeToOrder: p.made_to_order === true,
         createdAt: p.created_at,
       }));
       useAppStore.setState({ products: transformedProducts });

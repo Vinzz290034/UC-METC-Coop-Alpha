@@ -21,7 +21,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 
     try {
       const studentsResult = await pool.query(
-        "SELECT COUNT(*) as count FROM users WHERE role = 'user'"
+        "SELECT COUNT(*) as count FROM users WHERE role = 'user' AND email NOT LIKE 'walkin-%@uc-metc-walkin.com'"
       );
       studentsCount = parseInt(studentsResult.rows[0].count) || 0;
     } catch (err) {
@@ -30,7 +30,7 @@ router.get('/stats', async (req: Request, res: Response) => {
 
     try {
       const membersResult = await pool.query(
-        "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved' AND role = 'user'"
+        "SELECT COUNT(*) as count FROM users WHERE membership_status = 'approved' AND role = 'user' AND email NOT LIKE 'walkin-%@uc-metc-walkin.com'"
       );
       membersCount = parseInt(membersResult.rows[0].count) || 0;
     } catch (err) {

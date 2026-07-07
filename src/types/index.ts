@@ -75,6 +75,7 @@ export interface Product {
   createdAt: string;
   available?: boolean;
   allowPreorder?: boolean;
+  madeToOrder?: boolean;
   image?: string;
   note?: string;
   options?: Array<{

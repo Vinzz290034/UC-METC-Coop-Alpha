@@ -53,7 +53,7 @@ export const ReportsPage: React.FC = () => {
 
   const generateSalesReport = () => {
     try {
-      const completedSales = sales.filter(s => s && s.status === 'completed');
+      const completedSales = sales.filter(s => s && (s.status === 'completed' || s.status === 'released'));
       const totalSales = completedSales.length;
       const totalRevenue = completedSales.length > 0 ? completedSales.reduce((sum, s) => {
         const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
@@ -91,7 +91,7 @@ export const ReportsPage: React.FC = () => {
     const monthlyData = Array(12).fill(0);
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
-    sales.filter(s => s && s.status === 'completed').forEach(sale => {
+    sales.filter(s => s && (s.status === 'completed' || s.status === 'released')).forEach(sale => {
       const saleDate = new Date(sale.created_at);
       if (saleDate.getFullYear() === currentYear) {
         const month = saleDate.getMonth();
@@ -163,10 +163,12 @@ export const ReportsPage: React.FC = () => {
 
   const generateIncomeReport = () => {
     try {
-      const salesIncome = sales.reduce((sum, s) => {
-        const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
-        return sum + (isNaN(amount) ? 0 : amount);
-      }, 0);
+      const salesIncome = sales
+        .filter(s => s && (s.status === 'completed' || s.status === 'released'))
+        .reduce((sum, s) => {
+          const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
+          return sum + (isNaN(amount) ? 0 : amount);
+        }, 0);
       const rentalIncome = lockerRentals.reduce((sum, r) => sum + (r?.rentalFee || 0), 0);
       const totalIncome = salesIncome + rentalIncome;
       const saleSalesPercent = totalIncome > 0 ? String(((salesIncome / totalIncome) * 100).toFixed(1)) : '0';
@@ -814,10 +816,12 @@ export const ReportsPage: React.FC = () => {
 
             {/* Income Breakdown Vertical Bar Chart */}
             {reportType === 'income' && (() => {
-              const salesIncome = sales.reduce((sum, s) => {
-                const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
-                return sum + (isNaN(amount) ? 0 : amount);
-              }, 0);
+              const salesIncome = sales
+                .filter(s => s && (s.status === 'completed' || s.status === 'released'))
+                .reduce((sum, s) => {
+                  const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
+                  return sum + (isNaN(amount) ? 0 : amount);
+                }, 0);
               const rentalIncome = lockerRentals.reduce((sum, r) => sum + (r?.rentalFee || 0), 0);
               
               const incomeData = [
