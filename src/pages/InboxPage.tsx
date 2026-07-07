@@ -37,6 +37,7 @@ export const InboxPage: React.FC = () => {
   });
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
   const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
+  const [personSearchQuery, setPersonSearchQuery] = useState('');
 
   // Load all users on mount for name lookups
   useEffect(() => {
@@ -729,7 +730,10 @@ export const InboxPage: React.FC = () => {
                   </label>
                   <button
                     type="button"
-                    onClick={() => setPersonDropdownOpen(!personDropdownOpen)}
+                    onClick={() => {
+                      setPersonDropdownOpen(!personDropdownOpen);
+                      setPersonSearchQuery('');
+                    }}
                     className="w-full flex items-center justify-between px-4 py-2.5 text-xs sm:text-sm border border-slate-200 bg-slate-50/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 text-left font-semibold text-slate-700"
                   >
                     <span>
@@ -746,19 +750,47 @@ export const InboxPage: React.FC = () => {
                       {/* Overlay to close the dropdown */}
                       <div className="fixed inset-0 z-10" onClick={() => setPersonDropdownOpen(false)} />
                       <div className="absolute left-0 right-0 mt-1.5 bg-white border border-slate-200/80 rounded-xl shadow-xl z-20 py-1.5 animate-scale-in max-h-60 overflow-y-auto">
+                        {/* Search Input Box */}
+                        <div className="sticky top-0 bg-white z-10 px-3 py-1.5 border-b border-slate-100">
+                          <input
+                            type="text"
+                            value={personSearchQuery}
+                            onChange={(e) => setPersonSearchQuery(e.target.value)}
+                            placeholder="Search person..."
+                            onClick={(e) => e.stopPropagation()} // Prevent closing dropdown on input click
+                            className="w-full px-3 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-slate-50/50 font-medium text-slate-700"
+                          />
+                        </div>
                         <button
                           type="button"
                           onClick={() => {
                             setComposeData({ ...composeData, recipientId: '' });
                             setPersonDropdownOpen(false);
+                            setPersonSearchQuery('');
                           }}
-                          className="w-full text-left px-4 py-2 text-xs sm:text-sm text-slate-400 hover:bg-slate-50 font-medium"
+                          className="w-full text-left px-4 py-2.5 text-xs sm:text-sm text-slate-400 hover:bg-slate-50 font-medium"
                         >
                           -- Select a person --
                         </button>
                         {(() => {
-                          const filteredUsers = allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff');
-                          return filteredUsers.map((u) => (
+                          const baseFiltered = allUsers.filter((u) => u.id !== user?.id && u.role !== 'admin' && u.role !== 'staff');
+                          const query = personSearchQuery.toLowerCase().trim();
+                          const searchedUsers = query 
+                            ? baseFiltered.filter(u => 
+                                `${u.first_name} ${u.last_name}`.toLowerCase().includes(query) ||
+                                (u.email && u.email.toLowerCase().includes(query))
+                              )
+                            : baseFiltered;
+
+                          if (searchedUsers.length === 0) {
+                            return (
+                              <div className="px-4 py-3 text-xs sm:text-sm text-slate-400 text-center font-medium">
+                                No matching people found
+                              </div>
+                            );
+                          }
+
+                          return searchedUsers.map((u) => (
                             <button
                               key={u.id}
                               type="button"
@@ -768,6 +800,7 @@ export const InboxPage: React.FC = () => {
                                   recipientId: u.id,
                                 });
                                 setPersonDropdownOpen(false);
+                                setPersonSearchQuery('');
                               }}
                               className={`w-full text-left px-4 py-2 text-xs sm:text-sm transition-colors duration-150 ${
                                 composeData.recipientId === u.id
@@ -775,7 +808,10 @@ export const InboxPage: React.FC = () => {
                                   : 'text-slate-700 hover:bg-slate-50'
                               }`}
                             >
-                              {u.first_name} {u.last_name}
+                              <div className="flex flex-col">
+                                <span className="font-semibold">{u.first_name} {u.last_name}</span>
+                                <span className="text-[10px] text-slate-400 font-normal leading-none capitalize">{u.role}</span>
+                              </div>
                             </button>
                           ));
                         })()}
