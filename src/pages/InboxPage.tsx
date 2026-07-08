@@ -578,19 +578,71 @@ export const InboxPage: React.FC = () => {
           <div className={`lg:col-span-2 ${selectedMessage ? 'block' : 'hidden lg:block'}`}>
             {selectedMessage ? (
               <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-4 sm:p-6 md:p-8 flex flex-col min-h-[450px]">
-                {/* Mobile Back Button */}
-                <button
-                  onClick={() => setSelectedMessage(null)}
-                  className="lg:hidden mb-4 self-start flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl text-xs font-bold text-slate-700 transition-all duration-200 shadow-sm border border-slate-200/30"
-                >
-                  <ChevronLeft size={15} />
-                  Back to Messages
-                </button>
+                {/* Mobile Header Row */}
+                <div className="lg:hidden flex items-center justify-between gap-4 mb-4">
+                  <button
+                    onClick={() => setSelectedMessage(null)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 active:scale-95 rounded-xl text-xs font-bold text-slate-700 transition-all duration-200 shadow-sm border border-slate-200/30"
+                  >
+                    <ChevronLeft size={15} />
+                    Back to Messages
+                  </button>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        if (!user?.id || !selectedMessage) return;
+                        const wasFavorite = selectedMessage.isFavorite;
+                        setSelectedMessage({ ...selectedMessage, isFavorite: !wasFavorite });
+                        setAnimatingStarId(selectedMessage.id);
+                        try {
+                          await toggleFavorite(selectedMessage.id, user.id);
+                          showNotification(
+                            wasFavorite ? 'Removed from favorites' : 'Added to favorites',
+                            'success'
+                          );
+                          setTimeout(() => setAnimatingStarId(null), 600);
+                        } catch (error) {
+                          setSelectedMessage({ ...selectedMessage, isFavorite: wasFavorite });
+                          showNotification('Failed to toggle favorite', 'error');
+                          setAnimatingStarId(null);
+                        }
+                      }}
+                      className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200 active:scale-90"
+                      title={selectedMessage.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      <motion.div
+                        animate={
+                          animatingStarId === selectedMessage?.id
+                            ? { scale: [1, 1.3, 1], rotate: [0, -15, 15, 0] }
+                            : { scale: 1, rotate: 0 }
+                        }
+                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                      >
+                        <Star
+                          className={`w-5 h-5 ${
+                            selectedMessage.isFavorite
+                              ? 'fill-yellow-400 text-yellow-400'
+                              : 'text-slate-400'
+                          }`}
+                        />
+                      </motion.div>
+                    </button>
+
+                    <button
+                      onClick={() => handleDelete(selectedMessage.id)}
+                      className="p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl transition-all duration-200 active:scale-90"
+                      title="Delete Message"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  </div>
+                </div>
 
                 {/* Message Header */}
                 <div className="mb-6 pb-6 border-b border-slate-100">
                   <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 mb-2 leading-snug break-words">
                         {selectedMessage.subject}
                       </h2>
@@ -607,12 +659,11 @@ export const InboxPage: React.FC = () => {
                       </p>
                     </div>
                     
-                    <div className="flex items-center gap-2 flex-shrink-0">
+                    <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={async () => {
                           if (!user?.id || !selectedMessage) return;
                           const wasFavorite = selectedMessage.isFavorite;
-                          // Optimistically update the selected message for instant star feedback
                           setSelectedMessage({ ...selectedMessage, isFavorite: !wasFavorite });
                           setAnimatingStarId(selectedMessage.id);
                           try {
@@ -621,10 +672,8 @@ export const InboxPage: React.FC = () => {
                               wasFavorite ? 'Removed from favorites' : 'Added to favorites',
                               'success'
                             );
-                            // Clear animation after it completes
                             setTimeout(() => setAnimatingStarId(null), 600);
                           } catch (error) {
-                            // Revert optimistic update on the selected message
                             setSelectedMessage({ ...selectedMessage, isFavorite: wasFavorite });
                             showNotification('Failed to toggle favorite', 'error');
                             setAnimatingStarId(null);
