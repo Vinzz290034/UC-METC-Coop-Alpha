@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Check, X, Edit2, Mail, Clock, Send, Trash2 } from 'lucide-react';
+import { Check, X, Mail, Clock, Send } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { apiClient } from '../services/api';
@@ -38,32 +38,7 @@ interface EmailState {
   animatingIcon: boolean;
 }
 
-interface EditState {
-  isOpen: boolean;
-  member: ApiUser | null;
-  first_name: string;
-  last_name: string;
-  email: string;
-  isSaving: boolean;
-  isDeleting: boolean;
-  animatingIcon: boolean;
-}
 
-interface ConfirmationModal {
-  isOpen: boolean;
-  title: string;
-  onConfirm: () => void;
-  onCancel: () => void;
-  isLoading?: boolean;
-  actionType?: 'delete';
-}
-
-interface MessageModal {
-  isOpen: boolean;
-  message: string;
-  type: 'success' | 'error';
-  onClose: () => void;
-}
 
 export const MembersPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -90,34 +65,8 @@ export const MembersPage: React.FC = () => {
     animatingIcon: false
   });
 
-  // Edit modal state
-  const [editState, setEditState] = useState<EditState>({
-    isOpen: false,
-    member: null,
-    first_name: '',
-    last_name: '',
-    email: '',
-    isSaving: false,
-    isDeleting: false,
-    animatingIcon: false
-  });
 
-  // Confirmation modal state
-  const [confirmationModal, setConfirmationModal] = useState<ConfirmationModal>({
-    isOpen: false,
-    title: '',
-    onConfirm: () => {},
-    onCancel: () => {},
-    isLoading: false
-  });
 
-  // Message modal state
-  const [messageModal, setMessageModal] = useState<MessageModal>({
-    isOpen: false,
-    message: '',
-    type: 'success',
-    onClose: () => {}
-  });
 
   // Load members from database
   useEffect(() => {
@@ -226,19 +175,14 @@ export const MembersPage: React.FC = () => {
   };
 
   // Icon animation handlers
-  const animateIcon = (type: 'email' | 'edit') => {
-    if (type === 'email') {
-      setEmailState(prev => ({ ...prev, animatingIcon: true }));
-      setTimeout(() => setEmailState(prev => ({ ...prev, animatingIcon: false })), 300);
-    } else {
-      setEditState(prev => ({ ...prev, animatingIcon: true }));
-      setTimeout(() => setEditState(prev => ({ ...prev, animatingIcon: false })), 300);
-    }
+  const animateIcon = () => {
+    setEmailState(prev => ({ ...prev, animatingIcon: true }));
+    setTimeout(() => setEmailState(prev => ({ ...prev, animatingIcon: false })), 300);
   };
 
   // Email handlers
   const openEmailModal = (memberEmail: string, memberName: string) => {
-    animateIcon('email');
+    animateIcon();
     setEmailState({
       isOpen: true,
       to: memberEmail,
@@ -293,150 +237,7 @@ export const MembersPage: React.FC = () => {
     }
   };
 
-  // Edit member handlers
-  const openEditModal = (member: ApiUser) => {
-    animateIcon('edit');
-    setEditState({
-      isOpen: true,
-      member,
-      first_name: member.first_name,
-      last_name: member.last_name,
-      email: member.email,
-      isSaving: false,
-      isDeleting: false,
-      
-      
-      animatingIcon: false
-    });
-  };
 
-  const closeEditModal = () => {
-    setEditState({
-      isOpen: false,
-      member: null,
-      first_name: '',
-      last_name: '',
-      email: '',
-      isSaving: false,
-      isDeleting: false,
-      
-      
-      animatingIcon: false
-    });
-  };
-
-  const saveChanges = async () => {
-    if (!editState.member || !editState.first_name || !editState.last_name || !editState.email) {
-      showNotification('Please fill in all fields', 'error');
-      return;
-    }
-
-    try {
-      setEditState(prev => ({ ...prev, isSaving: true }));
-      
-      // Call API to update user
-      await apiClient.updateUser(editState.member.id, {
-        first_name: editState.first_name,
-        last_name: editState.last_name,
-        email: editState.email
-      });
-
-      // Update local state
-      setDatabaseMembers(members =>
-        members.map(m =>
-          m.id === editState.member!.id
-            ? {
-                ...m,
-                first_name: editState.first_name,
-                last_name: editState.last_name,
-                email: editState.email
-              }
-            : m
-        )
-      );
-
-      setMessageModal({
-        isOpen: true,
-        message: 'Member updated successfully',
-        type: 'success',
-        onClose: () => {
-          setMessageModal(prev => ({ ...prev, isOpen: false }));
-          closeEditModal();
-        }
-      });
-    } catch (error: any) {
-      console.error('Failed to update member:', error);
-      setMessageModal({
-        isOpen: true,
-        message: `Failed to update member: ${error?.message || 'Unknown error'}`,
-        type: 'error',
-        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
-      });
-    } finally {
-      setEditState(prev => ({ ...prev, isSaving: false }));
-    }
-  };
-
-  const deleteMember = async () => {
-    if (!editState.member) return;
-
-    setConfirmationModal({
-      isOpen: true,
-      title: `Are you sure you want to remove ${formatFullName(editState.member.first_name, editState.member.last_name)} from the members list? They will be demoted to a regular user.`,
-      onConfirm: async () => {
-        await confirmDeleteMember();
-      },
-      onCancel: () => {
-        setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      },
-      isLoading: false
-    });
-  };
-
-  const confirmDeleteMember = async () => {
-    if (!editState.member) return;
-
-    try {
-      setConfirmationModal(prev => ({ ...prev, isLoading: true }));
-      setEditState(prev => ({ ...prev, isDeleting: true }));
-      
-      // Call API to demote member to user
-      await apiClient.demoteMember(editState.member.id);
-
-      // Update local state - change role to 'user' and membership_status to 'pending'
-      setDatabaseMembers(members =>
-        members.map(m =>
-          m.id === editState.member!.id
-            ? { ...m, role: 'user', membership_status: 'pending' }
-            : m
-        )
-      );
-
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: `${formatFullName(editState.member.first_name, editState.member.last_name)} has been demoted to a regular user`,
-        type: 'success',
-        onClose: () => {
-          setMessageModal(prev => ({ ...prev, isOpen: false }));
-          closeEditModal();
-        }
-      });
-    } catch (error: any) {
-      console.error('Failed to demote member:', error);
-      
-      setConfirmationModal(prev => ({ ...prev, isOpen: false }));
-      setMessageModal({
-        isOpen: true,
-        message: `Failed to demote member: ${error?.message || 'Unknown error'}`,
-        type: 'error',
-        onClose: () => setMessageModal(prev => ({ ...prev, isOpen: false }))
-      });
-    } finally {
-      setEditState(prev => ({ ...prev, isDeleting: false }));
-      setConfirmationModal(prev => ({ ...prev, isLoading: false }));
-    }
-  }
 
 
   const filteredMembers = databaseMembers.filter(
@@ -476,7 +277,7 @@ export const MembersPage: React.FC = () => {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
                       Requested
                     </th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
@@ -496,7 +297,7 @@ export const MembersPage: React.FC = () => {
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {request.email}
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-600 text-center">
                         {request.created_at && !isNaN(new Date(request.created_at).getTime()) 
                           ? new Date(request.created_at).toLocaleDateString()
                           : request.requestedAt && !isNaN(new Date(request.requestedAt).getTime())
@@ -575,10 +376,10 @@ export const MembersPage: React.FC = () => {
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
                       Email
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
                       Joined
                     </th>
                     <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">
@@ -598,12 +399,12 @@ export const MembersPage: React.FC = () => {
                       <td className="px-6 py-4 text-sm text-slate-600">
                         {member.email}
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-6 py-4 text-sm text-center">
                         <span className="px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">
                           {member.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-sm text-slate-600">
+                      <td className="px-6 py-4 text-sm text-slate-600 text-center">
                         {member.membership_approved_at 
                           ? new Date(member.membership_approved_at).toLocaleDateString()
                           : new Date(member.created_at).toLocaleDateString()}
@@ -619,19 +420,6 @@ export const MembersPage: React.FC = () => {
                               size={18} 
                               style={{
                                 animation: emailState.animatingIcon && emailState.to === member.email ? 'iconPulse 0.3s ease-out' : 'none',
-                                transformOrigin: 'center'
-                              }}
-                            />
-                          </button>
-                          <button 
-                            onClick={() => openEditModal(member)}
-                            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors" 
-                            title="Edit"
-                          >
-                            <Edit2 
-                              size={18}
-                              style={{
-                                animation: editState.animatingIcon && editState.member?.id === member.id ? 'iconPulse 0.3s ease-out' : 'none',
                                 transformOrigin: 'center'
                               }}
                             />
@@ -744,179 +532,9 @@ export const MembersPage: React.FC = () => {
         </div>
       )}
 
-      {/* Edit Member Modal */}
-      {editState.isOpen && editState.member && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9998] p-4 modal-fade-in">
-          <div className="bg-white rounded-xl shadow-lg w-full max-w-2xl max-h-[90vh] flex flex-col modal-content-in">
-            {/* Modal Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
-              <h3 className="text-lg font-semibold text-slate-900">Edit Member</h3>
-              <button
-                onClick={closeEditModal}
-                disabled={editState.isSaving || editState.isDeleting}
-                className="p-1 text-slate-500 hover:bg-slate-100 rounded transition-colors disabled:opacity-50"
-              >
-                ✕
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={editState.first_name}
-                  onChange={(e) =>
-                    setEditState(prev => ({ ...prev, first_name: e.target.value }))
-                  }
-                  onFocus={(e) => {
-                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
-                  }}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
-                  disabled={editState.isSaving || editState.isDeleting}
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={editState.last_name}
-                  onChange={(e) =>
-                    setEditState(prev => ({ ...prev, last_name: e.target.value }))
-                  }
-                  onFocus={(e) => {
-                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
-                  }}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
-                  disabled={editState.isSaving || editState.isDeleting}
-                />
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={editState.email}
-                  onChange={(e) =>
-                    setEditState(prev => ({ ...prev, email: e.target.value }))
-                  }
-                  onFocus={(e) => {
-                    e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
-                  }}
-                  className="w-full px-3 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:border-purple-500 focus:ring-purple-200"
-                  disabled={editState.isSaving || editState.isDeleting}
-                />
-              </div>
-
-              {/* Member Info Display */}
-              <div className="bg-slate-50 p-4 rounded-lg mt-6 space-y-2">
-                <p className="text-sm text-slate-600">
-                  <span className="font-medium text-slate-900">Role:</span> {editState.member.role}
-                </p>
-                <p className="text-sm text-slate-600">
-                  <span className="font-medium text-slate-900">Status:</span> {editState.member.status}
-                </p>
-                <p className="text-sm text-slate-600">
-                  <span className="font-medium text-slate-900">Joined:</span> {editState.member.membership_approved_at 
-                    ? new Date(editState.member.membership_approved_at).toLocaleDateString()
-                    : new Date(editState.member.created_at).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-
-            {/* Modal Footer */}
-            <div className="space-y-3 px-6 py-4 border-t border-slate-200 bg-slate-50">
-              {/* Delete and Main Actions */}
-              <div className="flex justify-between gap-3">
-                <button
-                  onClick={deleteMember}
-                  disabled={editState.isSaving || editState.isDeleting}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                >
-                  <Trash2 size={16} />
-                  {editState.isDeleting ? 'Deleting...' : 'Delete Member'}
-                </button>
-                <div className="flex gap-3">
-                  <button
-                    onClick={closeEditModal}
-                    disabled={editState.isSaving || editState.isDeleting}
-                    className="px-4 py-2 text-slate-700 hover:bg-slate-200 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={saveChanges}
-                    disabled={editState.isSaving || editState.isDeleting}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {editState.isSaving ? 'Saving...' : 'Save Changes'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Confirmation Modal */}
-      {confirmationModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
-            <p className="text-slate-900 text-center mb-6">{confirmationModal.title}</p>
-            <div className="flex justify-end gap-3">
-              <button
-                onClick={confirmationModal.onCancel}
-                disabled={confirmationModal.isLoading}
-                className="px-6 py-2 text-slate-700 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmationModal.onConfirm}
-                disabled={confirmationModal.isLoading}
-                className={`px-6 py-2 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                  confirmationModal.actionType === 'delete'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : confirmationModal.actionType === 'freeze'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : confirmationModal.actionType === 'demote'
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
-              >
-                {confirmationModal.isLoading ? 'Confirming...' : 'OK'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Message Modal */}
-      {messageModal.isOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999] p-4">
-          <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6 modal-content-in">
-            <p className={`text-center mb-6 ${messageModal.type === 'success' ? 'text-slate-900' : 'text-red-600'}`}>
-              {messageModal.message}
-            </p>
-            <div className="flex justify-center">
-              <button
-                onClick={messageModal.onClose}
-                className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

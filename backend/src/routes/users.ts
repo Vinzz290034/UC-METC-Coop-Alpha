@@ -3,6 +3,7 @@ import { query, pool } from '../config/database.js';
 import { authMiddleware, adminMiddleware, invalidateUserCache } from '../middleware/auth.js';
 import { User } from '../types/index.js';
 import { notificationService } from '../services/notificationService.js';
+import { emailService } from '../services/emailService.js';
 
 const router = Router();
 
@@ -655,40 +656,87 @@ router.post('/send-email', authMiddleware, async (req: Request, res: Response) =
       [to]
     );
 
-    if (recipientResult.rows.length === 0) {
-      return res.status(404).json({ message: 'Recipient not found' });
+    let recipient = null;
+    if (recipientResult.rows.length > 0) {
+      recipient = recipientResult.rows[0];
     }
 
-    const recipient = recipientResult.rows[0];
     const preview = body.substring(0, 100);
 
-    // Create inbox message for recipient
-    await pool.query(
-      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
-      [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
-    );
+    if (recipient) {
+      // Create inbox message for recipient
+      await pool.query(
+        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
+        [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
+      );
 
-    // Create sent message for sender
-    await pool.query(
-      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read', true)`,
-      [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
-    );
+      // Create sent message for sender
+      await pool.query(
+        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read', true)`,
+        [senderId, senderName, sender.role, recipient.id, recipient.role, subject, body, preview]
+      );
 
-    // TODO: Integration with email service for actual email delivery
-    // In production, integrate with nodemailer, SendGrid, etc.
-    // Example with nodemailer:
-    // const transporter = nodemailer.createTransport({ ... });
-    // await transporter.sendMail({
-    //   from: process.env.EMAIL_FROM,
-    //   to,
-    //   subject,
-    //   html: body
-    // });
+      // Create internal in-app notification for the recipient
+      try {
+        await notificationService.createNotification({
+          user_id: recipient.id,
+          type: 'new_message',
+          title: 'New Message',
+          description: `${senderName} sent you a message: ${subject}`,
+          link: '/inbox',
+        });
+      } catch (notifErr) {
+        console.error('Failed to create in-app notification:', notifErr);
+      }
+    } else {
+      // Create sent message for sender with NULL recipient (external email only)
+      await pool.query(
+        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
+         VALUES ($1, $2, $3, NULL, NULL, $4, $5, $6, 'sent', 'read', true)`,
+        [senderId, senderName, sender.role, subject, body, preview]
+      );
+    }
+
+    // Send the actual external email using Brevo/SendGrid/SMTP
+    try {
+      const recipientName = recipient ? `${recipient.first_name} ${recipient.last_name}` : to;
+      const emailHtml = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
+          <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 20px; text-align: center; border-radius: 6px 6px 0 0;">
+            <h2 style="margin: 0; font-size: 20px;">New Message</h2>
+            <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">UC METC SILMS</p>
+          </div>
+          <div style="padding: 20px; background-color: #fafafa;">
+            <p>Hello <strong>${recipientName}</strong>,</p>
+            <p>You have received a new message from the Co-op Administrator (<strong>${senderName}</strong>):</p>
+            
+            <div style="background-color: #ffffff; border-left: 4px solid #7c3aed; padding: 15px; margin: 15px 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <h4 style="margin: 0 0 10px 0; color: #4c1d95; font-size: 16px;">Subject: ${subject}</h4>
+              <p style="white-space: pre-wrap; margin: 0; color: #4b5563; font-size: 14px;">${body}</p>
+            </div>
+            
+            ${recipient ? `<p style="font-size: 14px;">You can also log in to the portal to reply directly to this message.</p>` : ''}
+          </div>
+          <div style="text-align: center; color: #9ca3af; font-size: 11px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+            <p>This is an automated notification from UC METC Sales, Inventory, Locker, and Management System.</p>
+            <p>&copy; ${new Date().getFullYear()} UC METC SILMS. All rights reserved.</p>
+          </div>
+        </div>
+      `;
+      
+      await emailService.sendEmail({
+        to,
+        subject,
+        html: emailHtml
+      });
+    } catch (emailErr) {
+      console.error('Failed to send actual email via service:', emailErr);
+    }
 
     res.json({ 
-      message: 'Email sent successfully and inbox message created',
+      message: 'Email sent successfully',
       email: {
         to,
         subject,
