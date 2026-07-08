@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Send, Trash2, Star, X, Plus, ChevronLeft, ChevronDown } from 'lucide-react';
+import { Mail, Send, Trash2, Star, X, Plus, ChevronLeft, ChevronDown, Search } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../store/authContext';
@@ -38,6 +38,14 @@ export const InboxPage: React.FC = () => {
   const [recipientDropdownOpen, setRecipientDropdownOpen] = useState(false);
   const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
   const [personSearchQuery, setPersonSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 8;
+
+  // Reset pagination when search query or active tab changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, activeTab]);
 
   // Load all users on mount for name lookups
   useEffect(() => {
@@ -103,6 +111,45 @@ export const InboxPage: React.FC = () => {
     return 0;
   });
   const displayMessages = activeTab === 'inbox' ? sortedInbox : sortedSent;
+
+  // Filter messages based on search query
+  const searchedMessages = displayMessages.filter(msg => {
+    const query = searchQuery.toLowerCase().trim();
+    if (!query) return true;
+    
+    // Resolve sender/recipient name
+    let name = '';
+    if (activeTab === 'inbox') {
+      if (msg.senderId) {
+        const sender = allUsers.find(u => u.id === msg.senderId);
+        name = sender ? `${sender.first_name} ${sender.last_name}` : msg.senderName || '';
+      } else {
+        name = msg.senderName || '';
+      }
+    } else {
+      if (msg.recipientName) {
+        name = msg.recipientName;
+      } else if (msg.recipientId) {
+        const recipient = allUsers.find(u => u.id === msg.recipientId);
+        name = recipient ? `${recipient.first_name} ${recipient.last_name}` : msg.recipientRole || '';
+      } else {
+        name = msg.recipientRole || '';
+      }
+    }
+    
+    return (
+      name.toLowerCase().includes(query) ||
+      (msg.subject || '').toLowerCase().includes(query) ||
+      (msg.content || '').toLowerCase().includes(query)
+    );
+  });
+
+  // Paginated filtered messages
+  const totalItems = searchedMessages.length;
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedMessages = searchedMessages.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
   const unreadCount = inboxMessages.filter(m => !m.isRead).length;
 
   // Keep selectedMessage in sync with the store (so star updates are instant)
@@ -282,6 +329,31 @@ export const InboxPage: React.FC = () => {
     return date.toLocaleDateString();
   };
 
+  // Helper to compute recipient/sender name for the selected message
+  let displayName = '';
+  let displayRole = '';
+  if (selectedMessage) {
+    if (activeTab === 'sent') {
+      if (selectedMessage.recipientName) {
+        displayName = selectedMessage.recipientName;
+      } else if (selectedMessage.recipientId) {
+        const recipient = allUsers.find(u => u.id === selectedMessage.recipientId);
+        displayName = recipient ? `${recipient.first_name} ${recipient.last_name}` : selectedMessage.recipientRole || 'Unknown';
+      } else {
+        displayName = selectedMessage.recipientRole || 'Unknown';
+      }
+      displayRole = selectedMessage.recipientRole || 'Unknown';
+    } else {
+      if (selectedMessage.senderId) {
+        const sender = allUsers.find(u => u.id === selectedMessage.senderId);
+        displayName = sender ? `${sender.first_name} ${sender.last_name}` : selectedMessage.senderName || 'Unknown';
+      } else {
+        displayName = selectedMessage.senderName || 'Unknown';
+      }
+      displayRole = selectedMessage.senderRole || 'Unknown';
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-4 sm:py-8 px-4 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
@@ -371,79 +443,133 @@ export const InboxPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Messages List */}
           <div className={`lg:col-span-1 ${selectedMessage ? 'hidden lg:block' : 'block'}`}>
-            <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md overflow-hidden">
+            <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md overflow-hidden flex flex-col">
+              {/* Search Bar */}
+              {displayMessages.length > 0 && (
+                <div className="p-3 border-b border-slate-100 bg-slate-50/50 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                    <input
+                      type="text"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Search messages..."
+                      className="w-full pl-9 pr-8 py-1.5 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white font-medium text-slate-700 placeholder-slate-400 transition-all"
+                    />
+                    {searchQuery && (
+                      <button
+                        onClick={() => setSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {displayMessages.length === 0 ? (
                 <div className="p-12 text-center text-slate-500">
                   <Mail className="w-12 h-12 mx-auto mb-3 opacity-30 text-purple-400" />
                   <p className="font-semibold text-slate-500 text-sm sm:text-base">{activeTab === 'inbox' ? 'No messages' : 'No sent messages'}</p>
                 </div>
+              ) : searchedMessages.length === 0 ? (
+                <div className="p-12 text-center text-slate-500">
+                  <Search className="w-12 h-12 mx-auto mb-3 opacity-30 text-purple-400" />
+                  <p className="font-semibold text-slate-500 text-sm sm:text-base">No matching messages found</p>
+                </div>
               ) : (
-                <div className="divide-y divide-slate-100">
-                  {displayMessages.map((message) => (
-                    <div
-                      key={message.id}
-                      onClick={() => {
-                        setSelectedMessage(message);
-                        if (!message.isRead && activeTab === 'inbox') {
-                          handleMarkAsRead(message.id);
-                        }
-                      }}
-                      className={`p-3.5 sm:p-4 cursor-pointer hover:bg-slate-50 transition-all duration-200 ${
-                        selectedMessage?.id === message.id
-                          ? 'bg-purple-50/80 border-l-4 border-purple-600'
-                          : ''
-                      } ${!message.isRead && activeTab === 'inbox' ? 'bg-blue-50/60' : ''}`}
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <p
-                              className={`text-xs sm:text-sm font-bold truncate ${
-                                !message.isRead && activeTab === 'inbox'
-                                  ? 'text-slate-900 font-extrabold'
-                                  : 'text-slate-700'
-                              }`}
-                            >
-                              {activeTab === 'inbox' 
-                                ? (() => {
-                                    // Try to look up sender's actual name from allUsers
-                                    if (message.senderId) {
-                                      const sender = allUsers.find(u => u.id === message.senderId);
-                                      if (sender) return `${sender.first_name} ${sender.last_name}`;
-                                    }
-                                    // Fallback to senderName
-                                    return message.senderName || 'Unknown';
-                                  })()
-                                : (() => {
-                                    if (message.recipientName) return message.recipientName;
-                                    if (message.recipientId) {
-                                      const recipient = allUsers.find(u => u.id === message.recipientId);
-                                      return recipient ? `${recipient.first_name} ${recipient.last_name}` : message.recipientRole;
-                                    }
-                                    return message.recipientRole || 'Unknown';
-                                  })()
-                                }
-                            </p>
-                            <div className="flex items-center gap-1.5 flex-shrink-0">
-                              {message.isFavorite && (
-                                <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
-                              )}
-                              <p className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
-                                {formatDate(message.timestamp)}
+                <>
+                  <div className="divide-y divide-slate-100 flex-1 overflow-y-auto max-h-[600px]">
+                    {paginatedMessages.map((message) => (
+                      <div
+                        key={message.id}
+                        onClick={() => {
+                          setSelectedMessage(message);
+                          if (!message.isRead && activeTab === 'inbox') {
+                            handleMarkAsRead(message.id);
+                          }
+                        }}
+                        className={`p-3.5 sm:p-4 cursor-pointer hover:bg-slate-50 transition-all duration-200 ${
+                          selectedMessage?.id === message.id
+                            ? 'bg-purple-50/80 border-l-4 border-purple-600'
+                            : ''
+                        } ${!message.isRead && activeTab === 'inbox' ? 'bg-blue-50/60' : ''}`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <p
+                                className={`text-xs sm:text-sm font-bold truncate ${
+                                  !message.isRead && activeTab === 'inbox'
+                                    ? 'text-slate-900 font-extrabold'
+                                    : 'text-slate-700'
+                                }`}
+                              >
+                                {activeTab === 'inbox' 
+                                  ? (() => {
+                                      // Try to look up sender's actual name from allUsers
+                                      if (message.senderId) {
+                                        const sender = allUsers.find(u => u.id === message.senderId);
+                                        if (sender) return `${sender.first_name} ${sender.last_name}`;
+                                      }
+                                      // Fallback to senderName
+                                      return message.senderName || 'Unknown';
+                                    })()
+                                  : (() => {
+                                      if (message.recipientName) return message.recipientName;
+                                      if (message.recipientId) {
+                                        const recipient = allUsers.find(u => u.id === message.recipientId);
+                                        return recipient ? `${recipient.first_name} ${recipient.last_name}` : message.recipientRole;
+                                      }
+                                      return message.recipientRole || 'Unknown';
+                                    })()
+                                  }
                               </p>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {message.isFavorite && (
+                                  <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
+                                )}
+                                <p className="text-[10px] text-slate-500 font-medium whitespace-nowrap">
+                                  {formatDate(message.timestamp)}
+                                </p>
+                              </div>
                             </div>
+                            <p className="text-xs sm:text-sm text-slate-600 truncate font-semibold">
+                              {message.subject}
+                            </p>
+                            <p className="text-[11px] text-slate-500 truncate mt-0.5">
+                              {message.content}
+                            </p>
                           </div>
-                          <p className="text-xs sm:text-sm text-slate-600 truncate font-semibold">
-                            {message.subject}
-                          </p>
-                          <p className="text-[11px] text-slate-500 truncate mt-0.5">
-                            {message.content}
-                          </p>
                         </div>
                       </div>
+                    ))}
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between px-4 py-3 bg-slate-50 border-t border-slate-100 mt-auto">
+                      <button
+                        disabled={currentPage === 1}
+                        onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                        className="px-3 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 active:scale-95 transition disabled:opacity-50 disabled:pointer-events-none text-slate-700"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-xs text-slate-500 font-medium">
+                        Page {currentPage} of {totalPages}
+                      </span>
+                      <button
+                        disabled={currentPage === totalPages}
+                        onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                        className="px-3 py-1 text-xs font-semibold bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50 active:scale-95 transition disabled:opacity-50 disabled:pointer-events-none text-slate-700"
+                      >
+                        Next
+                      </button>
                     </div>
-                  ))}
-                </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -451,7 +577,7 @@ export const InboxPage: React.FC = () => {
           {/* Message Content */}
           <div className={`lg:col-span-2 ${selectedMessage ? 'block' : 'hidden lg:block'}`}>
             {selectedMessage ? (
-              <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-4 sm:p-6 md:p-8 flex flex-col">
+              <div className="bg-white rounded-2xl border border-slate-100/50 shadow-md p-4 sm:p-6 md:p-8 flex flex-col min-h-[450px]">
                 {/* Mobile Back Button */}
                 <button
                   onClick={() => setSelectedMessage(null)}
@@ -465,93 +591,74 @@ export const InboxPage: React.FC = () => {
                 <div className="mb-6 pb-6 border-b border-slate-100">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      {(() => {
-                        // Helper to get recipient/sender name
-                        let displayName = '';
-                        if (activeTab === 'sent') {
-                          if (selectedMessage.recipientName) {
-                            displayName = selectedMessage.recipientName;
-                          } else if (selectedMessage.recipientId) {
-                            const recipient = allUsers.find(u => u.id === selectedMessage.recipientId);
-                            displayName = recipient ? `${recipient.first_name} ${recipient.last_name}` : selectedMessage.recipientRole || 'Unknown';
-                          } else {
-                            displayName = selectedMessage.recipientRole || 'Unknown';
-                          }
-                        } else {
-                          // For inbox - look up sender's actual name
-                          if (selectedMessage.senderId) {
-                            const sender = allUsers.find(u => u.id === selectedMessage.senderId);
-                            if (sender) {
-                              displayName = `${sender.first_name} ${sender.last_name}`;
-                            } else {
-                              displayName = selectedMessage.senderName || 'Unknown';
-                            }
-                          } else {
-                            displayName = selectedMessage.senderName || 'Unknown';
-                          }
-                        }
-                        return (
-                          <>
-                            <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 mb-2 leading-snug break-words">
-                              {selectedMessage.subject}
-                            </h2>
-                            <p className="text-xs sm:text-sm text-slate-600 mb-1">
-                              {activeTab === 'sent' ? 'To:' : 'From:'} <span className="font-bold text-slate-800">
-                                {displayName}
-                              </span>
-                              <span className="text-[10px] sm:text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg ml-2 uppercase font-bold tracking-wider">
-                                {activeTab === 'sent' ? selectedMessage.recipientRole : selectedMessage.senderRole}
-                              </span>
-                            </p>
-                            <p className="text-[11px] sm:text-xs text-slate-500">
-                              {new Date(selectedMessage.timestamp).toLocaleString()}
-                            </p>
-                          </>
-                        );
-                      })()}
+                      <h2 className="text-lg sm:text-xl md:text-2xl font-black text-slate-900 mb-2 leading-snug break-words">
+                        {selectedMessage.subject}
+                      </h2>
+                      <p className="text-xs sm:text-sm text-slate-600 mb-1">
+                        {activeTab === 'sent' ? 'To:' : 'From:'} <span className="font-bold text-slate-800">
+                          {displayName}
+                        </span>
+                        <span className="text-[10px] sm:text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-lg ml-2 uppercase font-bold tracking-wider">
+                          {displayRole}
+                        </span>
+                      </p>
+                      <p className="text-[11px] sm:text-xs text-slate-500">
+                        {new Date(selectedMessage.timestamp).toLocaleString()}
+                      </p>
                     </div>
                     
-                    <button
-                      onClick={async () => {
-                        if (!user?.id || !selectedMessage) return;
-                        const wasFavorite = selectedMessage.isFavorite;
-                        // Optimistically update the selected message for instant star feedback
-                        setSelectedMessage({ ...selectedMessage, isFavorite: !wasFavorite });
-                        setAnimatingStarId(selectedMessage.id);
-                        try {
-                          await toggleFavorite(selectedMessage.id, user.id);
-                          showNotification(
-                            wasFavorite ? 'Removed from favorites' : 'Added to favorites',
-                            'success'
-                          );
-                          // Clear animation after it completes
-                          setTimeout(() => setAnimatingStarId(null), 600);
-                        } catch (error) {
-                          // Revert optimistic update on the selected message
-                          setSelectedMessage({ ...selectedMessage, isFavorite: wasFavorite });
-                          showNotification('Failed to toggle favorite', 'error');
-                          setAnimatingStarId(null);
-                        }
-                      }}
-                      className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200 active:scale-90 flex-shrink-0"
-                    >
-                      <motion.div
-                        animate={
-                          animatingStarId === selectedMessage?.id
-                            ? { scale: [1, 1.3, 1], rotate: [0, -15, 15, 0] }
-                            : { scale: 1, rotate: 0 }
-                        }
-                        transition={{ duration: 0.6, ease: 'easeInOut' }}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={async () => {
+                          if (!user?.id || !selectedMessage) return;
+                          const wasFavorite = selectedMessage.isFavorite;
+                          // Optimistically update the selected message for instant star feedback
+                          setSelectedMessage({ ...selectedMessage, isFavorite: !wasFavorite });
+                          setAnimatingStarId(selectedMessage.id);
+                          try {
+                            await toggleFavorite(selectedMessage.id, user.id);
+                            showNotification(
+                              wasFavorite ? 'Removed from favorites' : 'Added to favorites',
+                              'success'
+                            );
+                            // Clear animation after it completes
+                            setTimeout(() => setAnimatingStarId(null), 600);
+                          } catch (error) {
+                            // Revert optimistic update on the selected message
+                            setSelectedMessage({ ...selectedMessage, isFavorite: wasFavorite });
+                            showNotification('Failed to toggle favorite', 'error');
+                            setAnimatingStarId(null);
+                          }
+                        }}
+                        className="p-2 bg-slate-50 hover:bg-slate-100 rounded-xl transition-all duration-200 active:scale-90"
+                        title={selectedMessage.isFavorite ? "Remove from favorites" : "Add to favorites"}
                       >
-                        <Star
-                          className={`w-5.5 h-5.5 ${
-                            selectedMessage.isFavorite
-                              ? 'fill-yellow-400 text-yellow-400'
-                              : 'text-slate-400'
-                          }`}
-                        />
-                      </motion.div>
-                    </button>
+                        <motion.div
+                          animate={
+                            animatingStarId === selectedMessage?.id
+                              ? { scale: [1, 1.3, 1], rotate: [0, -15, 15, 0] }
+                              : { scale: 1, rotate: 0 }
+                          }
+                          transition={{ duration: 0.6, ease: 'easeInOut' }}
+                        >
+                          <Star
+                            className={`w-5.5 h-5.5 ${
+                              selectedMessage.isFavorite
+                                ? 'fill-yellow-400 text-yellow-400'
+                                : 'text-slate-400'
+                            }`}
+                          />
+                        </motion.div>
+                      </button>
+
+                      <button
+                        onClick={() => handleDelete(selectedMessage.id)}
+                        className="p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl transition-all duration-200 active:scale-90"
+                        title="Delete Message"
+                      >
+                        <Trash2 className="w-5.5 h-5.5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -562,61 +669,52 @@ export const InboxPage: React.FC = () => {
                   </p>
                 </div>
 
-                {/* Actions */}
-                <div className="flex gap-3 pt-6 border-t border-slate-100 mt-auto">
-                  <button
-                    onClick={() => setReplyingToMessageId(selectedMessage.id)}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white text-xs sm:text-sm rounded-xl font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                    Reply
-                  </button>
-                  <button
-                    onClick={() => handleDelete(selectedMessage.id)}
-                    className="flex items-center gap-1.5 px-4 py-2 text-red-600 hover:bg-red-50 active:scale-95 text-xs sm:text-sm rounded-xl font-bold transition-all duration-200"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                    Delete
-                  </button>
-                </div>
-
-                {/* Reply Form */}
-                {replyingToMessageId === selectedMessage.id && (
-                  <div className="mt-6 p-4 bg-purple-50/70 rounded-2xl border border-purple-100">
-                    <h3 className="text-xs sm:text-sm font-bold text-slate-800 mb-3">
-                      Reply to {(() => {
-                        if (selectedMessage.senderId) {
-                          const sender = allUsers.find(u => u.id === selectedMessage.senderId);
-                          if (sender) return `${sender.first_name} ${sender.last_name}`;
-                        }
-                        return selectedMessage.senderName || 'Unknown';
-                      })()}
-                    </h3>
-                    <textarea
-                      value={replyData.content}
-                      onChange={(e) => setReplyData({ ...replyData, content: e.target.value })}
-                      placeholder="Type your reply here..."
-                      rows={4}
-                      className="w-full px-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none mb-3 bg-white"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleReply}
-                        className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
+                {/* Reply Section */}
+                {activeTab === 'inbox' && (
+                  <div className="mt-auto pt-6 border-t border-slate-100">
+                    {replyingToMessageId !== selectedMessage.id ? (
+                      <div 
+                        onClick={() => setReplyingToMessageId(selectedMessage.id)}
+                        className="p-4 bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-slate-200/60 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 text-slate-400 hover:text-purple-600 group"
                       >
-                        <Send className="w-3.5 h-3.5" />
-                        Send Reply
-                      </button>
-                      <button
-                        onClick={() => {
-                          setReplyingToMessageId(null);
-                          setReplyData({ subject: '', content: '' });
-                        }}
-                        className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl text-xs sm:text-sm font-bold active:scale-95 transition-all duration-200"
-                      >
-                        Cancel
-                      </button>
-                    </div>
+                        <Send className="w-4 h-4 text-slate-400 group-hover:text-purple-500 transition-colors" />
+                        <span className="text-sm font-semibold">Reply to {displayName}...</span>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100/80 shadow-sm animate-scale-in">
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                            <Send className="w-4 h-4 text-purple-600" />
+                            Reply to <span className="text-purple-700 font-extrabold">{displayName}</span>
+                          </h3>
+                        </div>
+                        <textarea
+                          value={replyData.content}
+                          onChange={(e) => setReplyData({ ...replyData, content: e.target.value })}
+                          placeholder="Type your reply here..."
+                          rows={4}
+                          className="w-full px-4 py-3 text-sm border border-slate-200 focus:border-purple-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 resize-none mb-3 bg-white text-slate-700 shadow-inner transition-all"
+                        />
+                        <div className="flex justify-end gap-2.5">
+                          <button
+                            onClick={() => {
+                              setReplyingToMessageId(null);
+                              setReplyData({ subject: '', content: '' });
+                            }}
+                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={handleReply}
+                            className="flex items-center gap-1.5 px-5 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            Send Reply
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
