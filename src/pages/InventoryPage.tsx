@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical, ChevronLeft, ChevronRight, CheckCircle, Calendar } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
+import { useAuth } from '../store/authContext';
 import { AppDataSync } from '../store/appDataSync';
 import { FloatingInput } from '../components/FloatingInput';
 import { apiClient } from '../services/api';
 import type { Product, ItemType } from '../types';
 import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
 import { uploadToCloudinary } from '../utils/cloudinary';
+import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 
 // Helper to resolve dynamic Cloudinary product images for display in admin inventory management
 const getInventoryProductImage = (productName: string, variantKey: string = '', customImage: string = ''): string => {
@@ -180,6 +182,70 @@ const getPresetOptions = (productName: string) => {
   return [];
 };
 
+// Helper function to format product name with variants
+const formatProductNameWithVariants = (item: any): string => {
+  // Get the full product name from database
+  let fullName = item?.product_name || item?.productName || 'Unknown Product';
+  
+  // Clean up any extra spaces
+  fullName = fullName.replace(/\s+/g, ' ').trim();
+  
+  // If the name already appears to be formatted (contains " - " pattern multiple times),
+  // check for duplicates and clean up
+  const dashCount = (fullName.match(/ - /g) || []).length;
+  if (dashCount >= 2) {
+    // Check for duplicate variant values (e.g., "Gala - Bundle G - Bundle G (BSMARE)")
+    const parts = fullName.split(' - ');
+    if (parts.length >= 3) {
+      // Check if the second and third parts are the same (before any parenthesis)
+      const secondPart = parts[1].trim();
+      const thirdPartBeforeParen = parts[2].split('(')[0].trim();
+      
+      // Compare after trimming both parts
+      if (secondPart === thirdPartBeforeParen) {
+        // Remove the duplicate - keep base name, variant name, and everything after (including course code)
+        const baseName = parts[0].trim();
+        const variantName = parts[1].trim();
+        // Get everything after the duplicate, including the course code in parentheses
+        const afterDuplicate = parts[2].substring(thirdPartBeforeParen.length).trim();
+        return `${baseName} - ${variantName} ${afterDuplicate}`.trim();
+      }
+    }
+    
+    return fullName;
+  }
+  
+  // Get unit price to determine if member discount was applied
+  const unitPrice = item?.unitPrice || item?.unit_price;
+  
+  // Parse selected options - handle both string and object formats
+  let options: Record<string, string> = {};
+  if (item?.selectedOptions || item?.selected_options) {
+    const selectedOpts = item?.selectedOptions || item?.selected_options;
+    try {
+      if (typeof selectedOpts === 'string') {
+        options = JSON.parse(selectedOpts);
+      } else if (typeof selectedOpts === 'object' && selectedOpts !== null) {
+        options = selectedOpts;
+      }
+    } catch (e) {
+      console.warn('Failed to parse selectedOptions:', selectedOpts);
+    }
+  }
+  
+  // If we have selectedOptions, use the standard formatter
+  if (options && Object.keys(options).length > 0) {
+    // Extract base name from full name (remove everything after first parenthesis)
+    const baseNameMatch = fullName.match(/^([^(]+)/);
+    const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
+    return formatProductName(baseName, options, unitPrice);
+  }
+  
+  // Fallback: Parse the legacy format from the product name itself
+  // This handles old orders where the full format was stored in product_name
+  return parseAndFormatLegacyProductName(fullName, unitPrice);
+};
+
 export const InventoryPage: React.FC = () => {
   // Scroll to top when component mounts
   useEffect(() => {
@@ -195,11 +261,17 @@ export const InventoryPage: React.FC = () => {
     return () => clearInterval(interval);
   }, []);
   
+  const { user } = useAuth();
   const { products, addProduct, deleteProduct, updateProduct } =
     useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake' | 'monthly'>('inventory');
+  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
+  const [monthlyData, setMonthlyData] = useState<any>(null);
+  const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
+  const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; quantity: number } | null>(null);
+  const [productSoldSearchQuery, setProductSoldSearchQuery] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -365,6 +437,226 @@ export const InventoryPage: React.FC = () => {
     } catch (error) {
       console.error('Failed to load stock intake records:', error);
     }
+  };
+
+  // Load monthly report data when monthly tab is active or selectedMonth changes
+  useEffect(() => {
+    if (activeTab === 'monthly') {
+      loadMonthlyReport();
+    }
+  }, [activeTab, selectedMonth]);
+
+  const loadMonthlyReport = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      
+      // Filter orders for selected month (exclude insurance orders)
+      const selectedMonthValue = selectedMonth.getMonth();
+      const selectedYear = selectedMonth.getFullYear();
+      
+      const monthlyOrders = allOrders.filter((order: any) => {
+        // Use completed_at for completed orders (payment date)
+        const orderDate = new Date(order.completed_at || order.created_at);
+        return orderDate.getMonth() === selectedMonthValue && 
+               orderDate.getFullYear() === selectedYear &&
+               (order.status === 'completed' || order.status === 'released') &&
+               order.order_type !== 'insurance'; // Exclude insurance orders
+      });
+      
+      // Calculate total sales
+      const totalSales = monthlyOrders.reduce((sum: number, order: any) => 
+        sum + parseFloat(order.total_amount), 0
+      );
+      
+      // Calculate product units sold
+      const productsSold: Record<string, { quantity: number; revenue: number }> = {};
+      
+      monthlyOrders.forEach((order: any) => {
+        const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                                 (order.receiptNo && order.receiptNo.startsWith('BAL-'));
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const productName = formatProductNameWithVariants(item);
+            if (!productsSold[productName]) {
+              productsSold[productName] = { quantity: 0, revenue: 0 };
+            }
+            if (!isBalancePayment) {
+              productsSold[productName].quantity += item.quantity;
+            }
+            productsSold[productName].revenue += parseFloat(item.subtotal);
+          });
+        }
+      });
+      
+      setMonthlyData({
+        totalSales,
+        orderCount: monthlyOrders.length,
+        productsSold,
+        orders: monthlyOrders
+      });
+    } catch (err) {
+      console.error('Failed to load monthly report:', err);
+    }
+  };
+
+  const getProductSoldOrders = (productName: string) => {
+    if (!monthlyData || !monthlyData.orders) return [];
+    
+    const matchingPurchases: any[] = [];
+    
+    monthlyData.orders.forEach((order: any) => {
+      if (order.items && Array.isArray(order.items)) {
+        order.items.forEach((item: any) => {
+          const itemProductName = formatProductNameWithVariants(item);
+          if (itemProductName === productName) {
+            matchingPurchases.push({
+              id: order.id,
+              receipt_no: order.receipt_no || order.receiptNo || 'N/A',
+              date: order.completed_at || order.completedAt || order.created_at || order.createdAt,
+              name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
+              courseYear: order.course && order.year 
+                ? `${order.course} - ${order.year}` 
+                : order.course || order.year || 'N/A',
+              quantity: item.quantity || 0,
+              subtotal: parseFloat(item.subtotal || 0),
+            });
+          }
+        });
+      }
+    });
+    
+    // Sort by date (most recent first)
+    return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const handleExportMonthlyReport = () => {
+    if (!monthlyData) return;
+    
+    // Helper to resolve category and SKU from master products
+    const resolveProductInfo = (itemName: string) => {
+      const baseName = itemName.split(' - ')[0];
+      const matchedProduct = products.find(p => p.name === baseName);
+      const category = matchedProduct?.category ? matchedProduct.category.charAt(0).toUpperCase() + matchedProduct.category.slice(1) : 'Merchandise';
+      const sku = matchedProduct?.sku || 'N/A';
+      return { category, sku };
+    };
+
+    const rows = Object.entries(monthlyData.productsSold)
+      .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+      .map(([productName, data]: [string, any]) => {
+        const { category, sku } = resolveProductInfo(productName);
+        const price = data.revenue / (data.quantity || 1);
+        return {
+          name: productName,
+          category,
+          sku,
+          price,
+          quantity: data.quantity,
+          revenue: data.revenue
+        };
+      });
+
+    const totalSales = monthlyData.totalSales;
+    const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
+
+    const tableHeader = `
+      <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Avg Unit Price</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
+      </tr>
+    `;
+
+    const tableRows = rows.map((row, index) => {
+      const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      return `
+        <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const monthStr = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Monthly Sales Report</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+      </head>
+      <body>
+        <table style="margin-bottom: 20px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          <tr>
+            <td colspan="4" style="font-size: 20px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
+              Monthly Sales Report
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="font-size: 12px; color: #64748b; padding-bottom: 20px;">
+              Month: ${monthStr}
+            </td>
+          </tr>
+          <tr style="height: 40px;">
+            <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #047857; font-weight: bold; text-transform: uppercase;">Total Sales</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </td>
+            <td style="background-color: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #6d28d9; font-weight: bold; text-transform: uppercase;">Completed Orders</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${monthlyData.orderCount}</span>
+            </td>
+            <td style="background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #1d4ed8; font-weight: bold; text-transform: uppercase;">Products Sold</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${totalUnits} units</span>
+            </td>
+          </tr>
+        </table>
+        <table style="border-collapse: collapse; border: 1px solid #cbd5e1;">
+          <thead>
+            ${tableHeader}
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    link.download = `monthly_sales_${monthStr.replace(/\s/g, '_')}.xls`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification('Monthly report exported successfully!', 'success');
   };
 
 
@@ -1110,6 +1402,15 @@ export const InventoryPage: React.FC = () => {
                 <span>Record Stock Intake</span>
               </button>
             )}
+            {activeTab === 'monthly' && (
+              <button
+                onClick={handleExportMonthlyReport}
+                className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 hover:shadow-lg transition-all font-semibold"
+              >
+                <Download size={20} />
+                <span>Export Report</span>
+              </button>
+            )}
           </div>
 
           {/* Mobile Header */}
@@ -1154,6 +1455,15 @@ export const InventoryPage: React.FC = () => {
                   <span>Record</span>
                 </button>
               )}
+              {activeTab === 'monthly' && (
+                <button
+                  onClick={handleExportMonthlyReport}
+                  className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
+                >
+                  <Download size={16} className="sm:w-5 sm:h-5" />
+                  <span>Export</span>
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1180,6 +1490,16 @@ export const InventoryPage: React.FC = () => {
               }`}
             >
               Stock Intake
+            </button>
+            <button
+              onClick={() => setActiveTab('monthly')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'monthly'
+                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Monthly Sales
             </button>
           </div>
         </div>
@@ -2613,6 +2933,189 @@ export const InventoryPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Monthly Sales Tab */}
+      {activeTab === 'monthly' && monthlyData && (
+        <div className="space-y-6">
+          {/* Month Navigation */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => {
+                  const newMonth = new Date(selectedMonth);
+                  newMonth.setMonth(newMonth.getMonth() - 1);
+                  setSelectedMonth(newMonth);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              >
+                <ChevronLeft size={20} />
+                <span className="font-semibold">Previous Month</span>
+              </button>
+              
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Viewing sales for:</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {selectedMonth.toLocaleDateString('en-US', { 
+                    year: 'numeric', 
+                    month: 'long'
+                  })}
+                </p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  const newMonth = new Date(selectedMonth);
+                  newMonth.setMonth(newMonth.getMonth() + 1);
+                  const now = new Date();
+                  if (newMonth.getMonth() <= now.getMonth() && newMonth.getFullYear() <= now.getFullYear()) {
+                    setSelectedMonth(newMonth);
+                  }
+                }}
+                disabled={selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear()}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear()
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-slate-100 hover:bg-slate-200'
+                }`}
+              >
+                <span className="font-semibold">Next Month</span>
+                <ChevronRight size={20} />
+              </button>
+            </div>
+            
+            {/* Month Picker */}
+            <div className="flex items-center justify-center">
+              <div className="flex items-center space-x-3">
+                <label htmlFor="month-picker" className="text-sm font-semibold text-slate-700">
+                  Jump to month:
+                </label>
+                <input
+                  id="month-picker"
+                  type="month"
+                  value={`${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`}
+                  max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    const [year, month] = e.target.value.split('-');
+                    const newMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
+                    setSelectedMonth(newMonth);
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Total Sales</h3>
+                <TrendingUp size={24} />
+              </div>
+              <p className="text-3xl font-bold">
+                ₱{monthlyData.totalSales.toLocaleString()}
+              </p>
+              <p className="text-sm opacity-75 mt-1">
+                {selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear() 
+                  ? 'this month' 
+                  : 'that month'}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Orders Completed</h3>
+                <CheckCircle size={24} />
+              </div>
+              <p className="text-3xl font-bold">{monthlyData.orderCount}</p>
+              <p className="text-sm opacity-75 mt-1">orders</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Products Sold</h3>
+                <Package size={24} />
+              </div>
+              <p className="text-3xl font-bold">
+                {Object.values(monthlyData.productsSold).reduce((sum: number, p: any) => sum + p.quantity, 0)}
+              </p>
+              <p className="text-sm opacity-75 mt-1">units</p>
+            </div>
+          </div>
+
+          {/* Products Sold Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
+              <div className="relative w-full sm:w-80">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                  <Search size={18} />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search product name..."
+                  value={monthlySearchQuery}
+                  onChange={(e) => setMonthlySearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                />
+                {monthlySearchQuery && (
+                  <button
+                    onClick={() => setMonthlySearchQuery('')}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Units Sold</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const filtered = Object.entries(monthlyData.productsSold)
+                      .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
+                      .sort((a: any, b: any) => b[1].quantity - a[1].quantity);
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
+                            No products found matching "{monthlySearchQuery}"
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map(([productName, data]: [string, any]) => (
+                      <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
+                        <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
+                        <td className="px-6 py-4 text-sm text-right">
+                          <button
+                            onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
+                            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
+                          >
+                            {data.quantity} units
+                          </button>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
+                          ₱{data.revenue.toLocaleString()}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
       </div>
 
       {/* Delete Stock Intake Confirmation Modal */}
@@ -3490,6 +3993,148 @@ export const InventoryPage: React.FC = () => {
                   Save Changes
                 </button>
               </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {selectedProductSoldDetails && createPortal(
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+          onClick={() => {
+            setSelectedProductSoldDetails(null);
+            setProductSoldSearchQuery('');
+          }}
+        >
+          <div
+            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  {selectedProductSoldDetails.productName}
+                </h3>
+                <p className="text-sm text-slate-500 mt-1">
+                  Purchases in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total units sold: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.quantity} units</span>
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedProductSoldDetails(null);
+                  setProductSoldSearchQuery('');
+                }}
+                className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Search Bar inside Modal */}
+            <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
+              <div className="relative w-80">
+                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                  <Search size={18} />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by customer name..."
+                  value={productSoldSearchQuery}
+                  onChange={(e) => setProductSoldSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                />
+                {productSoldSearchQuery && (
+                  <button
+                    onClick={() => setProductSoldSearchQuery('')}
+                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Modal Body / Table */}
+            <div className="flex-1 overflow-y-auto p-6">
+              {(() => {
+                const purchases = getProductSoldOrders(selectedProductSoldDetails.productName);
+                const filteredPurchases = purchases.filter(p => 
+                  productSoldSearchQuery === '' || 
+                  p.name.toLowerCase().includes(productSoldSearchQuery.toLowerCase())
+                );
+
+                if (filteredPurchases.length === 0) {
+                  return (
+                    <div className="text-center py-12">
+                      <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
+                      <p className="text-slate-500">
+                        {productSoldSearchQuery 
+                          ? `No purchases found matching "${productSoldSearchQuery}"` 
+                          : 'No purchase records found for this product.'}
+                      </p>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
+                    <table className="w-full text-sm">
+                      <thead className="bg-slate-50 border-b border-slate-200">
+                        <tr>
+                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Date</th>
+                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Receipt No.</th>
+                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Name</th>
+                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Course & Year</th>
+                          <th className="text-center py-3 px-6 font-semibold text-slate-900">Quantity</th>
+                          <th className="text-right py-3 px-6 font-semibold text-slate-900">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 bg-white">
+                        {filteredPurchases.map((purchase, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50 transition-colors">
+                            <td className="py-4 px-6 text-slate-600 whitespace-nowrap">
+                              {new Date(purchase.date).toLocaleDateString('en-US', {
+                                month: 'short',
+                                day: 'numeric',
+                                year: 'numeric',
+                              }) || 'N/A'}
+                            </td>
+                            <td className="py-4 px-6 font-mono text-slate-500 text-xs">
+                              {purchase.receipt_no}
+                            </td>
+                            <td className="py-4 px-6 font-semibold text-slate-900">
+                              {purchase.name}
+                            </td>
+                            <td className="py-4 px-6 text-slate-700">
+                              {purchase.courseYear}
+                            </td>
+                            <td className="py-4 px-6 text-center font-medium text-slate-800">
+                              {purchase.quantity}
+                            </td>
+                            <td className="py-4 px-6 text-right font-bold text-green-700 whitespace-nowrap">
+                              ₱{purchase.subtotal.toFixed(2)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-end">
+              <button
+                onClick={() => {
+                  setSelectedProductSoldDetails(null);
+                  setProductSoldSearchQuery('');
+                }}
+                className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-bold text-sm transition-colors"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>,

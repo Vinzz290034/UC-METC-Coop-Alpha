@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, X, ChevronDown } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -95,13 +95,10 @@ export const SalesPage: React.FC = () => {
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(new Date().setDate(new Date().getDate() - 1))); // Default to yesterday
-  const [selectedMonth, setSelectedMonth] = useState<Date>(new Date()); // Default to current month
-  const [monthlyData, setMonthlyData] = useState<any>(null);
-  const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
+   const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [historySearchQuery, setHistorySearchQuery] = useState<string>('');
-  const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
   const [preOrderOrders, setPreOrderOrders] = useState<any[]>([]);
   const [downpaymentOrders, setDownpaymentOrders] = useState<any[]>([]);
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
@@ -118,8 +115,6 @@ export const SalesPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
-  const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; quantity: number } | null>(null);
-  const [productSoldSearchQuery, setProductSoldSearchQuery] = useState<string>('');
   const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
     const d = new Date();
     d.setHours(0, 0, 0, 0);
@@ -169,19 +164,6 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab, remittanceDate]);
 
-  // Load monthly report
-  useEffect(() => {
-    if (user?.id && activeTab === 'monthly') {
-      loadMonthlyReport();
-      
-      // Set up polling for real-time updates (every 10 seconds)
-      const interval = setInterval(() => {
-        loadMonthlyReport();
-      }, 10000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [user?.id, activeTab, selectedMonth]);
 
   // Load history for selected date
   useEffect(() => {
@@ -312,7 +294,6 @@ export const SalesPage: React.FC = () => {
     else if (activeTab === 'daily') await loadDailySummary();
     else if (activeTab === 'history') await loadHistorySummary();
     else if (activeTab === 'remittance') await loadRemittanceSummary();
-    else if (activeTab === 'monthly') await loadMonthlyReport();
     else if (activeTab === 'tailored') {
       await loadPreOrderOrders();
       await loadDownpaymentOrders();
@@ -900,89 +881,6 @@ export const SalesPage: React.FC = () => {
     }
   };
 
-  const loadMonthlyReport = async () => {
-    try {
-      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
-      
-      // Filter orders for selected month (exclude insurance orders)
-      const selectedMonthValue = selectedMonth.getMonth();
-      const selectedYear = selectedMonth.getFullYear();
-      
-      const monthlyOrders = allOrders.filter((order: any) => {
-        // Use completed_at for completed orders (payment date)
-        const orderDate = new Date(order.completed_at || order.created_at);
-        return orderDate.getMonth() === selectedMonthValue && 
-               orderDate.getFullYear() === selectedYear &&
-               (order.status === 'completed' || order.status === 'released') &&
-               order.order_type !== 'insurance'; // Exclude insurance orders
-      });
-      
-      // Calculate total sales
-      const totalSales = monthlyOrders.reduce((sum: number, order: any) => 
-        sum + parseFloat(order.total_amount), 0
-      );
-      
-      // Calculate product units sold
-      const productsSold: Record<string, { quantity: number; revenue: number }> = {};
-      
-      monthlyOrders.forEach((order: any) => {
-        const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
-                                 (order.receiptNo && order.receiptNo.startsWith('BAL-'));
-        if (order.items && Array.isArray(order.items)) {
-          order.items.forEach((item: any) => {
-            const productName = formatProductNameWithVariants(item);
-            if (!productsSold[productName]) {
-              productsSold[productName] = { quantity: 0, revenue: 0 };
-            }
-            if (!isBalancePayment) {
-              productsSold[productName].quantity += item.quantity;
-            }
-            productsSold[productName].revenue += parseFloat(item.subtotal);
-          });
-        }
-      });
-      
-      setMonthlyData({
-        totalSales,
-        orderCount: monthlyOrders.length,
-        productsSold,
-        orders: monthlyOrders
-      });
-    } catch (err) {
-      console.error('Failed to load monthly report:', err);
-    }
-  };
-
-  const getProductSoldOrders = (productName: string) => {
-    if (!monthlyData || !monthlyData.orders) return [];
-    
-    const matchingPurchases: any[] = [];
-    
-    monthlyData.orders.forEach((order: any) => {
-      if (order.items && Array.isArray(order.items)) {
-        order.items.forEach((item: any) => {
-          const itemProductName = formatProductNameWithVariants(item);
-          if (itemProductName === productName) {
-            matchingPurchases.push({
-              id: order.id,
-              receipt_no: order.receipt_no || order.receiptNo || 'N/A',
-              date: order.completed_at || order.completedAt || order.created_at || order.createdAt,
-              name: `${order.first_name || ''} ${order.last_name || ''}`.trim() || 'N/A',
-              courseYear: order.course && order.year 
-                ? `${order.course} - ${order.year}` 
-                : order.course || order.year || 'N/A',
-              quantity: item.quantity || 0,
-              subtotal: parseFloat(item.subtotal || 0),
-            });
-          }
-        });
-      }
-    });
-    
-    // Sort by date (most recent first)
-    return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  };
-
   const loadHistorySummary = async () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
@@ -1377,69 +1275,6 @@ export const SalesPage: React.FC = () => {
       return;
     }
 
-    if (activeTab === 'monthly') {
-      if (!monthlyData) return;
-      
-      const rows = Object.entries(monthlyData.productsSold)
-        .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-        .map(([productName, data]: [string, any]) => {
-          const { category, sku } = resolveProductInfo(productName);
-          const price = data.revenue / (data.quantity || 1);
-          return {
-            name: productName,
-            category,
-            sku,
-            price,
-            quantity: data.quantity,
-            revenue: data.revenue
-          };
-        });
-
-      const totalSales = monthlyData.totalSales;
-      const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
-
-      const tableHeader = `
-        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Avg Unit Price</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
-        </tr>
-      `;
-
-      const tableRows = rows.map((row, index) => {
-        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-        return `
-          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const monthStr = selectedMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const htmlContent = getExcelHtmlWrapper(
-        'Monthly Sales Report',
-        `Month: ${monthStr}`,
-        [
-          { label: 'Total Sales', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
-          { label: 'Completed Orders', value: monthlyData.orderCount.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
-          { label: 'Products Sold', value: `${totalUnits} units`, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
-        ],
-        tableHeader,
-        tableRows
-      );
-
-      triggerExcelDownload(htmlContent, `monthly_sales_${monthStr.replace(/\s/g, '_')}`);
-      showNotification('Monthly report exported successfully!', 'success');
-      return;
-    }
 
     if (activeTab === 'daily' || activeTab === 'history') {
       const isHistory = activeTab === 'history';
@@ -1956,7 +1791,7 @@ export const SalesPage: React.FC = () => {
             </button>
 
             {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, and Hardbound tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'monthly' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound') && (
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
@@ -2010,16 +1845,6 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               Remittance
-            </button>
-            <button
-              onClick={() => setActiveTab('monthly')}
-              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
-                activeTab === 'monthly'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Monthly
             </button>
             <button
               onClick={() => setActiveTab('tailored')}
@@ -3209,188 +3034,6 @@ export const SalesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Monthly Sales Tab */}
-        {activeTab === 'monthly' && monthlyData && (
-          <div className="space-y-6">
-            {/* Month Navigation */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-4">
-                <button
-                  onClick={() => {
-                    const newMonth = new Date(selectedMonth);
-                    newMonth.setMonth(newMonth.getMonth() - 1);
-                    setSelectedMonth(newMonth);
-                  }}
-                  className="flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
-                >
-                  <ChevronLeft size={20} />
-                  <span className="font-semibold">Previous Month</span>
-                </button>
-                
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Viewing sales for:</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {selectedMonth.toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long'
-                    })}
-                  </p>
-                </div>
-                
-                <button
-                  onClick={() => {
-                    const newMonth = new Date(selectedMonth);
-                    newMonth.setMonth(newMonth.getMonth() + 1);
-                    const now = new Date();
-                    if (newMonth.getMonth() <= now.getMonth() && newMonth.getFullYear() <= now.getFullYear()) {
-                      setSelectedMonth(newMonth);
-                    }
-                  }}
-                  disabled={selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear()}
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
-                    selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear()
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      : 'bg-slate-100 hover:bg-slate-200'
-                  }`}
-                >
-                  <span className="font-semibold">Next Month</span>
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-              
-              {/* Month Picker */}
-              <div className="flex items-center justify-center">
-                <div className="flex items-center space-x-3">
-                  <label htmlFor="month-picker" className="text-sm font-semibold text-slate-700">
-                    Jump to month:
-                  </label>
-                  <input
-                    id="month-picker"
-                    type="month"
-                    value={`${selectedMonth.getFullYear()}-${String(selectedMonth.getMonth() + 1).padStart(2, '0')}`}
-                    max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`}
-                    onChange={(e) => {
-                      const [year, month] = e.target.value.split('-');
-                      const newMonth = new Date(parseInt(year), parseInt(month) - 1, 1);
-                      setSelectedMonth(newMonth);
-                    }}
-                    className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Total Sales</h3>
-                  <TrendingUp size={24} />
-                </div>
-                <p className="text-3xl font-bold">
-                  ₱{monthlyData.totalSales.toLocaleString()}
-                </p>
-                <p className="text-sm opacity-75 mt-1">
-                  {selectedMonth.getMonth() === new Date().getMonth() && selectedMonth.getFullYear() === new Date().getFullYear() 
-                    ? 'this month' 
-                    : 'that month'}
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Orders Completed</h3>
-                  <CheckCircle size={24} />
-                </div>
-                <p className="text-3xl font-bold">{monthlyData.orderCount}</p>
-                <p className="text-sm opacity-75 mt-1">orders</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Products Sold</h3>
-                  <Package size={24} />
-                </div>
-                <p className="text-3xl font-bold">
-                  {Object.values(monthlyData.productsSold).reduce((sum: number, p: any) => sum + p.quantity, 0)}
-                </p>
-                <p className="text-sm opacity-75 mt-1">units</p>
-              </div>
-            </div>
-
-            {/* Products Sold Table */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
-                <div className="relative w-full sm:w-80">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                    <Search size={18} />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search product name..."
-                    value={monthlySearchQuery}
-                    onChange={(e) => setMonthlySearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
-                  />
-                  {monthlySearchQuery && (
-                    <button
-                      onClick={() => setMonthlySearchQuery('')}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-slate-50 border-b border-slate-200">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Units Sold</th>
-                      <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(() => {
-                      const filtered = Object.entries(monthlyData.productsSold)
-                        .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
-                        .sort((a: any, b: any) => b[1].quantity - a[1].quantity);
-
-                      if (filtered.length === 0) {
-                        return (
-                          <tr>
-                            <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
-                              No products found matching "{monthlySearchQuery}"
-                            </td>
-                          </tr>
-                        );
-                      }
-
-                      return filtered.map(([productName, data]: [string, any]) => (
-                        <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
-                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
-                          <td className="px-6 py-4 text-sm text-right">
-                            <button
-                              onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
-                              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
-                            >
-                              {data.quantity} units
-                            </button>
-                          </td>
-                          <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
-                            ₱{data.revenue.toLocaleString()}
-                          </td>
-                        </tr>
-                      ));
-                    })()}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
 
         {/* Tailored Orders Tab */}
         {activeTab === 'tailored' && (
@@ -4875,148 +4518,7 @@ export const SalesPage: React.FC = () => {
             </div>
           </div>
         )}
-        {/* Product Sold Details Modal */}
-        {selectedProductSoldDetails && (
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
-            onClick={() => {
-              setSelectedProductSoldDetails(null);
-              setProductSoldSearchQuery('');
-            }}
-          >
-            <div
-              className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* Modal Header */}
-              <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
-                <div>
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {selectedProductSoldDetails.productName}
-                  </h3>
-                  <p className="text-sm text-slate-500 mt-1">
-                    Purchases in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total units sold: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.quantity} units</span>
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setSelectedProductSoldDetails(null);
-                    setProductSoldSearchQuery('');
-                  }}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors text-lg font-bold"
-                >
-                  ✕
-                </button>
-              </div>
 
-              {/* Search Bar inside Modal */}
-              <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white">
-                <div className="relative w-80">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                    <Search size={18} />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search by customer name..."
-                    value={productSoldSearchQuery}
-                    onChange={(e) => setProductSoldSearchQuery(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
-                  />
-                  {productSoldSearchQuery && (
-                    <button
-                      onClick={() => setProductSoldSearchQuery('')}
-                      className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
-                    >
-                      <X size={16} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* Modal Body / Table */}
-              <div className="flex-1 overflow-y-auto p-6">
-                {(() => {
-                  const purchases = getProductSoldOrders(selectedProductSoldDetails.productName);
-                  const filteredPurchases = purchases.filter(p => 
-                    productSoldSearchQuery === '' || 
-                    p.name.toLowerCase().includes(productSoldSearchQuery.toLowerCase())
-                  );
-
-                  if (filteredPurchases.length === 0) {
-                    return (
-                      <div className="text-center py-12">
-                        <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
-                        <p className="text-slate-500">
-                          {productSoldSearchQuery 
-                            ? `No purchases found matching "${productSoldSearchQuery}"` 
-                            : 'No purchase records found for this product.'}
-                        </p>
-                      </div>
-                    );
-                  }
-
-                  return (
-                    <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                      <table className="w-full text-sm">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                          <tr>
-                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Date</th>
-                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Receipt No.</th>
-                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Name</th>
-                            <th className="text-left py-3 px-6 font-semibold text-slate-900">Course & Year</th>
-                            <th className="text-center py-3 px-6 font-semibold text-slate-900">Quantity</th>
-                            <th className="text-right py-3 px-6 font-semibold text-slate-900">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100 bg-white">
-                          {filteredPurchases.map((purchase, idx) => (
-                            <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                              <td className="py-4 px-6 text-slate-600 whitespace-nowrap">
-                                {new Date(purchase.date).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                }) || 'N/A'}
-                              </td>
-                              <td className="py-4 px-6 font-mono text-slate-500 text-xs">
-                                {purchase.receipt_no}
-                              </td>
-                              <td className="py-4 px-6 font-semibold text-slate-900">
-                                {purchase.name}
-                              </td>
-                              <td className="py-4 px-6 text-slate-700">
-                                {purchase.courseYear}
-                              </td>
-                              <td className="py-4 px-6 text-center font-medium text-slate-800">
-                                {purchase.quantity}
-                              </td>
-                              <td className="py-4 px-6 text-right font-bold text-green-700 whitespace-nowrap">
-                                ₱{purchase.subtotal.toFixed(2)}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  );
-                })()}
-              </div>
-
-              {/* Modal Footer */}
-              <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
-                <button
-                  onClick={() => {
-                    setSelectedProductSoldDetails(null);
-                    setProductSoldSearchQuery('');
-                  }}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-sm font-semibold transition-all active:scale-95 shadow-sm"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
