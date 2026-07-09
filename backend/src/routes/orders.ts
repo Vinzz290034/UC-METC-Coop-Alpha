@@ -35,48 +35,7 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
 
     if (isStaffOrAdmin) {
       if (req.body.isWalkIn) {
-        const { walkInName, walkInIdNumber, walkInCourse, walkInMembershipStatus } = req.body;
-        
-        // Split name into first and last name
-        const nameParts = (walkInName || 'Walk-in Student').trim().split(/\s+/);
-        const firstName = nameParts.slice(0, -1).join(' ') || nameParts[0] || 'Walk-in';
-        const lastName = nameParts.length > 1 ? nameParts[nameParts.length - 1] : 'Student';
-        
-        // Check if walk-in user already exists to prevent duplicate ghost accounts
-        const existingWalkinResult = await pool.query(
-          `SELECT id FROM users 
-           WHERE first_name = $1 
-             AND last_name = $2 
-             AND (id_number = $3 OR (id_number IS NULL AND $3 IS NULL))
-             AND (course = $4 OR (course IS NULL AND $4 IS NULL))
-             AND email LIKE 'walkin-%@uc-metc-walkin.com'
-           LIMIT 1`,
-          [firstName, lastName, walkInIdNumber || null, walkInCourse || null]
-        );
-
-        if (existingWalkinResult.rows.length > 0) {
-          userId = existingWalkinResult.rows[0].id;
-        } else {
-          const email = `walkin-${Date.now()}-${Math.floor(Math.random() * 1000)}@uc-metc-walkin.com`;
-          
-          const userInsertResult = await pool.query(
-            `INSERT INTO users (email, password, id_number, first_name, last_name, course, role, status, membership_status)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-             RETURNING id`,
-            [
-              email,
-              '', // No password
-              walkInIdNumber || null,
-              firstName,
-              lastName,
-              walkInCourse || null,
-              'user',
-              'active',
-              walkInMembershipStatus || 'none'
-            ]
-          );
-          userId = userInsertResult.rows[0].id;
-        }
+        userId = null;
       } else if (req.body.userId) {
         userId = req.body.userId;
       }
@@ -118,9 +77,21 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
 
       // Insert order with reference_number, order_type, status, completed_at, and created_at
       console.log('[ORDER CREATE] Inserting order...');
+      const isWalkIn = !!req.body.isWalkIn;
+      const walkInName = req.body.walkInName || null;
+      const walkInIdNumber = req.body.walkInIdNumber || null;
+      const walkInCourse = req.body.walkInCourse || null;
+      const walkInContactNumber = req.body.walkInContactNumber || null;
+      const walkInMembershipStatus = req.body.walkInMembershipStatus || null;
+
       const orderResult = await client.query(
-        `INSERT INTO orders (receipt_no, user_id, total_amount, payment_method, reference_number, status, order_type, payment_status, completed_at, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        `INSERT INTO orders (
+          receipt_no, user_id, total_amount, payment_method, reference_number, 
+          status, order_type, payment_status, completed_at, created_at,
+          is_walk_in, walk_in_name, walk_in_id_number, walk_in_course, 
+          walk_in_contact_number, walk_in_membership_status
+         )
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING *`,
         [
           receiptNo, 
@@ -132,7 +103,13 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
           finalOrderType, 
           (orderStatus === 'completed' || orderStatus === 'released') ? 'completed' : 'pending',
           completedAt,
-          createdAt
+          createdAt,
+          isWalkIn,
+          walkInName,
+          walkInIdNumber,
+          walkInCourse,
+          walkInContactNumber,
+          walkInMembershipStatus
         ]
       );
 
@@ -573,7 +550,15 @@ router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
     const result = await pool.query(
       `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, 
               o.reference_number, o.status, o.created_at, o.updated_at,
-              u.email, u.first_name, u.last_name, u.id_number,
+              o.is_walk_in, o.walk_in_name, o.walk_in_id_number, o.walk_in_course, 
+              o.walk_in_contact_number, o.walk_in_membership_status,
+              COALESCE(u.email, 'walkin-' || o.receipt_no || '@uc-metc-walkin.com') as email, 
+              COALESCE(u.first_name, o.walk_in_name) as first_name, 
+              COALESCE(u.last_name, '') as last_name, 
+              COALESCE(u.id_number, o.walk_in_id_number) as id_number, 
+              COALESCE(u.course, o.walk_in_course) as course, 
+              COALESCE(u.year, o.walk_in_year) as year, 
+              COALESCE(u.membership_status, o.walk_in_membership_status) as membership_status,
               json_agg(json_build_object(
                 'id', oi.id,
                 'productId', oi.product_id,
@@ -756,7 +741,15 @@ router.get('/all/transactions', verifyUser, async (req: Request, res: Response) 
       // Staff/admin can see all orders
       query = `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, 
                       o.reference_number, o.status, o.order_type, o.created_at, o.updated_at, o.completed_at,
-              u.email, u.first_name, u.last_name, u.id_number, u.course, u.year,
+                      o.is_walk_in, o.walk_in_name, o.walk_in_id_number, o.walk_in_course, 
+                      o.walk_in_contact_number, o.walk_in_membership_status,
+                      COALESCE(u.email, 'walkin-' || o.receipt_no || '@uc-metc-walkin.com') as email, 
+                      COALESCE(u.first_name, o.walk_in_name) as first_name, 
+                      COALESCE(u.last_name, '') as last_name, 
+                      COALESCE(u.id_number, o.walk_in_id_number) as id_number, 
+                      COALESCE(u.course, o.walk_in_course) as course, 
+                      COALESCE(u.year, o.walk_in_year) as year,
+                      COALESCE(u.membership_status, o.walk_in_membership_status) as membership_status,
               json_agg(json_build_object(
                 'id', oi.id,
                 'productId', oi.product_id,

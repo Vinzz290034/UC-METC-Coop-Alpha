@@ -1959,7 +1959,11 @@ export const SalesPage: React.FC = () => {
                                   <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded text-xs font-semibold">BALANCE</span>
                                 )}
                               </div>
-                              <p className="text-sm text-slate-500 truncate">{order.email}</p>
+                              <p className="text-sm text-slate-500 truncate text-left">
+                                {order.email?.includes('@uc-metc-walkin.com')
+                                  ? (order.course || 'Walk-in Guest')
+                                  : order.email}
+                              </p>
                             </div>
                             {/* Amount */}
                             <div className="text-right flex-shrink-0">
@@ -1998,10 +2002,20 @@ export const SalesPage: React.FC = () => {
                     </span>
                   </div>
                   <div>
-                    <h3 className="font-bold text-slate-900">
+                    <h3 className="font-bold text-slate-900 flex items-center gap-1.5 text-left">
                       {formatFullName(selectedPendingOrder.first_name, selectedPendingOrder.last_name)}
+                      {selectedPendingOrder.email?.includes('@uc-metc-walkin.com') && (
+                        <span className="bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider">
+                          Walk-In
+                        </span>
+                      )}
                     </h3>
-                    <p className="text-sm text-slate-500">{selectedPendingOrder.email} • ID: {selectedPendingOrder.id_number}</p>
+                    <p className="text-sm text-slate-500 text-left">
+                      {selectedPendingOrder.email?.includes('@uc-metc-walkin.com')
+                        ? (selectedPendingOrder.course || 'Walk-in Guest')
+                        : selectedPendingOrder.email}
+                      {selectedPendingOrder.id_number && ` • ID: ${selectedPendingOrder.id_number}`}
+                    </p>
                   </div>
                 </div>
                 <button

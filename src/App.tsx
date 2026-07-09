@@ -29,6 +29,8 @@ import { BillingHistoryPage } from './pages/BillingHistoryPage';
 import { InboxPage } from './pages/InboxPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { NotificationsPage } from './pages/NotificationsPage';
+import { KioskPage } from './pages/KioskPage';
+
 
 function AppContent() {
   const { isAuthenticated, isValidating } = useAuth();
@@ -80,29 +82,37 @@ function AppContent() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
-        <Layout key="authenticated">
-          <Routes>
-            <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/merchandise" element={<MerchandisePage />} />
-            <Route path="/cart" element={<CartPage />} />
-            <Route path="/locker" element={<LockerPage />} />
-            <Route path="/transaction" element={<TransactionPage />} />
-            <Route path="/billing-history" element={<BillingHistoryPage />} />
-            <Route path="/inbox" element={<InboxPage />} />
-            <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/lockers" element={<LockerManagementPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/sales" element={<SalesPage />} />
-            <Route path="/members" element={<MembersPage />} />
-            <Route path="/user-management" element={<UserManagementPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/announcements" element={<AnnouncementsPage />} />
-            <Route path="/announcements-management" element={<AnnouncementsManagementPage />} />
-            <Route path="/account-settings" element={<AccountSettingsPage />} />
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Layout>
+        <Routes key="authenticated">
+          {/* Render Kiosk page directly, without the Layout wrapper */}
+          <Route path="/kiosk" element={<KioskPage />} />
+          
+          {/* Other admin/user pages are wrapped inside the Layout */}
+          <Route path="/*" element={
+            <Layout>
+              <Routes>
+                <Route path="/dashboard" element={<DashboardPage />} />
+                <Route path="/merchandise" element={<MerchandisePage />} />
+                <Route path="/cart" element={<CartPage />} />
+                <Route path="/locker" element={<LockerPage />} />
+                <Route path="/transaction" element={<TransactionPage />} />
+                <Route path="/billing-history" element={<BillingHistoryPage />} />
+                <Route path="/inbox" element={<InboxPage />} />
+                <Route path="/notifications" element={<NotificationsPage />} />
+                <Route path="/lockers" element={<LockerManagementPage />} />
+                <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/sales" element={<SalesPage />} />
+                <Route path="/members" element={<MembersPage />} />
+                <Route path="/user-management" element={<UserManagementPage />} />
+                <Route path="/reports" element={<ReportsPage />} />
+                <Route path="/announcements" element={<AnnouncementsPage />} />
+                <Route path="/announcements-management" element={<AnnouncementsManagementPage />} />
+                <Route path="/account-settings" element={<AccountSettingsPage />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+              </Routes>
+            </Layout>
+          } />
+        </Routes>
       )}
     </>
   );

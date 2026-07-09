@@ -17,6 +17,7 @@ import {
   Megaphone,
   Lock,
   Settings,
+  Tablet,
 } from 'lucide-react';
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { useUIStore } from '../store/uiStore';
@@ -69,6 +70,12 @@ export const Sidebar: React.FC = () => {
       icon: <LayoutDashboard size={20} />,
       label: 'Dashboard',
       id: 'dashboard',
+    },
+    {
+      icon: <Tablet size={20} />,
+      label: 'Kiosk Mode',
+      id: 'kiosk',
+      roles: ['admin', 'staff'],
     },
     {
       icon: <ShoppingBag size={20} />,

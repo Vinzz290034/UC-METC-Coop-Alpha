@@ -51,6 +51,44 @@ export async function testConnection() {
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS course VARCHAR(100)');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS year VARCHAR(50)');
     await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS tour_completed BOOLEAN NOT NULL DEFAULT false');
+
+    // Auto-migrate: drop NOT NULL on orders.user_id and add walk-in columns
+    await pool.query('ALTER TABLE orders ALTER COLUMN user_id DROP NOT NULL');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_walk_in BOOLEAN NOT NULL DEFAULT false');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_name VARCHAR(255)');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_id_number VARCHAR(100)');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_course VARCHAR(100)');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_year VARCHAR(50)');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_contact_number VARCHAR(100)');
+    await pool.query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS walk_in_membership_status VARCHAR(50)');
+
+    // Migrate existing walk-in users data to orders table
+    try {
+      await pool.query(`
+        UPDATE orders o
+        SET is_walk_in = true,
+            walk_in_name = TRIM(u.first_name || ' ' || u.last_name),
+            walk_in_id_number = u.id_number,
+            walk_in_course = u.course,
+            walk_in_membership_status = u.membership_status
+        FROM users u
+        WHERE o.user_id = u.id AND u.email LIKE 'walkin-%'
+      `);
+      
+      await pool.query(`
+        UPDATE orders o
+        SET user_id = NULL
+        FROM users u
+        WHERE o.user_id = u.id AND u.email LIKE 'walkin-%'
+      `);
+
+      const deleteResult = await pool.query("DELETE FROM users WHERE email LIKE 'walkin-%'");
+      if (deleteResult.rowCount && deleteResult.rowCount > 0) {
+        console.log(`✓ Cleaned up \${deleteResult.rowCount} legacy walk-in user accounts from the users table`);
+      }
+    } catch (cleanupErr) {
+      console.error('⚠️ Failed to migrate/cleanup legacy walk-in users:', cleanupErr);
+    }
     
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS allow_preorder BOOLEAN NOT NULL DEFAULT true');
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS made_to_order BOOLEAN NOT NULL DEFAULT false');

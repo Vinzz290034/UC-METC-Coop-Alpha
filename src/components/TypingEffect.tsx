@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 
 interface TypingEffectProps {
   words: string[];
+  colors?: string[];
   className?: string;
   speed?: number;
   deleteSpeed?: number;
@@ -22,6 +23,7 @@ const styles = `
 
 export const TypingEffect: React.FC<TypingEffectProps> = ({
   words,
+  colors = ['#16a34a', '#a855f7'], // green-600, purple-600
   className = '',
   speed = 80,
   deleteSpeed = 40,
@@ -32,8 +34,7 @@ export const TypingEffect: React.FC<TypingEffectProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isWaiting, setIsWaiting] = useState(false);
 
-  // Alternate between green and purple
-  const colors = ['#16a34a', '#a855f7']; // green-600, purple-600
+  // Alternate colors
   const currentColor = colors[wordIndex % colors.length];
 
   useEffect(() => {

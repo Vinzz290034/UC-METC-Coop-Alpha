@@ -425,6 +425,7 @@ export class AppDataSync {
         variants: p.variants,
         allowPreorder: p.allow_preorder !== false,
         madeToOrder: p.made_to_order === true,
+        available: p.available !== false,
         createdAt: p.created_at,
       }));
       useAppStore.setState({ products: transformedProducts });

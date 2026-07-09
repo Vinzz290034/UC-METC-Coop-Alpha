@@ -15,12 +15,12 @@ import { apiClient } from '../services/api';
 // Default products based on ITEM_INVENTORY
 const createDefaultProducts = (): Product[] => {
   const defaultItems = [
-    { name: 'Type A & B Uniform', sku: 'UNI-001', price: 3150, stock: 45, category: 'uniform', available: true, image: '', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [
+    { name: 'Type A & B Uniform', sku: 'UNI-001', price: 2700, stock: 0, category: 'uniform', available: true, image: '', note: 'Note: Please proceed to the Coop office to register your name for uniform tailoring and size fitting.', options: [
       { id: 'course', label: 'Course', choices: ['SHS (₱2,700)', 'BSMT (₱2,950)', 'BSMARE (₱2,950)'] }
     ] },
     { name: 'Type C Uniform', sku: 'UNI-003', price: 400, stock: 28, category: 'uniform', available: true, image: '', note: 'Note: Please proceed to the Coop Office if you need assistance in confirming your size', options: [
-      { id: 'course', label: 'Course', choices: ['SHS', 'BSMT', 'BSMARE'] },
-      { id: 'size', label: 'Size', choices: ['Small', 'Medium', 'Large', 'XL', '2XL', '3XL', '4XL'] }
+      { id: 'course', label: 'Course', choices: ['JHS', 'SHS', 'SHS-Maritime', 'SHS-STEM', 'BSMT', 'BSMARE'] },
+      { id: 'size', label: 'Size', choices: ['16', 'Small', 'Medium', 'Large', 'XL', '2XL', '3XL', '4XL'] }
     ] },
     { name: 'Lanyard', sku: 'ACC-001', price: 100, stock: 100, category: 'accessory', available: true, image: '', options: [
       { id: 'course', label: 'Course', choices: ['SHS', 'BSMT', 'BSMARE', 'HM', 'TOURISM'] }
