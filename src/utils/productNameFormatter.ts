@@ -68,6 +68,25 @@ export function formatProductName(
     return isMemberPrice ? `${result} - Member Price` : result;
   }
 
+  // Handle the generic 'Variants' key used by products with a single variant selector
+  // e.g., Patch product stores {"Variants": "BSMT Patch"}
+  if (selectedOptions['Variants'] || selectedOptions['variants']) {
+    const variantValue = selectedOptions['Variants'] || selectedOptions['variants'];
+    const variantName = variantValue.split('(')[0].trim();
+    if (variantName && variantName !== productName) {
+      parts.push(variantName);
+    }
+  }
+
+  // Fallback: append any other option values not yet handled above
+  const knownKeys = new Set(['bundle', 'part', 'color', 'size', 'course', 'Variants', 'variants']);
+  for (const [key, value] of Object.entries(selectedOptions)) {
+    if (!knownKeys.has(key) && value) {
+      const valName = String(value).split('(')[0].trim();
+      if (valName) parts.push(valName);
+    }
+  }
+
   const result = parts.join(' - ');
   return isMemberPrice ? `${result} - Member Price` : result;
 }
