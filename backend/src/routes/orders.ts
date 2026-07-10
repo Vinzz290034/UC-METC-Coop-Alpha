@@ -366,11 +366,11 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
 
       const previousStatus = orderResult.rows[0].status;
 
-      // Update order status and set completed_at if status is completed
+      // Update order status and set completed_at if status is completed or released
       let updateQuery;
       let updateParams;
       
-      if (status === 'completed') {
+      if (status === 'completed' || status === 'released') {
         updateQuery = `UPDATE orders 
                        SET status = $1, 
                            updated_at = NOW(), 
@@ -389,8 +389,8 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
       
       const updateResult = await client.query(updateQuery, updateParams);
 
-      // If order is being marked as completed and was previously pending, deduct inventory
-      if (status === 'completed' && previousStatus === 'pending') {
+      // If order is being marked as completed/released and was previously pending, deduct inventory
+      if ((status === 'completed' || status === 'released') && previousStatus === 'pending') {
         // Get all order items
         const itemsResult = await client.query(
           `SELECT product_id, product_name, quantity, selected_options FROM order_items WHERE order_id = $1`,
@@ -456,7 +456,7 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
       const updatedOrder = updateResult.rows[0];
       
       // Create notification for user when order status changes
-      if (status === 'completed') {
+      if (status === 'completed' || status === 'released') {
         // Check if this is an insurance order
         const orderTypeResult = await pool.query(
           'SELECT order_type FROM orders WHERE id = $1',
@@ -474,12 +474,13 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
             link: '/transaction',
           });
         } else {
-          // Regular order completion message
+          // Regular order completion/released message
+          const actionText = status === 'released' ? 'released' : 'completed';
           await notificationService.createNotification({
             user_id: updatedOrder.user_id,
             type: 'order_completed',
-            title: 'Order Completed',
-            description: `Your order #${updatedOrder.receipt_no} has been completed`,
+            title: status === 'released' ? 'Order Released' : 'Order Completed',
+            description: `Your order #${updatedOrder.receipt_no} has been ${actionText}`,
             link: '/transaction',
           });
         }
@@ -649,8 +650,8 @@ router.delete('/admin/:id', verifyUser, async (req: Request, res: Response) => {
 
       const order = orderResult.rows[0];
 
-      // If the order was COMPLETED, restore the stock of items
-      if (order.status === 'completed' && order.order_type !== 'insurance') {
+      // If the order was COMPLETED or RELEASED, restore the stock of items
+      if ((order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance') {
         const itemsResult = await client.query(
           `SELECT product_id, quantity, selected_options FROM order_items WHERE order_id = $1`,
           [id]

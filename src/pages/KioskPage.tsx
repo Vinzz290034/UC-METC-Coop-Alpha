@@ -233,6 +233,22 @@ export const KioskPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
 
+  // Helper to resolve kiosk variant image, prioritizing database variant images
+  const getKioskVariantImage = (product: Product | null, opts: Record<string, string>): string => {
+    if (!product) return '';
+    if (product.variants && Object.keys(product.variants).length > 0) {
+      const variantKey = Object.entries(opts)
+        .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
+        .map(([key, value]) => `${key}:${value}`)
+        .join('|');
+      const variant = product.variants[variantKey];
+      if (variant && (variant as any).image && (variant as any).image !== '📦' && (variant as any).image.trim() !== '') {
+        return (variant as any).image;
+      }
+    }
+    return getProductImageByName(product.name, opts) || product.image || '';
+  };
+
   // GCash service fee calculation (matches CartPage logic)
   const calculateEWalletFee = (amount: number): number => {
     if (amount <= 0) return 0;
@@ -534,7 +550,7 @@ export const KioskPage: React.FC = () => {
     const paymentSuffix = isTailoredProduct ? `-${paymentType}` : '';
     const orderSuffix = resolvedOrderType === 'preorder' ? '-preorder' : '';
     const cartItemId = `${selectedProduct.id}${optionsString ? `-${optionsString}` : ''}${paymentSuffix}${orderSuffix}`;
-    const productImage = getProductImageByName(selectedProduct.name, selectedOptions) || selectedProduct.image || '';
+    const productImage = getKioskVariantImage(selectedProduct, selectedOptions);
 
     // Check if item already in cart
     const existingIndex = cart.findIndex(item => item.id === cartItemId);
@@ -1457,8 +1473,8 @@ export const KioskPage: React.FC = () => {
               {/* Product Info */}
               <div className="w-full md:w-64 flex flex-col items-center flex-shrink-0">
                 <div className="w-full aspect-square bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-center relative overflow-hidden mb-4 shadow-sm">
-                  {getProductImageByName(selectedProduct.name, selectedOptions) || selectedProduct.image ? (
-                    <img src={getProductImageByName(selectedProduct.name, selectedOptions) || selectedProduct.image || ''} alt={selectedProduct.name} className="w-full h-full object-contain" />
+                  {getKioskVariantImage(selectedProduct, selectedOptions) ? (
+                    <img src={getKioskVariantImage(selectedProduct, selectedOptions)} alt={selectedProduct.name} className="w-full h-full object-contain" />
                   ) : (
                     <span className="text-5xl">📦</span>
                   )}

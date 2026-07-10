@@ -1,4 +1,5 @@
 import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
+import patchVariants from '../../patch_variants.json';
 
 /**
  * Resolves the Cloudinary image URL for a product based on its name and selected options.
@@ -16,6 +17,20 @@ export function getProductImageByName(productName: string, selectedOpts: Record<
   const name = productName.trim();
 
   // Products with variant images based on options
+  if (name === 'Patch') {
+    const optionValue = Object.values(selectedOpts).find(val => 
+      val === 'UC Patch' || val === 'BSMT Patch' || val === 'BSMARE Patch'
+    );
+    if (optionValue) {
+      const matchedKey = Object.keys(patchVariants).find(key => key.endsWith(`:${optionValue}`));
+      if (matchedKey) {
+        return (patchVariants as any)[matchedKey]?.image || '';
+      }
+    }
+    const defaultKey = Object.keys(patchVariants).find(key => key.endsWith(':UC Patch')) || '';
+    return (patchVariants as any)[defaultKey]?.image || '';
+  }
+
   if (name === 'Type A & B Uniform') {
     return PRODUCT_IMAGES['Type A & B Uniform'];
   }
