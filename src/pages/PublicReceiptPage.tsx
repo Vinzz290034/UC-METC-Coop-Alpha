@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { apiClient } from '../services/api';
-import { CheckCircle2, Clock, XCircle, Printer, ArrowLeft } from 'lucide-react';
+import { CheckCircle2, Clock, XCircle, Printer, ArrowLeft, Download } from 'lucide-react';
 
 interface OrderItem {
   id: string;
@@ -59,6 +59,208 @@ export function PublicReceiptPage() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownload = () => {
+    if (!order) return;
+    
+    // Calculate required height based on item list length
+    const itemHeight = 55;
+    const baseHeight = 420;
+    const totalHeight = baseHeight + (order.items.length * itemHeight);
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = 480;
+    canvas.height = totalHeight;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Background
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Top border/accent line
+    ctx.fillStyle = '#9333ea'; // purple-600
+    ctx.fillRect(0, 0, canvas.width, 10);
+    
+    // Header text
+    ctx.fillStyle = '#64748b'; // slate-500
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('UNIVERSITY OF UC - METC', canvas.width / 2, 40);
+    
+    ctx.fillStyle = '#9333ea'; // purple-600
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('MULTIPURPOSE COOPERATIVE (UC-METC MPC)', canvas.width / 2, 55);
+    
+    ctx.fillStyle = '#0f172a'; // slate-900
+    ctx.font = 'bold 20px sans-serif';
+    ctx.fillText('UC METC SILMS ORDER SLIP', canvas.width / 2, 90);
+    
+    // Receipt Badge
+    ctx.fillStyle = '#f5f3ff'; // purple-50
+    const badgeW = 280;
+    const badgeH = 34;
+    const badgeX = (canvas.width - badgeW) / 2;
+    const badgeY = 110;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(badgeX, badgeY, badgeW, badgeH, 10);
+    } else {
+      ctx.rect(badgeX, badgeY, badgeW, badgeH);
+    }
+    ctx.fill();
+    
+    ctx.strokeStyle = '#ddd6fe'; // purple-200
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    
+    ctx.fillStyle = '#7c3aed'; // purple-600
+    ctx.font = 'bold 14px monospace';
+    ctx.fillText(order.receipt_no, canvas.width / 2, 132);
+    
+    // Left-aligned details
+    ctx.textAlign = 'left';
+    ctx.fillStyle = '#64748b'; // slate-500
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('ORDER DATE', 40, 180);
+    ctx.fillText('PAYMENT STATUS', 260, 180);
+    
+    ctx.fillStyle = '#1e293b'; // slate-800
+    ctx.font = 'bold 12px sans-serif';
+    const dateStr = new Date(order.created_at).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    ctx.fillText(dateStr, 40, 200);
+    
+    // Payment status badge background
+    const statusLabel = (statusInfo.label || order.status).toUpperCase();
+    let statusBg = '#fef08a'; // yellow-200
+    let statusFg = '#854d0e'; // yellow-800
+    if (order.status === 'completed' || order.status === 'released') {
+      statusBg = '#bbf7d0'; // green-200
+      statusFg = '#166534'; // green-800
+    } else if (order.status === 'cancelled') {
+      statusBg = '#fecaca'; // red-200
+      statusFg = '#991b1b'; // red-800
+    }
+    
+    ctx.fillStyle = statusBg;
+    const statusW = ctx.measureText(statusLabel).width + 20;
+    ctx.beginPath();
+    if (ctx.roundRect) {
+      ctx.roundRect(260, 188, statusW, 18, 9);
+    } else {
+      ctx.rect(260, 188, statusW, 18);
+    }
+    ctx.fill();
+    ctx.fillStyle = statusFg;
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText(statusLabel, 270, 201);
+    
+    // Divider
+    ctx.strokeStyle = '#e2e8f0'; // slate-200
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(40, 225);
+    ctx.lineTo(canvas.width - 40, 225);
+    ctx.stroke();
+    
+    // Customer Info
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('CUSTOMER DETAILS', 40, 245);
+    
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 13px sans-serif';
+    const custName = order.first_name ? `${order.first_name} ${order.last_name || ''}`.trim() : 'Walk-in Guest';
+    ctx.fillText(custName, 40, 262);
+    
+    if (order.id_number) {
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'medium 11px sans-serif';
+      const detailStr = `ID: ${order.id_number}  |  ${order.course || ''} Year ${order.year || ''}`;
+      ctx.fillText(detailStr, 40, 278);
+    }
+    
+    // Divider
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(40, 295);
+    ctx.lineTo(canvas.width - 40, 295);
+    ctx.stroke();
+    
+    // Items header
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 10px sans-serif';
+    ctx.fillText('ITEMS ORDERED', 40, 315);
+    
+    // Draw items
+    let currentY = 345;
+    order.items.forEach((item) => {
+      ctx.fillStyle = '#0f172a';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.fillText(item.productName, 40, currentY);
+      
+      ctx.textAlign = 'right';
+      ctx.fillText(`₱${Number(item.subtotal || 0).toLocaleString()}`, canvas.width - 40, currentY);
+      
+      ctx.textAlign = 'left';
+      ctx.fillStyle = '#64748b';
+      ctx.font = 'medium 10px sans-serif';
+      ctx.fillText(`Qty: ${item.quantity}   @ ₱${Number(item.unitPrice || 0).toLocaleString()}`, 40, currentY + 16);
+      
+      // Options if any
+      const optionsStr = formatOptions(item.selectedOptions);
+      if (optionsStr) {
+        ctx.fillStyle = '#7c3aed';
+        ctx.font = 'italic 9px sans-serif';
+        ctx.fillText(optionsStr, 40, currentY + 28);
+      }
+      
+      currentY += itemHeight;
+    });
+    
+    // Divider
+    ctx.strokeStyle = '#e2e8f0';
+    ctx.beginPath();
+    ctx.moveTo(40, currentY - 5);
+    ctx.lineTo(canvas.width - 40, currentY - 5);
+    ctx.stroke();
+    
+    // Total
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('TOTAL AMOUNT', 40, currentY + 20);
+    
+    ctx.textAlign = 'right';
+    ctx.fillStyle = '#7c3aed'; // purple-600
+    ctx.font = 'bold 18px sans-serif';
+    ctx.fillText(`₱${Number(order.total_amount || 0).toLocaleString()}`, canvas.width - 40, currentY + 22);
+    
+    // Bottom instructions
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#334155'; // slate-700
+    ctx.font = 'medium 11px sans-serif';
+    const instructionText = order.status === 'pending'
+      ? 'Please present this slip to the Coop counter with payment.'
+      : 'Thank you! Present this slip to claim your items.';
+    ctx.fillText(instructionText, canvas.width / 2, currentY + 60);
+    
+    ctx.fillStyle = '#94a3b8'; // slate-400
+    ctx.font = 'bold 9px sans-serif';
+    ctx.fillText('UC METC SILMS COOP MANAGEMENT SYSTEM', canvas.width / 2, currentY + 80);
+    
+    // Trigger download
+    const dataUrl = canvas.toDataURL('image/png');
+    const link = document.createElement('a');
+    link.download = `receipt-${order.receipt_no}.png`;
+    link.href = dataUrl;
+    link.click();
   };
 
   if (loading) {
@@ -122,13 +324,22 @@ export function PublicReceiptPage() {
           <ArrowLeft size={16} />
           <span>Home</span>
         </button>
-        <button
-          onClick={handlePrint}
-          className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow border border-slate-700"
-        >
-          <Printer size={14} />
-          <span>Print Receipt</span>
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleDownload}
+            className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow border border-slate-700"
+          >
+            <Download size={14} />
+            <span>Download PNG</span>
+          </button>
+          <button
+            onClick={handlePrint}
+            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow"
+          >
+            <Printer size={14} />
+            <span>Print Receipt</span>
+          </button>
+        </div>
       </div>
 
       {/* Receipt Slip Container */}
@@ -149,7 +360,7 @@ export function PublicReceiptPage() {
           <p className="text-[9px] sm:text-[10px] font-bold text-purple-600 uppercase tracking-wider leading-tight mt-0.5">
             Multipurpose Cooperative (UC-METC MPC)
           </p>
-          <h2 className="text-2xl font-black text-slate-900 mt-4 tracking-tight">COOP ORDER SLIP</h2>
+          <h2 className="text-xl sm:text-2xl font-black text-slate-900 mt-4 tracking-tight">UC METC SILMS ORDER SLIP</h2>
           <p className="text-xs font-mono font-bold text-purple-600 bg-purple-50 border border-purple-100 px-3 py-1.5 rounded-xl inline-block mt-3 tracking-wider">
             {order.receipt_no}
           </p>
