@@ -66,8 +66,10 @@ export function PublicReceiptPage() {
     
     // Calculate required height based on item list length
     const itemHeight = 55;
-    const baseHeight = 420;
-    const totalHeight = baseHeight + (order.items.length * itemHeight);
+    const headerSection = 340;  // top accent + header + badge + date + customer + dividers
+    const itemsSection = order.items.length * itemHeight;
+    const footerSection = 120; // total label + instructions + system tag + bottom padding
+    const totalHeight = headerSection + itemsSection + footerSection;
     
     const canvas = document.createElement('canvas');
     canvas.width = 480;
@@ -327,17 +329,17 @@ export function PublicReceiptPage() {
         <div className="flex space-x-2">
           <button
             onClick={handleDownload}
-            className="flex items-center space-x-2 bg-slate-800 hover:bg-slate-700 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow border border-slate-700"
+            className="flex items-center space-x-1.5 bg-slate-800 hover:bg-slate-700 text-white px-3 py-2 rounded-xl transition-all text-xs font-semibold shadow border border-slate-700"
           >
-            <Download size={14} />
-            <span>Download PNG</span>
+            <Download size={13} />
+            <span>Download</span>
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-xl transition-all text-xs font-semibold shadow"
+            className="flex items-center space-x-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3 py-2 rounded-xl transition-all text-xs font-semibold shadow"
           >
-            <Printer size={14} />
-            <span>Print Receipt</span>
+            <Printer size={13} />
+            <span>Print</span>
           </button>
         </div>
       </div>
