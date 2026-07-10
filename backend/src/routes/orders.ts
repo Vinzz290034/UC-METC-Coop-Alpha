@@ -371,12 +371,22 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
       let updateParams;
       
       if (status === 'completed' || status === 'released') {
-        updateQuery = `UPDATE orders 
-                       SET status = $1, 
-                           updated_at = NOW(), 
-                           completed_at = NOW() 
-                       WHERE id = $2 
-                       RETURNING *`;
+        const isAlreadyPaid = previousStatus === 'completed' || previousStatus === 'released';
+        if (isAlreadyPaid) {
+          updateQuery = `UPDATE orders 
+                         SET status = $1, 
+                             updated_at = NOW(),
+                             completed_at = COALESCE(completed_at, NOW())
+                         WHERE id = $2 
+                         RETURNING *`;
+        } else {
+          updateQuery = `UPDATE orders 
+                         SET status = $1, 
+                             updated_at = NOW(), 
+                             completed_at = NOW() 
+                         WHERE id = $2 
+                         RETURNING *`;
+        }
         updateParams = [status, id];
       } else {
         updateQuery = `UPDATE orders 

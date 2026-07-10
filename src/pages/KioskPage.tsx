@@ -310,7 +310,6 @@ export const KioskPage: React.FC = () => {
   // Success states
   const [createdReceipt, setCreatedReceipt] = useState<string | null>(null);
   const [successSubStep, setSuccessSubStep] = useState<'receipt' | 'qrcode'>('receipt');
-  const [successCountdown, setSuccessCountdown] = useState(5);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -334,13 +333,18 @@ export const KioskPage: React.FC = () => {
     };
   }, []);
 
-  // Idle timeout: Reset to idle page if no interaction for 3 minutes on catalog/checkout
+  // Idle timeout: Reset to idle page if no interaction
   const resetIdleTimer = () => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     if (step === 'catalog' || step === 'checkout') {
       idleTimerRef.current = setTimeout(() => {
         handleResetKiosk();
         showNotification('Kiosk session reset due to inactivity');
+      }, 180000); // 3 minutes
+    } else if (step === 'success') {
+      // Auto-reset after 3 minutes on the success/QR code page if left unattended
+      idleTimerRef.current = setTimeout(() => {
+        handleResetKiosk();
       }, 180000); // 3 minutes
     }
   };
@@ -352,53 +356,31 @@ export const KioskPage: React.FC = () => {
     };
   }, [step, cart, selectedProduct]);
 
-  // Handle Success Screen Auto-Reset Countdown and Status Polling
+  // Handle Success Screen Status Polling (No countdown timer for qrcode step)
   useEffect(() => {
     let pollInterval: NodeJS.Timeout | null = null;
 
-    if (step === 'success') {
-      if (successSubStep === 'receipt') {
-        // Poll backend every 2 seconds to check if cashier marked order as paid
-        pollInterval = setInterval(async () => {
-          if (!createdReceipt) return;
-          try {
-            const data = await apiClient.getPublicReceipt(createdReceipt);
-            if (data && (data.status === 'completed' || data.status === 'released')) {
-              if (pollInterval) clearInterval(pollInterval);
-              setSuccessSubStep('qrcode');
-            } else if (data && data.status === 'cancelled') {
-              if (pollInterval) clearInterval(pollInterval);
-              showNotification('Order was cancelled', 'error');
-              handleResetKiosk();
-            }
-          } catch (err) {
-            console.error('Error polling receipt status:', err);
+    if (step === 'success' && successSubStep === 'receipt') {
+      // Poll backend every 2 seconds to check if cashier marked order as paid
+      pollInterval = setInterval(async () => {
+        if (!createdReceipt) return;
+        try {
+          const data = await apiClient.getPublicReceipt(createdReceipt);
+          if (data && (data.status === 'completed' || data.status === 'released')) {
+            if (pollInterval) clearInterval(pollInterval);
+            setSuccessSubStep('qrcode');
+          } else if (data && data.status === 'cancelled') {
+            if (pollInterval) clearInterval(pollInterval);
+            showNotification('Order was cancelled', 'error');
+            handleResetKiosk();
           }
-        }, 2000);
-      } else {
-        // Start 15s countdown to auto-reset once QR code is shown
-        setSuccessCountdown(15);
-        countdownTimerRef.current = setInterval(() => {
-          setSuccessCountdown(prev => {
-            if (prev <= 1) {
-              clearInterval(countdownTimerRef.current!);
-              handleResetKiosk();
-              return 15;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      }
-    } else {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-      }
+        } catch (err) {
+          console.error('Error polling receipt status:', err);
+        }
+      }, 2000);
     }
 
     return () => {
-      if (countdownTimerRef.current) {
-        clearInterval(countdownTimerRef.current);
-      }
       if (pollInterval) {
         clearInterval(pollInterval);
       }
@@ -1530,10 +1512,6 @@ export const KioskPage: React.FC = () => {
                 <button onClick={() => handleResetKiosk()} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-black rounded-xl shadow-md active:scale-95 transition-all">
                   START A NEW ORDER
                 </button>
-                <p className="text-xs text-gray-400 flex items-center space-x-1">
-                  <span>Auto-resetting page in</span>
-                  <span className="font-bold text-purple-600">{successCountdown}s</span>
-                </p>
               </div>
             </div>
           </div>
