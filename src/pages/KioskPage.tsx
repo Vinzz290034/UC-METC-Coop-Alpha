@@ -406,7 +406,14 @@ export const KioskPage: React.FC = () => {
   }, [step, successSubStep, createdReceipt]);
 
   // Reset Kiosk State
-  const handleResetKiosk = () => {
+  const handleResetKiosk = (shouldCancelOrder = false) => {
+    // If cancelling while awaiting payment, mark the walk-in order as cancelled on the backend
+    if (shouldCancelOrder && createdReceipt) {
+      apiClient.cancelPublicWalkInOrder(createdReceipt).catch((err) => {
+        console.error('Failed to cancel walk-in order on reset:', err);
+      });
+    }
+
     setCart([]);
     setFullName('');
     setIsStudent(true);
@@ -1114,7 +1121,7 @@ export const KioskPage: React.FC = () => {
                     {cart.reduce((sum, i) => sum + i.quantity, 0)} Items
                   </span>
                   <button
-                    onClick={handleResetKiosk}
+                  onClick={() => handleResetKiosk()}
                     className="p-1.5 bg-gray-100 hover:bg-red-50 hover:text-red-500 rounded-lg transition-all text-gray-500 border border-gray-200 flex items-center justify-center shadow-sm"
                     title="Cancel & Go Home"
                   >
@@ -1484,8 +1491,8 @@ export const KioskPage: React.FC = () => {
                   <span className="text-xs font-black tracking-wide">AWAITING PAYMENT AT THE COUNTER...</span>
                 </div>
                 <button 
-                  onClick={handleResetKiosk} 
-                  className="text-xs text-gray-400 hover:text-gray-600 font-bold transition-colors underline"
+                  onClick={() => handleResetKiosk(true)} 
+                  className="text-xs text-gray-400 hover:text-red-500 font-bold transition-colors underline"
                 >
                   CANCEL / START A NEW ORDER
                 </button>
@@ -1520,7 +1527,7 @@ export const KioskPage: React.FC = () => {
               </div>
 
               <div className="flex flex-col items-center space-y-4">
-                <button onClick={handleResetKiosk} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-black rounded-xl shadow-md active:scale-95 transition-all">
+                <button onClick={() => handleResetKiosk()} className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white text-sm font-black rounded-xl shadow-md active:scale-95 transition-all">
                   START A NEW ORDER
                 </button>
                 <p className="text-xs text-gray-400 flex items-center space-x-1">

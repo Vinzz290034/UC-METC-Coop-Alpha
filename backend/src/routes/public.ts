@@ -102,5 +102,43 @@ router.get('/receipt/:receiptNo', async (req: Request, res: Response) => {
   }
 });
 
+
+// Cancel a pending walk-in order by receipt number (public endpoint - kiosk use only)
+// Only works for walk-in (is_walk_in = true) orders that are still pending
+router.put('/cancel/:receiptNo', async (req: Request, res: Response) => {
+  try {
+    const { receiptNo } = req.params;
+
+    const orderResult = await pool.query(
+      `SELECT id, status, is_walk_in FROM orders WHERE receipt_no = $1`,
+      [receiptNo]
+    );
+
+    if (orderResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    const order = orderResult.rows[0];
+
+    if (!order.is_walk_in) {
+      return res.status(403).json({ error: 'Only walk-in orders can be cancelled via this endpoint' });
+    }
+
+    if (order.status !== 'pending') {
+      return res.status(400).json({ error: 'Order is no longer pending and cannot be cancelled' });
+    }
+
+    await pool.query(
+      `UPDATE orders SET status = 'cancelled', updated_at = NOW() WHERE id = $1`,
+      [order.id]
+    );
+
+    res.json({ message: 'Order cancelled successfully', receiptNo });
+  } catch (error) {
+    console.error('[public/cancel] Error cancelling order:', error);
+    res.status(500).json({ error: 'Failed to cancel order' });
+  }
+});
+
 export default router;
 

@@ -503,6 +503,11 @@ class ApiClient {
     return this.request<any>(`/public/receipt/${receiptNo}`);
   }
 
+  // Cancel a walk-in order by receipt number (kiosk use, no auth required)
+  async cancelPublicWalkInOrder(receiptNo: string) {
+    return this.request<any>(`/public/cancel/${receiptNo}`, { method: 'PUT' });
+  }
+
   // Announcements endpoints
   async getPublicAnnouncements() {
     return this.request<any>('/announcements/public');
