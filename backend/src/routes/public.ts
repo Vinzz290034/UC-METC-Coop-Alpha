@@ -54,4 +54,53 @@ router.get('/stats', async (req: Request, res: Response) => {
   }
 });
 
+// Get walk-in or regular order details by receipt number (public endpoint - no auth required)
+router.get('/receipt/:receiptNo', async (req: Request, res: Response) => {
+  try {
+    const { receiptNo } = req.params;
+    
+    const result = await pool.query(
+      `SELECT o.id, o.receipt_no, o.user_id, o.total_amount, o.payment_method, 
+              o.reference_number, o.status, o.created_at, o.updated_at,
+              o.is_walk_in, o.walk_in_name, o.walk_in_id_number, o.walk_in_course, 
+              o.walk_in_contact_number, o.walk_in_membership_status, o.walk_in_year,
+              COALESCE(u.email, 'walkin-' || o.receipt_no || '@uc-metc-walkin.com') as email, 
+              COALESCE(u.first_name, o.walk_in_name) as first_name, 
+              COALESCE(u.last_name, '') as last_name, 
+              COALESCE(u.id_number, o.walk_in_id_number) as id_number, 
+              COALESCE(u.course, o.walk_in_course) as course, 
+              COALESCE(u.year, o.walk_in_year) as year,
+              COALESCE(u.membership_status, o.walk_in_membership_status) as membership_status,
+              json_agg(json_build_object(
+                'id', oi.id,
+                'productId', oi.product_id,
+                'productName', oi.product_name,
+                'quantity', oi.quantity,
+                'unitPrice', oi.unit_price,
+                'subtotal', oi.subtotal,
+                'selectedOptions', oi.selected_options,
+                'paymentType', oi.payment_type,
+                'orderType', oi.order_type,
+                'fullPrice', oi.full_price
+              )) as items
+       FROM orders o
+       LEFT JOIN order_items oi ON o.id = oi.order_id
+       LEFT JOIN users u ON o.user_id = u.id
+       WHERE o.receipt_no = $1
+       GROUP BY o.id, u.id`,
+      [receiptNo]
+    );
+
+    if (result.rows.length === 0 || !result.rows[0].id) {
+      return res.status(404).json({ error: 'Receipt not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('[public/receipt] Error fetching receipt:', error);
+    res.status(500).json({ error: 'Failed to fetch receipt' });
+  }
+});
+
 export default router;
+

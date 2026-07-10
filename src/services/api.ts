@@ -498,6 +498,11 @@ class ApiClient {
     return this.request<any>('/public/stats');
   }
 
+  // Get public receipt details by receipt number (no auth required)
+  async getPublicReceipt(receiptNo: string) {
+    return this.request<any>(`/public/receipt/${receiptNo}`);
+  }
+
   // Announcements endpoints
   async getPublicAnnouncements() {
     return this.request<any>('/announcements/public');

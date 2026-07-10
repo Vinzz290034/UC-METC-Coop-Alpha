@@ -23,6 +23,7 @@ import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
 import { AppDataSync } from '../store/appDataSync';
 import { getProductImageByName } from '../utils/productImageResolver';
+import { getFrontendUrl } from '../utils/apiBaseUrl';
 import { apiClient } from '../services/api';
 import { COOP_LOGO_URL, GCASH_URL } from '../constants/cloudinaryAssets';
 import { TypingEffect } from '../components/TypingEffect';
@@ -308,7 +309,8 @@ export const KioskPage: React.FC = () => {
 
   // Success states
   const [createdReceipt, setCreatedReceipt] = useState<string | null>(null);
-  const [successCountdown, setSuccessCountdown] = useState(15);
+  const [successSubStep, setSuccessSubStep] = useState<'receipt' | 'qrcode'>('receipt');
+  const [successCountdown, setSuccessCountdown] = useState(5);
   const countdownTimerRef = useRef<NodeJS.Timeout | null>(null);
   const idleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -350,20 +352,43 @@ export const KioskPage: React.FC = () => {
     };
   }, [step, cart, selectedProduct]);
 
-  // Handle Success Screen Auto-Reset Countdown
+  // Handle Success Screen Auto-Reset Countdown and Status Polling
   useEffect(() => {
+    let pollInterval: NodeJS.Timeout | null = null;
+
     if (step === 'success') {
-      setSuccessCountdown(15);
-      countdownTimerRef.current = setInterval(() => {
-        setSuccessCountdown(prev => {
-          if (prev <= 1) {
-            clearInterval(countdownTimerRef.current!);
-            handleResetKiosk();
-            return 15;
+      if (successSubStep === 'receipt') {
+        // Poll backend every 2 seconds to check if cashier marked order as paid
+        pollInterval = setInterval(async () => {
+          if (!createdReceipt) return;
+          try {
+            const data = await apiClient.getPublicReceipt(createdReceipt);
+            if (data && (data.status === 'completed' || data.status === 'released')) {
+              if (pollInterval) clearInterval(pollInterval);
+              setSuccessSubStep('qrcode');
+            } else if (data && data.status === 'cancelled') {
+              if (pollInterval) clearInterval(pollInterval);
+              showNotification('Order was cancelled', 'error');
+              handleResetKiosk();
+            }
+          } catch (err) {
+            console.error('Error polling receipt status:', err);
           }
-          return prev - 1;
-        });
-      }, 1000);
+        }, 2000);
+      } else {
+        // Start 15s countdown to auto-reset once QR code is shown
+        setSuccessCountdown(15);
+        countdownTimerRef.current = setInterval(() => {
+          setSuccessCountdown(prev => {
+            if (prev <= 1) {
+              clearInterval(countdownTimerRef.current!);
+              handleResetKiosk();
+              return 15;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     } else {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
@@ -374,8 +399,11 @@ export const KioskPage: React.FC = () => {
       if (countdownTimerRef.current) {
         clearInterval(countdownTimerRef.current);
       }
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
     };
-  }, [step]);
+  }, [step, successSubStep, createdReceipt]);
 
   // Reset Kiosk State
   const handleResetKiosk = () => {
@@ -392,6 +420,7 @@ export const KioskPage: React.FC = () => {
     setSearchQuery('');
     setSelectedCategory('all');
     setCreatedReceipt(null);
+    setSuccessSubStep('receipt');
     setShowWelcomeGreeting(false);
     if (welcomeTimerRef.current) clearTimeout(welcomeTimerRef.current);
     setStep('idle');
@@ -1415,8 +1444,8 @@ export const KioskPage: React.FC = () => {
         )}
 
         {/* STEP 4: SUCCESS / CONFIRMATION SCREEN */}
-        {step === 'success' && (
-          <div className="absolute inset-0 bg-white flex flex-col items-center justify-center p-8 text-center z-20">
+        {step === 'success' && successSubStep === 'receipt' && (
+          <div key="success-receipt" className="absolute inset-0 bg-white flex flex-col items-center justify-center p-8 text-center z-20">
             <div className="flex flex-col items-center animate-kiosk-title">
               <div className="w-24 h-24 bg-green-100 border-4 border-green-200 rounded-full flex items-center justify-center mb-6 text-green-600 animate-bounce">
                 <CheckCircle2 size={48} />
@@ -1447,6 +1476,47 @@ export const KioskPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div className="flex flex-col items-center space-y-4">
+                <div className="flex items-center space-x-2 text-purple-600 bg-purple-50 px-4 py-2.5 rounded-full border border-purple-100 animate-pulse">
+                  <div className="w-2 h-2 bg-purple-600 rounded-full animate-ping"></div>
+                  <span className="text-xs font-black tracking-wide">AWAITING PAYMENT AT THE COUNTER...</span>
+                </div>
+                <button 
+                  onClick={handleResetKiosk} 
+                  className="text-xs text-gray-400 hover:text-gray-600 font-bold transition-colors underline"
+                >
+                  CANCEL / START A NEW ORDER
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 'success' && successSubStep === 'qrcode' && (
+          <div key="success-qrcode" className="absolute inset-0 bg-white flex flex-col items-center justify-center p-8 text-center z-20">
+            <div className="flex flex-col items-center animate-kiosk-title">
+              <div className="w-24 h-24 bg-purple-100 border-4 border-purple-200 rounded-full flex items-center justify-center mb-6 text-purple-600 animate-bounce">
+                <CheckCircle2 size={48} className="text-purple-600" />
+              </div>
+              <h2 className="text-3xl lg:text-4xl font-black text-gray-900 mb-2">SCAN FOR RECEIPT</h2>
+              <p className="text-base text-gray-500 max-w-md mb-8">Scan this QR code with your phone camera to view, download, or save your digital copy.</p>
+            </div>
+
+            <div className="w-full flex flex-col items-center animate-kiosk-content">
+              <div className="bg-white border-2 border-gray-200 rounded-3xl p-6 max-w-md w-full mb-8 shadow-xl flex flex-col items-center">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest block mb-2">Order Reference: {createdReceipt}</span>
+                <div className="bg-white p-3 border border-slate-100 rounded-2xl inline-block shadow-sm">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(
+                      `${getFrontendUrl()}/receipt/${createdReceipt}`
+                    )}`} 
+                    alt="Receipt QR Code"
+                    className="w-40 h-40 object-contain rounded-lg"
+                  />
+                </div>
+                <p className="text-[10px] text-slate-400 font-semibold mt-3">Take a screenshot or present this on your phone</p>
               </div>
 
               <div className="flex flex-col items-center space-y-4">

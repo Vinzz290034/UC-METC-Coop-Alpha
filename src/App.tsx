@@ -30,6 +30,7 @@ import { InboxPage } from './pages/InboxPage';
 import { UserManagementPage } from './pages/UserManagementPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { KioskPage } from './pages/KioskPage';
+import { PublicReceiptPage } from './pages/PublicReceiptPage';
 
 
 function AppContent() {
@@ -79,12 +80,14 @@ function AppContent() {
           <Route path="/learn-more" element={<LearnMorePage />} />
           <Route path="/announcements" element={<AnnouncementsPage />} />
           <Route path="/community" element={<CommunityPage />} />
+          <Route path="/receipt/:receiptNo" element={<PublicReceiptPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       ) : (
         <Routes key="authenticated">
           {/* Render Kiosk page directly, without the Layout wrapper */}
           <Route path="/kiosk" element={<KioskPage />} />
+          <Route path="/receipt/:receiptNo" element={<PublicReceiptPage />} />
           
           {/* Other admin/user pages are wrapped inside the Layout */}
           <Route path="/*" element={

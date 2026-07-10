@@ -11,3 +11,11 @@ export function getWebSocketUrl(): string {
   const api = getApiBaseUrl();
   return api.replace(/\/api\/?$/, '');
 }
+
+/** Public frontend base URL for sharing links (e.g. QR codes). */
+export function getFrontendUrl(): string {
+  const explicit = import.meta.env.VITE_APP_URL || import.meta.env.VITE_FRONTEND_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+
+  return window.location.origin;
+}
