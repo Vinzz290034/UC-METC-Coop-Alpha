@@ -13,6 +13,11 @@ export function formatProductName(
   selectedOptions?: Record<string, string>,
   unitPrice?: number
 ): string {
+  const nameLower = productName.toLowerCase().trim();
+  if (nameLower.includes('hard bound') || nameLower.includes('hardbound')) {
+    return 'Hard Bound';
+  }
+
   if (!selectedOptions || Object.keys(selectedOptions).length === 0) {
     return productName;
   }
@@ -98,6 +103,11 @@ export function formatProductName(
  * Returns: "Gala - Bundle A (BSMT)" if regular price was used
  */
 export function parseAndFormatLegacyProductName(fullProductName: string, unitPrice?: number): string {
+  const nameLower = fullProductName.toLowerCase().trim();
+  if (nameLower.includes('hard bound') || nameLower.includes('hardbound')) {
+    return 'Hard Bound';
+  }
+
   // Extract base product name
   const baseNameMatch = fullProductName.match(/^([^(]+)/);
   const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullProductName;

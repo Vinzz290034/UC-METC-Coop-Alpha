@@ -4001,9 +4001,15 @@ export const SalesPage: React.FC = () => {
                             {/* Payment Summary & Actions */}
                             <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
                               <div>
-                                <p className="text-xs text-slate-500 mb-1">Total Amount:</p>
+                                <p className="text-xs text-slate-500 mb-1">Amount:</p>
                                 <p className="text-2xl font-bold text-slate-900 mb-2">
-                                  ₱{parseFloat(order.total_amount).toLocaleString()}
+                                  ₱{(order.items || [])
+                                    .filter((item: any) => {
+                                      const productName = item.productName || item.product_name || '';
+                                      return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
+                                    })
+                                    .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
+                                    .toLocaleString()}
                                 </p>
                                 <div className="text-xs text-slate-500 font-medium">
                                   Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
