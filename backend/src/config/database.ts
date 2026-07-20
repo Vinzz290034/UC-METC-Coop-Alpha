@@ -98,6 +98,9 @@ export async function testConnection() {
     // Auto-migrate: ensure attachment exists in stock_intake table
     await pool.query('ALTER TABLE stock_intake ADD COLUMN IF NOT EXISTS attachment TEXT');
 
+    // Auto-migrate: ensure attachments JSONB column exists in messages table
+    await pool.query("ALTER TABLE messages ADD COLUMN IF NOT EXISTS attachments JSONB DEFAULT '[]'::jsonb");
+
     // Auto-migrate: ensure the role check constraint matches all valid TypeScript roles
     try {
       await pool.query('ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check');

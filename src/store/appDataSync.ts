@@ -326,23 +326,34 @@ export class AppDataSync {
   static async loadMessagesFromAPI(userId: string, folder: 'inbox' | 'sent' = 'inbox') {
     try {
       const messages: any[] = await apiClient.getMessages(folder, userId);
-      const transformedMessages = messages.map(msg => ({
-        id: msg.id,
-        senderId: msg.sender_id,
-        senderName: msg.sender_name,
-        senderRole: msg.sender_role,
-        recipientId: msg.recipient_id,
-        recipientName: msg.recipient_name,
-        recipientRole: msg.recipient_role,
-        subject: msg.subject,
-        content: msg.content,
-        preview: msg.preview,
-        timestamp: msg.created_at,
-        isRead: msg.is_read,
-        isFavorite: msg.is_favorite,
-        folder: msg.folder,
-        status: msg.status,
-      }));
+      const transformedMessages = messages.map(msg => {
+        let parsedAttachments = [];
+        if (msg.attachments) {
+          try {
+            parsedAttachments = typeof msg.attachments === 'string' ? JSON.parse(msg.attachments) : msg.attachments;
+          } catch (e) {
+            console.error('Failed to parse message attachments:', e);
+          }
+        }
+        return {
+          id: msg.id,
+          senderId: msg.sender_id,
+          senderName: msg.sender_name,
+          senderRole: msg.sender_role,
+          recipientId: msg.recipient_id,
+          recipientName: msg.recipient_name,
+          recipientRole: msg.recipient_role,
+          subject: msg.subject,
+          content: msg.content,
+          preview: msg.preview,
+          attachments: Array.isArray(parsedAttachments) ? parsedAttachments : [],
+          timestamp: msg.created_at,
+          isRead: msg.is_read,
+          isFavorite: msg.is_favorite,
+          folder: msg.folder,
+          status: msg.status,
+        };
+      });
       
       // Merge with existing messages - remove old messages from this folder and add new ones
       useAppStore.setState(state => ({
@@ -362,6 +373,15 @@ export class AppDataSync {
     try {
       const sentMessage = await apiClient.sendMessage(messageData, userId);
       
+      let parsedAttachments = [];
+      if (sentMessage.attachments) {
+        try {
+          parsedAttachments = typeof sentMessage.attachments === 'string' ? JSON.parse(sentMessage.attachments) : sentMessage.attachments;
+        } catch (e) {
+          console.error('Failed to parse sent message attachments:', e);
+        }
+      }
+
       // Add to local store
       useAppStore.setState(state => ({
         messages: [...state.messages, {
@@ -375,6 +395,7 @@ export class AppDataSync {
           subject: sentMessage.subject,
           content: sentMessage.content,
           preview: sentMessage.preview,
+          attachments: Array.isArray(parsedAttachments) ? parsedAttachments : (messageData.attachments || []),
           timestamp: sentMessage.created_at,
           isRead: sentMessage.is_read,
           isFavorite: sentMessage.is_favorite,

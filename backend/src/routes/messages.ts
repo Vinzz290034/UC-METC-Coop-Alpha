@@ -17,13 +17,16 @@ const verifyUser = (req: Request, res: Response, next: Function) => {
 // Send message
 router.post('/send', verifyUser, async (req: Request, res: Response) => {
   try {
-    const { recipientId, recipientRole, subject, content, preview } = req.body;
+    const { recipientId, recipientRole, subject, content, preview, attachments } = req.body;
     const userId = (req as any).userId;
+
+    const formattedAttachments = JSON.stringify(attachments || []);
 
     console.log(`[WebSocket Debug] /messages/send called. Sender ID: ${userId}. Request payload:`, {
       recipientId,
       recipientRole,
       subject,
+      attachmentsCount: (attachments || []).length,
       preview: preview || (content ? content.substring(0, 50) : '')
     });
 
@@ -48,10 +51,10 @@ router.post('/send', verifyUser, async (req: Request, res: Response) => {
       
       // Insert message for specific recipient
       const insertResult = await pool.query(
-        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)
+        `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, attachments, folder, status, is_read)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inbox', 'unread', false)
          RETURNING id`,
-        [userId, senderName, sender.role, recipientId, recipientRole || null, subject, content, preview]
+        [userId, senderName, sender.role, recipientId, recipientRole || null, subject, content, preview, formattedAttachments]
       );
       
       console.log(`[WebSocket Debug] Message inserted in inbox folder. Message ID: ${insertResult.rows[0]?.id}`);
@@ -107,9 +110,9 @@ router.post('/send', verifyUser, async (req: Request, res: Response) => {
       const targetUserIds: string[] = [];
       for (const targetUser of targetUsers) {
         await pool.query(
-          `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'inbox', 'unread', false)`,
-          [userId, senderName, sender.role, targetUser.id, recipientRole, subject, content, preview]
+          `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, attachments, folder, status, is_read)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'inbox', 'unread', false)`,
+          [userId, senderName, sender.role, targetUser.id, recipientRole, subject, content, preview, formattedAttachments]
         );
         targetUserIds.push(targetUser.id);
       }
@@ -138,17 +141,19 @@ router.post('/send', verifyUser, async (req: Request, res: Response) => {
     // Insert message in sender's sent folder
     console.log(`[WebSocket Debug] Inserting copy in sender's sent folder...`);
     const sentResult = await pool.query(
-      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, folder, status, is_read)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'sent', 'read', true)
+      `INSERT INTO messages (sender_id, sender_name, sender_role, recipient_id, recipient_role, subject, content, preview, attachments, folder, status, is_read)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'sent', 'read', true)
        RETURNING *`,
-      [userId, senderName, sender.role, recipientId || null, recipientRole || null, subject, content, preview]
+      [userId, senderName, sender.role, recipientId || null, recipientRole || null, subject, content, preview, formattedAttachments]
     );
     console.log(`[WebSocket Debug] Sent folder copy created successfully. Message ID: ${sentResult.rows[0]?.id}`);
 
     res.json(sentResult.rows[0]);
   } catch (error) {
     console.error('[WebSocket Debug] Fatal exception in /send route:', error);
-    res.status(500).json({ error: 'Failed to send message' });
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to send message' });
+    }
   }
 });
 

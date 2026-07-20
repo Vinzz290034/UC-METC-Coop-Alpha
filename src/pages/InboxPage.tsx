@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Send, Trash2, Star, X, Plus, ChevronLeft, ChevronDown, Search } from 'lucide-react';
+import { Mail, Send, Trash2, Star, X, Plus, ChevronLeft, ChevronDown, Search, Paperclip, Image as ImageIcon, Film, FileText, Download, Eye, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAppStore } from '../store/appStore';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { AppDataSync } from '../store/appDataSync';
-import type { Message } from '../types';
+import type { Message, MessageAttachment } from '../types';
 import { apiClient } from '../services/api';
 
 interface SystemUser {
@@ -27,6 +27,22 @@ export const InboxPage: React.FC = () => {
   const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
   const [replyData, setReplyData] = useState({ subject: '', content: '' });
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox');
+  const [isSending, setIsSending] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; name: string } | null>(null);
+
+  // Attachments State
+  const [composeAttachments, setComposeAttachments] = useState<MessageAttachment[]>([]);
+  const [replyAttachments, setReplyAttachments] = useState<MessageAttachment[]>([]);
+
+  // Persistent Reply Draft Attachments (keyed by message ID)
+  const [replyDraftAttachments, setReplyDraftAttachments] = useState<Record<string, MessageAttachment[]>>(() => {
+    try {
+      const saved = localStorage.getItem(`inbox_reply_atts_${user?.id || 'guest'}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
 
   // Persistent Reply Drafts (keyed by message ID)
   const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>(() => {
@@ -41,27 +57,35 @@ export const InboxPage: React.FC = () => {
   // Re-sync drafts when user changes
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`inbox_reply_drafts_${user?.id || 'guest'}`);
-      setReplyDrafts(saved ? JSON.parse(saved) : {});
+      const savedText = localStorage.getItem(`inbox_reply_drafts_${user?.id || 'guest'}`);
+      setReplyDrafts(savedText ? JSON.parse(savedText) : {});
+
+      const savedAtts = localStorage.getItem(`inbox_reply_atts_${user?.id || 'guest'}`);
+      setReplyDraftAttachments(savedAtts ? JSON.parse(savedAtts) : {});
     } catch {
       setReplyDrafts({});
+      setReplyDraftAttachments({});
     }
   }, [user?.id]);
 
-  // Auto-restore reply draft whenever selectedMessage changes
+  // Auto-restore reply draft & attachments whenever selectedMessage changes
   useEffect(() => {
     if (selectedMessage && activeTab === 'inbox') {
       const draft = replyDrafts[selectedMessage.id];
-      if (draft && draft.trim()) {
+      const draftAtts = replyDraftAttachments[selectedMessage.id] || [];
+      if ((draft && draft.trim()) || draftAtts.length > 0) {
         setReplyingToMessageId(selectedMessage.id);
-        setReplyData({ subject: '', content: draft });
+        setReplyData({ subject: '', content: draft || '' });
+        setReplyAttachments(draftAtts);
       } else {
         setReplyingToMessageId(null);
         setReplyData({ subject: '', content: '' });
+        setReplyAttachments([]);
       }
     } else {
       setReplyingToMessageId(null);
       setReplyData({ subject: '', content: '' });
+      setReplyAttachments([]);
     }
   }, [selectedMessage?.id, activeTab]);
 
@@ -83,17 +107,164 @@ export const InboxPage: React.FC = () => {
     }
   };
 
+  // Compress image before creating Data URL to keep payloads lightweight
+  const compressImageFile = (file: File, maxWidth = 1920, maxHeight = 1920, quality = 0.8): Promise<{ dataUrl: string; approxSize: number }> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = (event) => {
+        const rawUrl = event.target?.result as string;
+        const img = new Image();
+        img.src = rawUrl;
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxWidth || height > maxHeight) {
+            if (width > height) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            } else {
+              width = Math.round((width * maxHeight) / height);
+              height = maxHeight;
+            }
+          }
+
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressedUrl = canvas.toDataURL('image/jpeg', quality);
+            const approxSize = Math.round((compressedUrl.length * 3) / 4);
+            resolve({ dataUrl: compressedUrl, approxSize });
+          } else {
+            resolve({ dataUrl: rawUrl, approxSize: file.size });
+          }
+        };
+        img.onerror = () => resolve({ dataUrl: rawUrl, approxSize: file.size });
+      };
+    });
+  };
+
+  const handleFileSelection = async (files: FileList | null, target: 'compose' | 'reply') => {
+    if (!files || files.length === 0) return;
+    const MAX_SINGLE_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit per file
+    const MAX_TOTAL_SIZE = 15 * 1024 * 1024; // 15MB total limit per message
+
+    const currentAtts = target === 'compose' ? composeAttachments : replyAttachments;
+    let currentTotalSize = currentAtts.reduce((acc, curr) => acc + (curr.size || 0), 0);
+
+    const fileArray = Array.from(files);
+
+    for (const file of fileArray) {
+      if (file.size > MAX_SINGLE_FILE_SIZE) {
+        showNotification(`File "${file.name}" exceeds individual 10MB limit`, 'error');
+        continue;
+      }
+
+      if (currentTotalSize + file.size > MAX_TOTAL_SIZE) {
+        showNotification(`Total attachment limit of 15MB reached. Could not attach "${file.name}"`, 'error');
+        break;
+      }
+
+      let dataUrl = '';
+      let effectiveSize = file.size;
+      let type: 'image' | 'video' | 'file' = 'file';
+
+      if (file.type.startsWith('image/')) {
+        type = 'image';
+        const compressed = await compressImageFile(file);
+        dataUrl = compressed.dataUrl;
+        effectiveSize = compressed.approxSize;
+      } else {
+        if (file.type.startsWith('video/')) type = 'video';
+        dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+      }
+
+      currentTotalSize += effectiveSize;
+
+      const newAtt: MessageAttachment = {
+        id: 'att_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7),
+        name: file.name,
+        type,
+        url: dataUrl,
+        size: effectiveSize,
+      };
+
+      if (target === 'compose') {
+        setComposeAttachments(prev => [...prev, newAtt]);
+      } else {
+        setReplyAttachments(prev => {
+          const updated = [...prev, newAtt];
+          if (selectedMessage) {
+            const updatedDrafts = { ...replyDraftAttachments, [selectedMessage.id]: updated };
+            setReplyDraftAttachments(updatedDrafts);
+            try {
+              localStorage.setItem(`inbox_reply_atts_${user?.id || 'guest'}`, JSON.stringify(updatedDrafts));
+            } catch (e) {
+              console.warn('Storage quota exceeded for attachments draft, kept in memory only.');
+            }
+          }
+          return updated;
+        });
+      }
+    }
+  };
+
+  const removeComposeAttachment = (attId: string) => {
+    setComposeAttachments(prev => prev.filter(a => a.id !== attId));
+  };
+
+  const removeReplyAttachment = (attId: string) => {
+    setReplyAttachments(prev => {
+      const updated = prev.filter(a => a.id !== attId);
+      if (selectedMessage) {
+        const updatedDrafts = { ...replyDraftAttachments };
+        if (updated.length > 0) {
+          updatedDrafts[selectedMessage.id] = updated;
+        } else {
+          delete updatedDrafts[selectedMessage.id];
+        }
+        setReplyDraftAttachments(updatedDrafts);
+        try {
+          localStorage.setItem(`inbox_reply_atts_${user?.id || 'guest'}`, JSON.stringify(updatedDrafts));
+        } catch {}
+      }
+      return updated;
+    });
+  };
+
   const handleCancelReply = () => {
     if (selectedMessage) {
-      const updated = { ...replyDrafts };
-      delete updated[selectedMessage.id];
-      setReplyDrafts(updated);
+      const updatedText = { ...replyDrafts };
+      delete updatedText[selectedMessage.id];
+      setReplyDrafts(updatedText);
+
+      const updatedAtts = { ...replyDraftAttachments };
+      delete updatedAtts[selectedMessage.id];
+      setReplyDraftAttachments(updatedAtts);
+
       try {
-        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updatedText));
+        localStorage.setItem(`inbox_reply_atts_${user?.id || 'guest'}`, JSON.stringify(updatedAtts));
       } catch {}
     }
     setReplyingToMessageId(null);
     setReplyData({ subject: '', content: '' });
+    setReplyAttachments([]);
+  };
+
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
   const [allUsers, setAllUsers] = useState<SystemUser[]>([]);
   const [animatingStarId, setAnimatingStarId] = useState<string | null>(null);
@@ -237,12 +408,18 @@ export const InboxPage: React.FC = () => {
         await apiClient.deleteMessage(id, user.id);
       }
       // Clean up draft if present
-      if (replyDrafts[id]) {
-        const updated = { ...replyDrafts };
-        delete updated[id];
-        setReplyDrafts(updated);
+      if (replyDrafts[id] || replyDraftAttachments[id]) {
+        const updatedDrafts = { ...replyDrafts };
+        delete updatedDrafts[id];
+        setReplyDrafts(updatedDrafts);
+
+        const updatedAtts = { ...replyDraftAttachments };
+        delete updatedAtts[id];
+        setReplyDraftAttachments(updatedAtts);
+
         try {
-          localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+          localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updatedDrafts));
+          localStorage.setItem(`inbox_reply_atts_${user?.id || 'guest'}`, JSON.stringify(updatedAtts));
         } catch {}
       }
       // Then remove from local store
@@ -269,14 +446,16 @@ export const InboxPage: React.FC = () => {
   };
 
   const handleReply = async () => {
-    if (!replyData.content.trim()) {
-      showNotification('Please enter a reply message', 'error');
+    if (isSending) return;
+    if (!replyData.content.trim() && replyAttachments.length === 0) {
+      showNotification('Please enter a reply message or attach a file', 'error');
       return;
     }
 
     if (!selectedMessage || !user?.id) return;
 
     try {
+      setIsSending(true);
       // Look up sender's actual name
       let senderActualName = selectedMessage.senderName;
       if (selectedMessage.senderId) {
@@ -293,30 +472,41 @@ export const InboxPage: React.FC = () => {
         recipientRole: selectedMessage.senderRole,
         subject: selectedMessage.subject.startsWith('Re:') ? selectedMessage.subject : `Re: ${selectedMessage.subject}`,
         content: replyData.content,
+        attachments: replyAttachments,
       };
 
       await AppDataSync.sendMessageViaAPI(messageData, user.id);
       showNotification(`Reply sent to ${senderActualName}`, 'success');
 
       // Clear draft for this message
-      const updated = { ...replyDrafts };
-      delete updated[selectedMessage.id];
-      setReplyDrafts(updated);
+      const updatedDrafts = { ...replyDrafts };
+      delete updatedDrafts[selectedMessage.id];
+      setReplyDrafts(updatedDrafts);
+
+      const updatedAtts = { ...replyDraftAttachments };
+      delete updatedAtts[selectedMessage.id];
+      setReplyDraftAttachments(updatedAtts);
+
       try {
-        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updatedDrafts));
+        localStorage.setItem(`inbox_reply_atts_${user?.id || 'guest'}`, JSON.stringify(updatedAtts));
       } catch {}
 
       setReplyingToMessageId(null);
       setReplyData({ subject: '', content: '' });
+      setReplyAttachments([]);
     } catch (err: any) {
       showNotification('Failed to send reply', 'error');
       console.error('Reply error:', err);
+    } finally {
+      setIsSending(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!composeData.subject.trim() || !composeData.content.trim()) {
-      showNotification('Please fill in subject and message', 'error');
+    if (isSending) return;
+    if (!composeData.subject.trim() || (!composeData.content.trim() && composeAttachments.length === 0)) {
+      showNotification('Please fill in subject and message or attach a file', 'error');
       return;
     }
 
@@ -331,6 +521,7 @@ export const InboxPage: React.FC = () => {
     }
 
     try {
+      setIsSending(true);
       // Get recipient name and role based on recipient type
       let recipientName = '';
       let recipientRole = '';
@@ -365,6 +556,7 @@ export const InboxPage: React.FC = () => {
         recipientRole: recipientRole,
         subject: composeData.subject,
         content: composeData.content,
+        attachments: composeAttachments,
       };
 
       await AppDataSync.sendMessageViaAPI(messageData, user.id);
@@ -395,9 +587,12 @@ export const InboxPage: React.FC = () => {
       setShowCompose(false);
       setActiveTab('sent');
       setComposeData({ recipientType: 'admin', recipientId: '', subject: '', content: '' });
+      setComposeAttachments([]);
     } catch (err: any) {
       showNotification('Failed to send message', 'error');
       console.error('Send message error:', err);
+    } finally {
+      setIsSending(false);
     }
   };
 
@@ -809,6 +1004,62 @@ export const InboxPage: React.FC = () => {
                   </p>
                 </div>
 
+                {/* Attachments Display Section */}
+                {selectedMessage.attachments && selectedMessage.attachments.length > 0 && (
+                  <div className="mb-6 pt-4 border-t border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                      <Paperclip className="w-3.5 h-3.5 text-purple-600" />
+                      Attachments ({selectedMessage.attachments.length})
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                      {selectedMessage.attachments.map((att) => (
+                        <div key={att.id} className="bg-slate-50 border border-slate-200/80 rounded-xl p-3 flex flex-col justify-between hover:shadow-md transition-all group">
+                          {att.type === 'image' ? (
+                            <div 
+                              onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                              className="mb-2 overflow-hidden rounded-lg bg-slate-200 h-32 flex items-center justify-center relative group/img cursor-pointer"
+                            >
+                              <img src={att.url} alt={att.name} loading="lazy" className="w-full h-full object-cover rounded-lg group-hover/img:scale-105 transition-transform duration-300" />
+                              <button 
+                                type="button"
+                                onClick={() => setPreviewImage({ url: att.url, name: att.name })}
+                                className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 flex items-center justify-center text-white gap-2 font-semibold text-xs transition-opacity w-full h-full cursor-pointer"
+                              >
+                                <Eye className="w-4 h-4" /> View Full
+                              </button>
+                            </div>
+                          ) : att.type === 'video' ? (
+                            <div className="mb-2 overflow-hidden rounded-lg bg-black/90">
+                              <video src={att.url} controls preload="metadata" className="w-full h-32 object-contain rounded-lg" />
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2.5 mb-2 p-2.5 bg-white rounded-lg border border-slate-100 h-32">
+                              <FileText className="w-8 h-8 text-purple-600 flex-shrink-0" />
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold text-slate-800 truncate">{att.name}</p>
+                                <p className="text-[10px] text-slate-400 font-semibold">{formatFileSize(att.size)}</p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          <div className="flex items-center justify-between pt-2 border-t border-slate-200/50">
+                            <span className="text-[11px] font-semibold text-slate-600 truncate max-w-[140px]">
+                              {att.name}
+                            </span>
+                            <a
+                              href={att.url}
+                              download={att.name}
+                              className="flex items-center gap-1 text-[11px] font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 px-2.5 py-1 rounded-lg transition-colors"
+                            >
+                              <Download className="w-3 h-3" /> Save
+                            </a>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Reply Section */}
                 {activeTab === 'inbox' && (
                   <div className="mt-auto pt-6 border-t border-slate-100">
@@ -849,20 +1100,68 @@ export const InboxPage: React.FC = () => {
                           rows={4}
                           className="w-full px-4 py-3 text-sm border border-slate-200 focus:border-purple-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 resize-none mb-3 bg-white text-slate-700 shadow-inner transition-all"
                         />
-                        <div className="flex justify-end gap-2.5">
-                          <button
-                            onClick={handleCancelReply}
-                            className="px-4 py-2 text-slate-600 hover:bg-slate-100 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={handleReply}
-                            className="flex items-center gap-1.5 px-5 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
-                          >
-                            <Send className="w-3.5 h-3.5" />
-                            Send Reply
-                          </button>
+
+                        {/* Reply Attachments Preview */}
+                        {replyAttachments.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3 max-h-28 overflow-y-auto p-2 bg-white/80 rounded-xl border border-purple-200">
+                            {replyAttachments.map(att => (
+                              <div key={att.id} className="flex items-center gap-2 bg-purple-50/80 border border-purple-200/60 rounded-lg px-2.5 py-1 text-xs font-semibold text-purple-900 shadow-xs">
+                                {att.type === 'image' && <ImageIcon className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />}
+                                {att.type === 'video' && <Film className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                                {att.type === 'file' && <FileText className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />}
+                                <span className="max-w-[130px] truncate">{att.name}</span>
+                                <span className="text-[10px] text-purple-500 font-medium">({formatFileSize(att.size)})</span>
+                                <button 
+                                  type="button" 
+                                  onClick={() => removeReplyAttachment(att.id)}
+                                  className="text-purple-400 hover:text-rose-600 ml-0.5 p-0.5 rounded-full hover:bg-rose-50"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <label className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-purple-600 bg-white hover:bg-purple-100/50 rounded-xl border border-slate-200/80 cursor-pointer transition-colors shadow-2xs">
+                              <Paperclip className="w-3.5 h-3.5 text-purple-600" />
+                              Attach File
+                              <input 
+                                type="file" 
+                                multiple 
+                                className="hidden" 
+                                accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                                onChange={(e) => handleFileSelection(e.target.files, 'reply')}
+                              />
+                            </label>
+                          </div>
+                          <div className="flex items-center gap-2.5">
+                            <button
+                              onClick={handleCancelReply}
+                              className="px-4 py-2 text-slate-600 hover:bg-slate-100 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={handleReply}
+                              disabled={isSending}
+                              className="flex items-center gap-1.5 px-5 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
+                            >
+                              {isSending ? (
+                                <>
+                                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  Sending...
+                                </>
+                              ) : (
+                                <>
+                                  <Send className="w-3.5 h-3.5" />
+                                  Send Reply
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1102,9 +1401,49 @@ export const InboxPage: React.FC = () => {
                     setComposeData({ ...composeData, content: e.target.value })
                   }
                   placeholder="Type your message here..."
-                  rows={6}
+                  rows={5}
                   className="w-full px-4 py-2 text-xs sm:text-sm border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-600 resize-none bg-white"
                 />
+              </div>
+
+              {/* Attachments Preview in Compose Modal */}
+              {composeAttachments.length > 0 && (
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Attached Files:</label>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto p-2 bg-slate-50 rounded-xl border border-slate-200">
+                    {composeAttachments.map(att => (
+                      <div key={att.id} className="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-xs text-xs font-semibold text-slate-700">
+                        {att.type === 'image' && <ImageIcon className="w-3.5 h-3.5 text-purple-600 flex-shrink-0" />}
+                        {att.type === 'video' && <Film className="w-3.5 h-3.5 text-blue-600 flex-shrink-0" />}
+                        {att.type === 'file' && <FileText className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />}
+                        <span className="max-w-[150px] truncate">{att.name}</span>
+                        <span className="text-[10px] text-slate-400 font-medium">({formatFileSize(att.size)})</span>
+                        <button 
+                          type="button" 
+                          onClick={() => removeComposeAttachment(att.id)}
+                          className="text-slate-400 hover:text-rose-600 ml-1 p-0.5 rounded-full hover:bg-rose-50"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Attachment Option Button in Compose Modal */}
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-600 hover:text-purple-600 bg-slate-100 hover:bg-purple-50 rounded-xl border border-slate-200/60 cursor-pointer transition-colors">
+                  <Paperclip className="w-3.5 h-3.5 text-purple-600" />
+                  Attach File
+                  <input 
+                    type="file" 
+                    multiple 
+                    className="hidden" 
+                    accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip"
+                    onChange={(e) => handleFileSelection(e.target.files, 'compose')}
+                  />
+                </label>
               </div>
             </div>
 
@@ -1118,11 +1457,60 @@ export const InboxPage: React.FC = () => {
               </button>
               <button
                 onClick={handleSendMessage}
-                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 transition-all duration-200 shadow-sm"
+                disabled={isSending}
+                className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-xl text-xs sm:text-sm font-bold hover:bg-purple-700 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-sm"
               >
-                <Send className="w-3.5 h-3.5" />
-                Send Message
+                {isSending ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="w-3.5 h-3.5" />
+                    Send Message
+                  </>
+                )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fullscreen Image Lightbox Modal */}
+      {previewImage && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 sm:p-8 transition-all animate-fadeIn"
+          onClick={() => setPreviewImage(null)}
+        >
+          <div 
+            className="relative max-w-5xl max-h-[90vh] flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="relative inline-block rounded-2xl border border-white/10 shadow-2xl">
+              <img 
+                src={previewImage.url} 
+                alt={previewImage.name}
+                className="max-w-full max-h-[78vh] object-contain rounded-2xl block"
+              />
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="absolute -top-3.5 -right-3.5 sm:-top-4 sm:-right-4 p-2 bg-white text-slate-900 hover:bg-slate-100 rounded-full transition-all cursor-pointer shadow-2xl border border-slate-100 hover:scale-110 z-20 flex items-center justify-center"
+                title="Close Preview"
+              >
+                <X className="w-5 h-5 text-slate-900 stroke-[2.5]" />
+              </button>
+            </div>
+            
+            <div className="mt-4 flex items-center justify-between gap-4 bg-slate-900/90 backdrop-blur-md px-4 py-2.5 rounded-xl border border-white/10 w-full">
+              <span className="text-xs sm:text-sm font-semibold text-white truncate max-w-xs sm:max-w-md">{previewImage.name}</span>
+              <a 
+                href={previewImage.url} 
+                download={previewImage.name}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" /> Download
+              </a>
             </div>
           </div>
         </div>

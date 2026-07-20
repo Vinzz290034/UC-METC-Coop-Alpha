@@ -159,6 +159,14 @@ export interface LockerReplacement {
 }
 
 // Message/Email Types
+export interface MessageAttachment {
+  id: string;
+  name: string;
+  type: 'image' | 'video' | 'file';
+  url: string;
+  size?: number;
+}
+
 export interface Message {
   id: string;
   senderId: string;
@@ -175,6 +183,7 @@ export interface Message {
   isFavorite: boolean;
   folder: 'inbox' | 'sent';
   status: 'unread' | 'read' | 'archived' | 'deleted';
+  attachments?: MessageAttachment[];
 }
 
 // Cart Item Types
