@@ -52,9 +52,54 @@ export const UserManagementPage: React.FC = () => {
   }, [searchTerm, roleFilter]);
 
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [showActionMenu, setShowActionMenu] = useState<string | null>(null);
+  const [actionMenu, setActionMenu] = useState<{
+    user: User;
+    position: { top?: number; bottom?: number; right: number };
+  } | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<User | null>(null);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState<User | null>(null);
+
+  useEffect(() => {
+    const handleScrollOrResize = () => setActionMenu(null);
+    window.addEventListener('scroll', handleScrollOrResize, true);
+    window.addEventListener('resize', handleScrollOrResize);
+    return () => {
+      window.removeEventListener('scroll', handleScrollOrResize, true);
+      window.removeEventListener('resize', handleScrollOrResize);
+    };
+  }, []);
+
+  const toggleActionMenu = (e: React.MouseEvent<HTMLButtonElement>, targetUser: User) => {
+    e.stopPropagation();
+    if (actionMenu?.user.id === targetUser.id) {
+      setActionMenu(null);
+    } else {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const menuHeight = 200; // Estimated max height of action dropdown
+
+      const right = Math.max(16, window.innerWidth - rect.right);
+      
+      // If space below is less than menuHeight + 20px (e.g. bottom rows), pop upwards over the table rows
+      if (spaceBelow < menuHeight + 20) {
+        setActionMenu({
+          user: targetUser,
+          position: {
+            bottom: window.innerHeight - rect.top + 4,
+            right,
+          },
+        });
+      } else {
+        setActionMenu({
+          user: targetUser,
+          position: {
+            top: rect.bottom + 4,
+            right,
+          },
+        });
+      }
+    }
+  };
 
   // User Profile Editing State (for Admins)
   const [isEditing, setIsEditing] = useState(false);
@@ -170,7 +215,7 @@ export const UserManagementPage: React.FC = () => {
         u.id === user.id ? { ...u, is_active: true } : u
       ));
       showNotification(`User ${user.first_name} ${user.last_name} reactivated successfully`, 'success');
-      setShowActionMenu(null);
+      setActionMenu(null);
     } catch (error) {
       console.error('Failed to reactivate user:', error);
       showNotification('Failed to reactivate user', 'error');
@@ -184,7 +229,7 @@ export const UserManagementPage: React.FC = () => {
         u.id === user.id ? { ...u, role: 'user', membership_status: 'rejected' } : u
       ));
       showNotification(`User ${user.first_name} ${user.last_name} demoted successfully`, 'success');
-      setShowActionMenu(null);
+      setActionMenu(null);
     } catch (error) {
       console.error('Failed to demote user:', error);
       showNotification('Failed to demote user', 'error');
@@ -398,72 +443,13 @@ export const UserManagementPage: React.FC = () => {
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="relative">
-                          <button
-                            onClick={() => setShowActionMenu(showActionMenu === user.id ? null : user.id)}
-                            className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                            disabled={user.id === currentUser?.id}
-                          >
-                            <MoreVertical size={16} />
-                          </button>
-
-                          {showActionMenu === user.id && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 z-10">
-                              <button
-                                onClick={() => {
-                                  setSelectedUser(user);
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100"
-                              >
-                                <Eye size={16} />
-                                View Details
-                              </button>
-                              
-                              {getDisplayRole(user) === 'member' && (
-                                <button
-                                  onClick={() => handleDemoteUser(user)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-purple-800 hover:bg-purple-50 border-b border-gray-100"
-                                >
-                                  <ShieldOff size={16} />
-                                  Demote Member
-                                </button>
-                              )}
-                              
-                              {user.is_active === false ? (
-                                <button
-                                  onClick={() => handleReactivateUser(user)}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-green-600 hover:bg-green-50 border-b border-gray-100"
-                                >
-                                  <CheckCircle2 size={16} />
-                                  Reactivate
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => {
-                                    setShowDeactivateConfirm(user);
-                                    setShowActionMenu(null);
-                                  }}
-                                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-purple-600 hover:bg-purple-50 border-b border-gray-100"
-                                >
-                                  <UserX size={16} />
-                                  Deactivate
-                                </button>
-                              )}
-                              
-                              <button
-                                onClick={() => {
-                                  setShowDeleteConfirm(user);
-                                  setShowActionMenu(null);
-                                }}
-                                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                              >
-                                <Trash2 size={16} />
-                                Delete User
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                        <button
+                          onClick={(e) => toggleActionMenu(e, user)}
+                          className="text-gray-400 hover:text-gray-600 p-2 rounded-lg hover:bg-gray-100 transition-colors"
+                          disabled={user.id === currentUser?.id}
+                        >
+                          <MoreVertical size={16} />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -560,6 +546,84 @@ export const UserManagementPage: React.FC = () => {
         )}
       </div>
       </div>
+
+      {/* Action Menu - Floating Portal */}
+      {actionMenu && createPortal(
+        <>
+          <div 
+            className="fixed inset-0 z-[9990]"
+            onClick={() => setActionMenu(null)}
+          />
+          <div 
+            className="fixed w-48 bg-white rounded-lg shadow-xl border border-gray-200 z-[9999] py-1 animate-scale-in"
+            style={{
+              top: actionMenu.position.top !== undefined ? `${actionMenu.position.top}px` : undefined,
+              bottom: actionMenu.position.bottom !== undefined ? `${actionMenu.position.bottom}px` : undefined,
+              right: `${actionMenu.position.right}px`,
+            }}
+          >
+            <button
+              onClick={() => {
+                setSelectedUser(actionMenu.user);
+                setActionMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-100 transition-colors text-left"
+            >
+              <Eye size={16} />
+              View Details
+            </button>
+            
+            {getDisplayRole(actionMenu.user) === 'member' && (
+              <button
+                onClick={() => {
+                  handleDemoteUser(actionMenu.user);
+                  setActionMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-purple-800 hover:bg-purple-50 border-b border-gray-100 transition-colors text-left"
+              >
+                <ShieldOff size={16} />
+                Demote Member
+              </button>
+            )}
+            
+            {actionMenu.user.is_active === false ? (
+              <button
+                onClick={() => {
+                  handleReactivateUser(actionMenu.user);
+                  setActionMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-green-600 hover:bg-green-50 border-b border-gray-100 transition-colors text-left"
+              >
+                <CheckCircle2 size={16} />
+                Reactivate
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setShowDeactivateConfirm(actionMenu.user);
+                  setActionMenu(null);
+                }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-purple-600 hover:bg-purple-50 border-b border-gray-100 transition-colors text-left"
+              >
+                <UserX size={16} />
+                Deactivate
+              </button>
+            )}
+            
+            <button
+              onClick={() => {
+                setShowDeleteConfirm(actionMenu.user);
+                setActionMenu(null);
+              }}
+              className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors text-left"
+            >
+              <Trash2 size={16} />
+              Delete User
+            </button>
+          </div>
+        </>,
+        document.body
+      )}
 
       {/* User Details Modal - Portal */}
       {selectedUser && createPortal(
