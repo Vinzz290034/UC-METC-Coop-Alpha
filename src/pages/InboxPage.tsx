@@ -26,8 +26,76 @@ export const InboxPage: React.FC = () => {
   const [showCompose, setShowCompose] = useState(false);
   const [replyingToMessageId, setReplyingToMessageId] = useState<string | null>(null);
   const [replyData, setReplyData] = useState({ subject: '', content: '' });
-  const [allUsers, setAllUsers] = useState<SystemUser[]>([]);
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent'>('inbox');
+
+  // Persistent Reply Drafts (keyed by message ID)
+  const [replyDrafts, setReplyDrafts] = useState<Record<string, string>>(() => {
+    try {
+      const saved = localStorage.getItem(`inbox_reply_drafts_${user?.id || 'guest'}`);
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  // Re-sync drafts when user changes
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(`inbox_reply_drafts_${user?.id || 'guest'}`);
+      setReplyDrafts(saved ? JSON.parse(saved) : {});
+    } catch {
+      setReplyDrafts({});
+    }
+  }, [user?.id]);
+
+  // Auto-restore reply draft whenever selectedMessage changes
+  useEffect(() => {
+    if (selectedMessage && activeTab === 'inbox') {
+      const draft = replyDrafts[selectedMessage.id];
+      if (draft && draft.trim()) {
+        setReplyingToMessageId(selectedMessage.id);
+        setReplyData({ subject: '', content: draft });
+      } else {
+        setReplyingToMessageId(null);
+        setReplyData({ subject: '', content: '' });
+      }
+    } else {
+      setReplyingToMessageId(null);
+      setReplyData({ subject: '', content: '' });
+    }
+  }, [selectedMessage?.id, activeTab]);
+
+  const handleReplyContentChange = (newContent: string) => {
+    setReplyData(prev => ({ ...prev, content: newContent }));
+    if (selectedMessage) {
+      const updated = { ...replyDrafts };
+      if (newContent.trim()) {
+        updated[selectedMessage.id] = newContent;
+      } else {
+        delete updated[selectedMessage.id];
+      }
+      setReplyDrafts(updated);
+      try {
+        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+      } catch (e) {
+        console.error('Failed to save reply draft', e);
+      }
+    }
+  };
+
+  const handleCancelReply = () => {
+    if (selectedMessage) {
+      const updated = { ...replyDrafts };
+      delete updated[selectedMessage.id];
+      setReplyDrafts(updated);
+      try {
+        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+      } catch {}
+    }
+    setReplyingToMessageId(null);
+    setReplyData({ subject: '', content: '' });
+  };
+  const [allUsers, setAllUsers] = useState<SystemUser[]>([]);
   const [animatingStarId, setAnimatingStarId] = useState<string | null>(null);
   const [composeData, setComposeData] = useState({
     recipientType: 'admin' as 'admin' | 'staff' | 'all_users' | 'all_members' | 'all_both' | 'specific_person',
@@ -168,6 +236,15 @@ export const InboxPage: React.FC = () => {
       if (user?.id) {
         await apiClient.deleteMessage(id, user.id);
       }
+      // Clean up draft if present
+      if (replyDrafts[id]) {
+        const updated = { ...replyDrafts };
+        delete updated[id];
+        setReplyDrafts(updated);
+        try {
+          localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+        } catch {}
+      }
       // Then remove from local store
       removeMessage(id);
       setSelectedMessage(null);
@@ -220,6 +297,15 @@ export const InboxPage: React.FC = () => {
 
       await AppDataSync.sendMessageViaAPI(messageData, user.id);
       showNotification(`Reply sent to ${senderActualName}`, 'success');
+
+      // Clear draft for this message
+      const updated = { ...replyDrafts };
+      delete updated[selectedMessage.id];
+      setReplyDrafts(updated);
+      try {
+        localStorage.setItem(`inbox_reply_drafts_${user?.id || 'guest'}`, JSON.stringify(updated));
+      } catch {}
+
       setReplyingToMessageId(null);
       setReplyData({ subject: '', content: '' });
     } catch (err: any) {
@@ -527,6 +613,11 @@ export const InboxPage: React.FC = () => {
                                   }
                               </p>
                               <div className="flex items-center gap-1.5 flex-shrink-0">
+                                {replyDrafts[message.id] && (
+                                  <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-1.5 py-0.5 rounded border border-amber-200/60">
+                                    Draft
+                                  </span>
+                                )}
                                 {message.isFavorite && (
                                   <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-400" />
                                 )}
@@ -724,10 +815,19 @@ export const InboxPage: React.FC = () => {
                     {replyingToMessageId !== selectedMessage.id ? (
                       <div 
                         onClick={() => setReplyingToMessageId(selectedMessage.id)}
-                        className="p-4 bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-slate-200/60 rounded-2xl cursor-pointer transition-all duration-200 flex items-center gap-3 text-slate-400 hover:text-purple-600 group"
+                        className="p-4 bg-slate-50 hover:bg-purple-50/50 hover:border-purple-200 border border-slate-200/60 rounded-2xl cursor-pointer transition-all duration-200 flex items-center justify-between text-slate-400 hover:text-purple-600 group"
                       >
-                        <Send className="w-4 h-4 text-slate-400 group-hover:text-purple-500 transition-colors" />
-                        <span className="text-sm font-semibold">Reply to {displayName}...</span>
+                        <div className="flex items-center gap-3">
+                          <Send className="w-4 h-4 text-slate-400 group-hover:text-purple-500 transition-colors" />
+                          <span className="text-sm font-semibold">
+                            {replyDrafts[selectedMessage.id] ? 'Continue draft reply to' : 'Reply to'} {displayName}...
+                          </span>
+                        </div>
+                        {replyDrafts[selectedMessage.id] && (
+                          <span className="text-xs bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md border border-amber-200/60">
+                            Draft Saved
+                          </span>
+                        )}
                       </div>
                     ) : (
                       <div className="p-4 bg-purple-50/50 rounded-2xl border border-purple-100/80 shadow-sm animate-scale-in">
@@ -736,20 +836,22 @@ export const InboxPage: React.FC = () => {
                             <Send className="w-4 h-4 text-purple-600" />
                             Reply to <span className="text-purple-700 font-extrabold">{displayName}</span>
                           </h3>
+                          {replyDrafts[selectedMessage.id] && (
+                            <span className="text-[11px] text-amber-800 bg-amber-100 border border-amber-200/60 font-bold px-2.5 py-0.5 rounded-full">
+                              Draft Auto-saved
+                            </span>
+                          )}
                         </div>
                         <textarea
                           value={replyData.content}
-                          onChange={(e) => setReplyData({ ...replyData, content: e.target.value })}
+                          onChange={(e) => handleReplyContentChange(e.target.value)}
                           placeholder="Type your reply here..."
                           rows={4}
                           className="w-full px-4 py-3 text-sm border border-slate-200 focus:border-purple-500 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-200 resize-none mb-3 bg-white text-slate-700 shadow-inner transition-all"
                         />
                         <div className="flex justify-end gap-2.5">
                           <button
-                            onClick={() => {
-                              setReplyingToMessageId(null);
-                              setReplyData({ subject: '', content: '' });
-                            }}
+                            onClick={handleCancelReply}
                             className="px-4 py-2 text-slate-600 hover:bg-slate-100 active:scale-95 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200"
                           >
                             Cancel
