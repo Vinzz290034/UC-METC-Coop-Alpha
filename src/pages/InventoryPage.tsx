@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical, ChevronLeft, ChevronRight, CheckCircle, Calendar } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical, ChevronLeft, ChevronRight, CheckCircle, Calendar, Filter } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
@@ -270,6 +270,8 @@ export const InventoryPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [monthlyData, setMonthlyData] = useState<any>(null);
   const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
+  const [selectedMonthlyExportProducts, setSelectedMonthlyExportProducts] = useState<string[]>([]);
+  const [showMonthlyExportModal, setShowMonthlyExportModal] = useState<boolean>(false);
   const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; quantity: number } | null>(null);
   const [productSoldSearchQuery, setProductSoldSearchQuery] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
@@ -529,7 +531,7 @@ export const InventoryPage: React.FC = () => {
     return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
-  const handleExportMonthlyReport = () => {
+  const handleExportMonthlyReport = (selectedProductNames?: string[]) => {
     if (!monthlyData) return;
     
     // Helper to resolve category and SKU from master products
@@ -541,7 +543,19 @@ export const InventoryPage: React.FC = () => {
       return { category, sku };
     };
 
-    const rows = Object.entries(monthlyData.productsSold)
+    let entries = Object.entries(monthlyData.productsSold);
+    
+    // Filter if specific products were specified
+    if (selectedProductNames && selectedProductNames.length > 0) {
+      entries = entries.filter(([pName]) => selectedProductNames.includes(pName));
+    }
+
+    if (entries.length === 0) {
+      showNotification('No products selected to export', 'error');
+      return;
+    }
+
+    const rows = entries
       .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
       .map(([productName, data]: [string, any]) => {
         const { category, sku } = resolveProductInfo(productName);
@@ -556,7 +570,7 @@ export const InventoryPage: React.FC = () => {
         };
       });
 
-    const totalSales = monthlyData.totalSales;
+    const totalSales = rows.reduce((sum, r) => sum + r.revenue, 0);
     const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
 
     const tableHeader = `
@@ -1404,11 +1418,15 @@ export const InventoryPage: React.FC = () => {
             )}
             {activeTab === 'monthly' && (
               <button
-                onClick={handleExportMonthlyReport}
+                onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined)}
                 className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 hover:shadow-lg transition-all font-semibold"
               >
                 <Download size={20} />
-                <span>Export Report</span>
+                <span>
+                  {selectedMonthlyExportProducts.length > 0 
+                    ? `Export Selected (${selectedMonthlyExportProducts.length})` 
+                    : 'Export Report'}
+                </span>
               </button>
             )}
           </div>
@@ -1457,11 +1475,11 @@ export const InventoryPage: React.FC = () => {
               )}
               {activeTab === 'monthly' && (
                 <button
-                  onClick={handleExportMonthlyReport}
+                  onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined)}
                   className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
                 >
                   <Download size={16} className="sm:w-5 sm:h-5" />
-                  <span>Export</span>
+                  <span>{selectedMonthlyExportProducts.length > 0 ? `Export (${selectedMonthlyExportProducts.length})` : 'Export'}</span>
                 </button>
               )}
             </div>
@@ -3045,29 +3063,64 @@ export const InventoryPage: React.FC = () => {
 
           {/* Products Sold Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
-              <div className="relative w-full sm:w-80">
-                <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                  <Search size={18} />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search product name..."
-                  value={monthlySearchQuery}
-                  onChange={(e) => setMonthlySearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
-                />
-                {monthlySearchQuery && (
+            <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-3">
+                  <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
+                  {selectedMonthlyExportProducts.length > 0 && (
+                    <span className="px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border border-purple-200">
+                      {selectedMonthlyExportProducts.length} selected for export
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-1">Select specific products to generate a customized Excel report</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2.5">
+                <div className="relative flex-1 sm:w-64">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={16} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search product name..."
+                    value={monthlySearchQuery}
+                    onChange={(e) => setMonthlySearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                  />
+                  {monthlySearchQuery && (
+                    <button
+                      onClick={() => setMonthlySearchQuery('')}
+                      className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setShowMonthlyExportModal(true)}
+                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"
+                  title="Open Product Picker Modal"
+                >
+                  <Filter size={15} />
+                  <span>Select Products</span>
+                </button>
+
+                {selectedMonthlyExportProducts.length > 0 && (
                   <button
-                    onClick={() => setMonthlySearchQuery('')}
-                    className="absolute inset-y-0 right-0 flex items-center pr-3 text-slate-400 hover:text-slate-600"
+                    type="button"
+                    onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts)}
+                    className="flex items-center space-x-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95 animate-fade-in"
                   >
-                    <X size={16} />
+                    <Download size={15} />
+                    <span>Export Selected ({selectedMonthlyExportProducts.length})</span>
                   </button>
                 )}
               </div>
             </div>
+
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-slate-50 border-b border-slate-200">
@@ -3093,22 +3146,27 @@ export const InventoryPage: React.FC = () => {
                       );
                     }
 
-                    return filtered.map(([productName, data]: [string, any]) => (
-                      <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
-                        <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
-                        <td className="px-6 py-4 text-sm text-right">
-                          <button
-                            onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
-                            className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
-                          >
-                            {data.quantity} units
-                          </button>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
-                          ₱{data.revenue.toLocaleString()}
-                        </td>
-                      </tr>
-                    ));
+                    return filtered.map(([productName, data]: [string, any]) => {
+                      return (
+                        <tr 
+                          key={productName} 
+                          className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <button
+                              onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
+                              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
+                            >
+                              {data.quantity} units
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
+                            ₱{data.revenue.toLocaleString()}
+                          </td>
+                        </tr>
+                      );
+                    });
                   })()}
                 </tbody>
               </table>
@@ -3117,6 +3175,136 @@ export const InventoryPage: React.FC = () => {
         </div>
       )}
       </div>
+
+      {/* Selective Product Export Modal */}
+      {showMonthlyExportModal && monthlyData && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowMonthlyExportModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Select Products to Export</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Choose specific items for your monthly sales Excel report
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowMonthlyExportModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={16} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={monthlySearchQuery}
+                    onChange={(e) => setMonthlySearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allNames = Object.keys(monthlyData.productsSold);
+                      setSelectedMonthlyExportProducts(allNames);
+                    }}
+                    className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-bold transition-colors border border-purple-200"
+                  >
+                    Select All ({Object.keys(monthlyData.productsSold).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedMonthlyExportProducts([])}
+                    className="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-bold transition-colors border border-slate-200"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[42vh] overflow-y-auto">
+                {Object.entries(monthlyData.productsSold)
+                  .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
+                  .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+                  .map(([productName, data]: [string, any]) => {
+                    const isChecked = selectedMonthlyExportProducts.includes(productName);
+                    return (
+                      <label 
+                        key={productName}
+                        className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/60' : 'hover:bg-slate-50'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedMonthlyExportProducts(prev => [...prev, productName]);
+                              } else {
+                                setSelectedMonthlyExportProducts(prev => prev.filter(name => name !== productName));
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                          />
+                          <span className="text-sm font-medium text-slate-800 truncate">{productName}</span>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-shrink-0">
+                          <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">{data.quantity} units</span>
+                          <span className="text-purple-700 font-bold">₱{data.revenue.toLocaleString()}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-slate-600">
+                {selectedMonthlyExportProducts.length > 0
+                  ? `${selectedMonthlyExportProducts.length} of ${Object.keys(monthlyData.productsSold).length} products selected`
+                  : 'No specific products selected (will export all)'}
+              </span>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowMonthlyExportModal(false)}
+                  className="flex-1 sm:flex-initial px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-bold transition-colors"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined);
+                    setShowMonthlyExportModal(false);
+                  }}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-md active:scale-95"
+                >
+                  <Download size={15} />
+                  <span>
+                    {selectedMonthlyExportProducts.length > 0 
+                      ? `Export Selected (${selectedMonthlyExportProducts.length})` 
+                      : 'Export All Products'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Delete Stock Intake Confirmation Modal */}
       {deleteIntakeConfirm.show && deleteIntakeConfirm.record && createPortal(
