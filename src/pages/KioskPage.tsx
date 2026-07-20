@@ -226,10 +226,9 @@ export const KioskPage: React.FC = () => {
   // Checkout Form state
   const [fullName, setFullName] = useState('');
   const [isStudent, setIsStudent] = useState(true);
-  const [idNumber, setIdNumber] = useState('');
   const [course, setCourse] = useState('BSMT');
   const [year, setYear] = useState('1st');
-  const [contactNumber, setContactNumber] = useState('');
+  const [email, setEmail] = useState('');
   const [isCoopMember, setIsCoopMember] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
@@ -299,8 +298,14 @@ export const KioskPage: React.FC = () => {
     return product.stock;
   };
 
+  const isMadeToOrderProduct = selectedProduct ? (
+    selectedProduct.madeToOrder === true ||
+    selectedProduct.is_made_to_order === true ||
+    ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name)
+  ) : false;
+
   const isSelectionOutOfStock = selectedProduct ? (
-    isSelectionConfigured(selectedProduct, selectedOptions) && getSelectionStock(selectedProduct, selectedOptions) <= 0
+    !isMadeToOrderProduct && isSelectionConfigured(selectedProduct, selectedOptions) && getSelectionStock(selectedProduct, selectedOptions) <= 0
   ) : false;
 
   const isPreorderAvailable = selectedProduct ? (
@@ -399,10 +404,9 @@ export const KioskPage: React.FC = () => {
     setCart([]);
     setFullName('');
     setIsStudent(true);
-    setIdNumber('');
     setCourse('BSMT');
     setYear('1st');
-    setContactNumber('');
+    setEmail('');
     setIsCoopMember(false);
     setPaymentMethod('cash');
     setReferenceNumber('');
@@ -558,8 +562,8 @@ export const KioskPage: React.FC = () => {
       mergedOptions['leadResearcher'] = leadResearcher.trim();
     }
 
-    // Determine order type dynamically based on variant/item stock
-    const resolvedOrderType = isSelectionOutOfStock ? 'preorder' : 'regular';
+    // Determine order type dynamically based on variant/item stock or made-to-order status
+    const resolvedOrderType = (isMadeToOrderProduct || isSelectionOutOfStock) ? 'preorder' : 'regular';
 
     const optionsString = Object.entries(mergedOptions)
       .sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
@@ -660,9 +664,10 @@ export const KioskPage: React.FC = () => {
         orderType: 'merchandise',
         isWalkIn: true,
         walkInName: fullName.trim(),
-        walkInIdNumber: isStudent ? idNumber.trim() : null,
+        walkInIdNumber: null,
         walkInCourse: isStudent ? `${course} - ${year}` : 'Guest',
-        walkInContactNumber: !isStudent ? contactNumber.trim() : null,
+        walkInContactNumber: email.trim(),
+        email: email.trim(),
         walkInMembershipStatus: isCoopMember ? 'approved' : 'none'
       };
 
@@ -865,7 +870,7 @@ export const KioskPage: React.FC = () => {
               <div className="text-center mb-12 animate-kiosk-title">
                 <h2 className="text-4xl lg:text-5xl font-black text-gray-900 tracking-tight">ENTER DETAILS</h2>
                 <p className="text-lg text-gray-500 mt-2">
-                  {isStudent ? 'Please provide student info to match your record.' : 'Please provide contact info for your order.'}
+                  {isStudent ? 'Please provide student info & email address for your order.' : 'Please provide email address for your order.'}
                 </p>
               </div>
 
@@ -885,19 +890,14 @@ export const KioskPage: React.FC = () => {
                   <>
                     <div>
                       <FloatingInput
-                        label="Student ID Number"
-                        value={idNumber}
-                        onChange={(e) => {
-                          const val = e.target.value.replace(/\D/g, '');
-                          if (val.length <= 8) {
-                            setIdNumber(val);
-                          }
-                        }}
+                        label="Email Address"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
                         thick={true}
                         focusColor="purple"
                         required
-                        maxLength={8}
-                        inputMode="numeric"
+                        type="email"
+                        inputMode="email"
                       />
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -931,16 +931,14 @@ export const KioskPage: React.FC = () => {
                 ) : (
                   <div>
                     <FloatingInput
-                      label="Contact Number"
-                      value={contactNumber}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, '');
-                        setContactNumber(val);
-                      }}
+                      label="Email Address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
                       thick={true}
                       focusColor="purple"
                       required
-                      inputMode="numeric"
+                      type="email"
+                      inputMode="email"
                     />
                   </div>
                 )}
@@ -951,12 +949,12 @@ export const KioskPage: React.FC = () => {
                       showNotification('Please enter your full name', 'error');
                       return;
                     }
-                    if (isStudent && !idNumber.trim()) {
-                      showNotification('Please enter your student ID number', 'error');
+                    if (!email.trim()) {
+                      showNotification('Please enter your email address', 'error');
                       return;
                     }
-                    if (isStudent && idNumber.length !== 8) {
-                      showNotification('Student ID number must be exactly 8 digits', 'error');
+                    if (!email.includes('@') || !email.includes('.')) {
+                      showNotification('Please enter a valid email address (e.g. student@gmail.com)', 'error');
                       return;
                     }
                     if (isStudent && !course) {
@@ -965,10 +963,6 @@ export const KioskPage: React.FC = () => {
                     }
                     if (isStudent && !year) {
                       showNotification('Please select your year level', 'error');
-                      return;
-                    }
-                    if (!isStudent && !contactNumber.trim()) {
-                      showNotification('Please enter your contact number', 'error');
                       return;
                     }
                     handleStartOrdering();
@@ -1316,9 +1310,9 @@ export const KioskPage: React.FC = () => {
                       </div>
                       {isStudent ? (
                         <>
-                          <div>
-                            <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Student ID</span>
-                            <p className="font-extrabold text-gray-800 mt-0.5">{idNumber}</p>
+                          <div className="col-span-2 sm:col-span-1">
+                            <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Email Address</span>
+                            <p className="font-extrabold text-gray-800 mt-0.5 truncate">{email}</p>
                           </div>
                           <div>
                             <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Course & Year</span>
@@ -1327,8 +1321,8 @@ export const KioskPage: React.FC = () => {
                         </>
                       ) : (
                         <div className="col-span-2">
-                          <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Contact Info</span>
-                          <p className="font-extrabold text-gray-800 mt-0.5">{contactNumber}</p>
+                          <span className="text-gray-400 font-bold uppercase tracking-wider text-[10px]">Email Address</span>
+                          <p className="font-extrabold text-gray-800 mt-0.5 truncate">{email}</p>
                         </div>
                       )}
                     </div>
@@ -1458,12 +1452,10 @@ export const KioskPage: React.FC = () => {
                     <span className="text-gray-400">Customer Name:</span>
                     <span className="text-gray-800">{fullName}</span>
                   </div>
-                  {isStudent && (
-                    <div className="flex justify-between items-center text-xs font-semibold">
-                      <span className="text-gray-400">Student ID:</span>
-                      <span className="text-gray-600">{idNumber}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between items-center text-xs font-semibold">
+                    <span className="text-gray-400">Email Address:</span>
+                    <span className="text-gray-600 truncate max-w-[200px]">{email}</span>
+                  </div>
                 </div>
               </div>
 
@@ -1556,7 +1548,19 @@ export const KioskPage: React.FC = () => {
                     </div>
                   )}
 
-                  {isSelectionOutOfStock && isPreorderAvailable && (
+                  {isMadeToOrderProduct && (
+                    <div className="mb-5">
+                      <div className="p-4 bg-blue-50 border-2 border-blue-200 rounded-xl text-blue-800 text-sm flex items-start gap-2 leading-relaxed">
+                        <Info size={20} className="flex-shrink-0 mt-0.5 text-blue-500" />
+                        <div>
+                          <p className="font-extrabold">Made to Order Item</p>
+                          <p className="text-xs text-blue-700">This item is produced to order. Place your pre-order now and the Coop will notify you once it's ready.</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {!isMadeToOrderProduct && isSelectionOutOfStock && isPreorderAvailable && (
                     <div className="mb-5">
                       <div className="p-4 bg-yellow-50 border-2 border-yellow-200 rounded-xl text-yellow-700 text-sm flex items-start gap-2 leading-relaxed">
                         <Info size={20} className="flex-shrink-0 mt-0.5 text-yellow-500" />
@@ -1568,7 +1572,7 @@ export const KioskPage: React.FC = () => {
                     </div>
                   )}
 
-                  {isSelectionOutOfStock && !isPreorderAvailable && (
+                  {!isMadeToOrderProduct && isSelectionOutOfStock && !isPreorderAvailable && (
                     <div className="mb-5">
                       <div className="p-4 bg-red-50 border-2 border-red-200 rounded-xl text-red-700 text-sm flex items-start gap-2 leading-relaxed">
                         <Info size={20} className="flex-shrink-0 mt-0.5 text-red-500" />

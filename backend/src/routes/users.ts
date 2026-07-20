@@ -701,23 +701,16 @@ router.post('/send-email', authMiddleware, async (req: Request, res: Response) =
 
     // Send the actual external email using Brevo/SendGrid/SMTP
     try {
-      const recipientName = recipient ? `${recipient.first_name} ${recipient.last_name}` : to;
       const emailHtml = `
         <div style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px;">
           <div style="background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 20px; text-align: center; border-radius: 6px 6px 0 0;">
-            <h2 style="margin: 0; font-size: 20px;">New Message</h2>
-            <p style="margin: 5px 0 0 0; opacity: 0.9; font-size: 14px;">UC METC SILMS</p>
+            <h2 style="margin: 0; font-size: 20px;">UC METC SILMS Notification</h2>
           </div>
           <div style="padding: 20px; background-color: #fafafa;">
-            <p>Hello <strong>${recipientName}</strong>,</p>
-            <p>You have received a new message from the Co-op Administrator (<strong>${senderName}</strong>):</p>
-            
-            <div style="background-color: #ffffff; border-left: 4px solid #7c3aed; padding: 15px; margin: 15px 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-              <h4 style="margin: 0 0 10px 0; color: #4c1d95; font-size: 16px;">Subject: ${subject}</h4>
-              <p style="white-space: pre-wrap; margin: 0; color: #4b5563; font-size: 14px;">${body}</p>
+            <div style="background-color: #ffffff; border-left: 4px solid #7c3aed; padding: 20px; margin: 5px 0; border-radius: 4px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+              <h3 style="margin: 0 0 12px 0; color: #4c1d95; font-size: 16px;">${subject}</h3>
+              <div style="white-space: pre-wrap; margin: 0; color: #4b5563; font-size: 14px; line-height: 1.6;">${body}</div>
             </div>
-            
-            ${recipient ? `<p style="font-size: 14px;">You can also log in to the portal to reply directly to this message.</p>` : ''}
           </div>
           <div style="text-align: center; color: #9ca3af; font-size: 11px; margin-top: 20px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
             <p>This is an automated notification from UC METC Sales, Inventory, Locker, and Management System.</p>

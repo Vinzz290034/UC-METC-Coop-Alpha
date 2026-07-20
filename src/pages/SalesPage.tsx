@@ -110,6 +110,14 @@ export const SalesPage: React.FC = () => {
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
   const [fulfillmentSearchQuery, setFulfillmentSearchQuery] = useState<string>('');
+  const [notifiedOrders, setNotifiedOrders] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('coop_notified_preorders');
+      return saved ? new Set(JSON.parse(saved)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -1854,7 +1862,7 @@ export const SalesPage: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Tailored ({preOrderOrders.length + downpaymentOrders.filter(o => !o.receipt_no || !o.receipt_no.startsWith('BAL-')).length + fullPaymentOrders.length})
+              Tailored
             </button>
             <button
               onClick={() => setActiveTab('fulfillment')}
@@ -3353,6 +3361,9 @@ export const SalesPage: React.FC = () => {
                         item.orderType === 'preorder' || item.order_type === 'preorder'
                       );
                       const preOrderTotal = preOrderItems.reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0);
+                      const isWalkIn = order.email?.includes('walkin') || order.email?.includes('@uc-metc-walkin.com') || order.is_walkin;
+                      const customerEmail = order.walk_in_contact_number || order.email || order.contact_number || '';
+                      const displayEmail = (customerEmail && !customerEmail.includes('@uc-metc-walkin.com')) ? customerEmail : order.email;
 
                       return (
                         <div key={order.id} className="border border-purple-200 bg-purple-50 rounded-lg p-4">
@@ -3360,14 +3371,18 @@ export const SalesPage: React.FC = () => {
                             <div className="flex-1">
                               <div className="flex items-center gap-3 mb-2">
                                 <p className="font-semibold text-slate-900">
-                                  {formatFullName(order.first_name, order.last_name)}
+                                  {formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Walk-In Customer'}
                                 </p>
                                 <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded text-xs font-semibold">
                                   PRE-ORDER
                                 </span>
                               </div>
                               <p className="text-sm text-slate-600 mb-1">
-                                {order.email} • ID: {order.id_number}
+                                {isWalkIn ? (
+                                  <>{displayEmail ? `Email: ${displayEmail}` : 'Walk-In Customer'} • {order.walk_in_course || 'Walk-In Kiosk'}</>
+                                ) : (
+                                  <>{order.email} • ID: {order.id_number}</>
+                                )}
                               </p>
                               <p className="text-xs text-slate-500">
                                 Receipt: {order.receipt_no} • Ordered: {new Date(order.created_at).toLocaleDateString()}
@@ -3384,33 +3399,84 @@ export const SalesPage: React.FC = () => {
                               </div>
                             </div>
                             
-                            <div className="text-right ml-4">
+                            <div className="text-right ml-4 flex flex-col items-end justify-between">
                               <p className="text-lg font-bold text-purple-600 mb-2">
                                 ₱{preOrderTotal.toLocaleString()}
                               </p>
-                              <button
-                                className="px-4 py-2 bg-purple-600 text-white rounded-lg text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                                onClick={async () => {
-                                  if (isUpdatingStatus) return;
-                                  try {
-                                    setIsUpdatingStatus(true);
-                                    await AppDataSync.updateOrderStatus(order.id, 'released', user?.id || '');
-                                    showNotification('Order marked as released!', 'success');
-                                    // Reload all orders from API to get updated status
-                                    await AppDataSync.loadOrdersFromAPI(user?.id || '');
-                                    // Then reload pre-orders to update the list
-                                    await loadPreOrderOrders();
-                                  } catch (err) {
-                                    console.error('Failed to mark order as released:', err);
-                                    showNotification('Failed to mark order as released', 'error');
-                                  } finally {
-                                    setIsUpdatingStatus(false);
-                                  }
-                                }}
-                                disabled={isUpdatingStatus}
-                              >
-                                {isUpdatingStatus ? 'Processing...' : 'Mark as Released'}
-                              </button>
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <button
+                                  className={`px-3 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all shadow-sm ${
+                                    (notifiedOrders.has(order.id) || order.is_notified || order.notified)
+                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-300 hover:bg-emerald-200'
+                                      : 'bg-emerald-600 text-white hover:bg-emerald-700 hover:shadow-emerald-500/20'
+                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  onClick={async () => {
+                                    if (isUpdatingStatus) return;
+                                    try {
+                                      setIsUpdatingStatus(true);
+                                      const customerName = formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Customer';
+                                      const targetEmail = customerEmail && customerEmail.includes('@') ? customerEmail : order.email;
+                                      const itemsList = preOrderItems.map((item: any) => `• ${formatProductNameWithVariants(item)} (Qty: ${item.quantity})`).join('\n');
+                                      
+                                      const subject = `Your Pre-Order is Ready for Release! - Receipt #${order.receipt_no}`;
+                                      const body = `Hello ${customerName},\n\nGood news! Your pre-order (Receipt #${order.receipt_no}) is now ready for release and pickup at the UC METC Coop Office.\n\nItems Ready for Release:\n${itemsList}\n\nPlease visit the UC METC Coop Office with your e-receipt to claim your items.\n\nBest regards,\nUC METC SILMS`;
+                                      
+                                      if (targetEmail && targetEmail.includes('@') && !targetEmail.includes('@uc-metc-walkin.com')) {
+                                        await apiClient.sendEmail({
+                                          to: targetEmail,
+                                          subject,
+                                          body
+                                        });
+                                        showNotification(`Email notification sent to ${customerName} (${targetEmail})!`, 'success');
+                                      } else {
+                                        showNotification(`Notification sent to ${customerName}!`, 'success');
+                                      }
+                                      
+                                      setNotifiedOrders(prev => {
+                                        const next = new Set(prev).add(order.id);
+                                        try {
+                                          localStorage.setItem('coop_notified_preorders', JSON.stringify(Array.from(next)));
+                                        } catch (e) {
+                                          console.error('Failed to save notified orders', e);
+                                        }
+                                        return next;
+                                      });
+                                    } catch (err) {
+                                      console.error('Failed to send ready notification:', err);
+                                      showNotification('Failed to send ready notification', 'error');
+                                    } finally {
+                                      setIsUpdatingStatus(false);
+                                    }
+                                  }}
+                                  disabled={isUpdatingStatus}
+                                >
+                                  {(notifiedOrders.has(order.id) || order.is_notified || order.notified) ? 'Notified (Resend)' : 'Ready to Release'}
+                                </button>
+
+                                <button
+                                  className="px-4 py-2 bg-purple-600 text-white rounded-lg text-xs sm:text-sm font-semibold hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                                  onClick={async () => {
+                                    if (isUpdatingStatus) return;
+                                    try {
+                                      setIsUpdatingStatus(true);
+                                      await AppDataSync.updateOrderStatus(order.id, 'released', user?.id || '');
+                                      showNotification('Order marked as released!', 'success');
+                                      // Reload all orders from API to get updated status
+                                      await AppDataSync.loadOrdersFromAPI(user?.id || '');
+                                      // Then reload pre-orders to update the list
+                                      await loadPreOrderOrders();
+                                    } catch (err) {
+                                      console.error('Failed to mark order as released:', err);
+                                      showNotification('Failed to mark order as released', 'error');
+                                    } finally {
+                                      setIsUpdatingStatus(false);
+                                    }
+                                  }}
+                                  disabled={isUpdatingStatus}
+                                >
+                                  {isUpdatingStatus ? 'Processing...' : 'Mark as Released'}
+                                </button>
+                              </div>
                             </div>
                           </div>
                         </div>

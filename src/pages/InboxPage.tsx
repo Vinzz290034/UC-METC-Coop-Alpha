@@ -1185,9 +1185,9 @@ export const InboxPage: React.FC = () => {
       {/* Compose Modal */}
       {showCompose && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-scale-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
             {/* Modal Header */}
-            <div className="sticky top-0 flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-purple-600 to-purple-700">
+            <div className="flex items-center justify-between p-4 sm:p-6 border-b border-slate-200 bg-gradient-to-r from-purple-600 to-purple-700 flex-shrink-0 z-10">
               <h2 className="text-xl sm:text-2xl font-bold text-white">Compose Message</h2>
               <button
                 onClick={() => setShowCompose(false)}
@@ -1198,7 +1198,7 @@ export const InboxPage: React.FC = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="p-4 sm:p-6 space-y-4">
+            <div className="p-4 sm:p-6 space-y-4 flex-1 overflow-y-auto">
               {/* Recipient */}
               <div className="relative">
                 <label className="block text-xs sm:text-sm font-bold text-slate-800 mb-2">
@@ -1448,7 +1448,7 @@ export const InboxPage: React.FC = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="flex gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-2xl">
+            <div className="flex gap-3 p-4 sm:p-6 border-t border-slate-200 bg-slate-50 rounded-b-2xl flex-shrink-0 z-10">
               <button
                 onClick={() => setShowCompose(false)}
                 className="flex-1 px-4 py-2 bg-slate-200 text-slate-900 rounded-xl text-xs sm:text-sm font-bold hover:bg-slate-300 active:scale-95 transition-all duration-200"
