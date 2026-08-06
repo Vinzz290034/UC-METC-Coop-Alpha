@@ -808,24 +808,32 @@ export const StudentDashboard: React.FC = () => {
                         );
                       })}
 
-                      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full items-center">
-                        {activity.galleryImages.map((_: string, idx: number) => (
-                          <button
-                            key={idx}
-                            onClick={() => setCurrentGalleryIndex(idx)}
-                            style={{
-                              width: idx === currentGalleryIndex ? 20 : 6,
-                              height: 6,
-                              minWidth: 0,
-                              minHeight: 0,
-                              padding: 0,
-                            }}
-                            className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
-                              idx === currentGalleryIndex ? 'bg-[#16a34a]' : 'bg-white/50 hover:bg-white/80'
-                            }`}
-                          />
-                        ))}
-                      </div>
+                      {activity.galleryImages.length > 7 ? (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/75 backdrop-blur-md border border-white/10 px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg tracking-wider flex items-center gap-1.5 select-none">
+                          <span>{currentGalleryIndex + 1}</span>
+                          <span className="text-white/40">/</span>
+                          <span className="text-white/70">{activity.galleryImages.length}</span>
+                        </div>
+                      ) : (
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 bg-black/75 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full items-center shadow-lg">
+                          {activity.galleryImages.map((_: string, idx: number) => (
+                            <button
+                              key={idx}
+                              onClick={() => setCurrentGalleryIndex(idx)}
+                              style={{
+                                width: idx === currentGalleryIndex ? 20 : 6,
+                                height: 6,
+                                minWidth: 0,
+                                minHeight: 0,
+                                padding: 0,
+                              }}
+                              className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
+                                idx === currentGalleryIndex ? 'bg-[#16a34a]' : 'bg-white/50 hover:bg-white/80'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                   </div>
@@ -1012,17 +1020,25 @@ export const StudentDashboard: React.FC = () => {
                         })}
 
                         {/* Carousel Indicators Bar */}
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 bg-black/60 backdrop-blur-md px-3 py-1 rounded-full items-center">
-                          {activity.galleryImages.map((_: string, idx: number) => (
-                            <button
-                              key={idx}
-                              onClick={() => setCurrentGalleryIndex(idx)}
-                              className={`rounded-full transition-all duration-300 p-0 border-0 ${
-                                idx === currentGalleryIndex ? 'bg-white w-5 h-1.5' : 'bg-white/50 w-1.5 h-1.5'
-                              }`}
-                            />
-                          ))}
-                        </div>
+                        {activity.galleryImages.length > 7 ? (
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 bg-black/75 backdrop-blur-md border border-white/10 px-3.5 py-1 rounded-full text-white text-xs font-bold shadow-lg tracking-wider flex items-center gap-1.5 select-none">
+                            <span>{currentGalleryIndex + 1}</span>
+                            <span className="text-white/40">/</span>
+                            <span className="text-white/70">{activity.galleryImages.length}</span>
+                          </div>
+                        ) : (
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex space-x-1.5 bg-black/75 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full items-center shadow-lg">
+                            {activity.galleryImages.map((_: string, idx: number) => (
+                              <button
+                                key={idx}
+                                onClick={() => setCurrentGalleryIndex(idx)}
+                                className={`rounded-full transition-all duration-300 p-0 border-0 ${
+                                  idx === currentGalleryIndex ? 'bg-[#16a34a] w-5 h-1.5' : 'bg-white/50 w-1.5 h-1.5'
+                                }`}
+                              />
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

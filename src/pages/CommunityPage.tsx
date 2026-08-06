@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
-import { COMMUNITY_GA_GALLERY_URLS } from '../constants/cloudinaryGallery';
+import { COMMUNITY_GA_GALLERY_URLS, GALLERY_IMAGE_URLS } from '../constants/cloudinaryGallery';
 import {
   ChevronLeft,
   Calendar,
@@ -239,7 +239,7 @@ export const CommunityPage: React.FC = () => {
               ],
               attendees: item.attendees || (item.title?.toLowerCase().includes('ringhop') ? '300+ Members' : '150+ Members'),
               colorTheme: item.color_theme || item.colorTheme || 'emerald',
-              images: (cleanImages.length > 0 ? cleanImages : COMMUNITY_GA_GALLERY_URLS).slice(0, 5),
+              images: cleanImages.length > 0 ? cleanImages : GALLERY_IMAGE_URLS,
             };
           });
 
@@ -255,11 +255,7 @@ export const CommunityPage: React.FC = () => {
     fetchActivities();
   }, []);
 
-  const rawSelectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0] || communityEvents[0];
-  const selectedEvent = {
-    ...rawSelectedEvent,
-    images: (rawSelectedEvent.images || COMMUNITY_GA_GALLERY_URLS).slice(0, 5),
-  };
+  const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0] || communityEvents[0];
 
   const themeBgMap: Record<string, string> = {
     emerald: 'bg-[#16a34a]',
@@ -629,31 +625,39 @@ export const CommunityPage: React.FC = () => {
                           />
                         </div>
                         
-                        {/* Interactive Gallery Dots (Max 5) */}
-                        <div className="flex items-center justify-center mt-3 gap-1.5 overflow-hidden py-1">
-                          {selectedEvent.images.slice(0, 5).map((_: string, index: number) => {
-                            const isActive = (currentImageIndex % (selectedEvent.images.length || 1)) === index;
-                            return (
-                              <button
-                                key={index}
-                                onClick={() => setCurrentImageIndex(index)}
-                                style={{
-                                  width: isActive ? 20 : 6,
-                                  height: 6,
-                                  minWidth: 0,
-                                  minHeight: 0,
-                                  padding: 0,
-                                }}
-                                className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
-                                  isActive
-                                    ? 'bg-[#16a34a]'
-                                    : 'bg-slate-300 hover:bg-slate-400'
-                                }`}
-                                title={`View photo ${index + 1}`}
-                              />
-                            );
-                          })}
-                        </div>
+                        {/* Interactive Gallery Indicators */}
+                        {selectedEvent.images.length > 7 ? (
+                          <div className="flex items-center justify-center mt-3">
+                            <span className="text-xs font-bold text-slate-700 bg-white border border-slate-200 px-3.5 py-1 rounded-full shadow-xs">
+                              {(currentImageIndex % (selectedEvent.images.length || 1)) + 1} / {selectedEvent.images.length}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="flex items-center justify-center mt-3 gap-1.5 overflow-hidden py-1">
+                            {selectedEvent.images.map((_: string, index: number) => {
+                              const isActive = (currentImageIndex % (selectedEvent.images.length || 1)) === index;
+                              return (
+                                <button
+                                  key={index}
+                                  onClick={() => setCurrentImageIndex(index)}
+                                  style={{
+                                    width: isActive ? 20 : 6,
+                                    height: 6,
+                                    minWidth: 0,
+                                    minHeight: 0,
+                                    padding: 0,
+                                  }}
+                                  className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
+                                    isActive
+                                      ? 'bg-[#16a34a]'
+                                      : 'bg-slate-300 hover:bg-slate-400'
+                                  }`}
+                                  title={`View photo ${index + 1}`}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
 
