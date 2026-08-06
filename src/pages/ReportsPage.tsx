@@ -614,8 +614,17 @@ export const ReportsPage: React.FC = () => {
                           {icon}
                         </div>
                       </div>
-                      <div className="mt-3">
-                        <h4 className={`text-2xl font-black tracking-tight ${textStyle}`}>
+                      <div className="mt-3 min-w-0">
+                        <h4 
+                          className={`font-black tracking-tight truncate max-w-full ${textStyle} ${
+                            String(item.value).length > 12
+                              ? 'text-base sm:text-lg'
+                              : String(item.value).length > 9
+                              ? 'text-lg sm:text-xl'
+                              : 'text-xl sm:text-2xl'
+                          }`}
+                          title={String(item.value)}
+                        >
                           {item.value}
                         </h4>
                       </div>
@@ -703,11 +712,20 @@ export const ReportsPage: React.FC = () => {
                           <TrendingUp size={22} className="text-emerald-300" />
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <h3 className="text-3xl font-black tracking-tight">
+                      <div className="mt-4 min-w-0">
+                        <h3 
+                          className={`font-black tracking-tight truncate max-w-full ${
+                            (`₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg lg:text-xl'
+                              : (`₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl lg:text-2xl'
+                              : 'text-2xl sm:text-3xl'
+                          }`}
+                          title={`₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
                           ₱{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h3>
-                        <p className="text-xs text-purple-200 mt-1 font-medium">Gross sales across all channels</p>
+                        <p className="text-xs text-purple-200 mt-1 font-medium truncate">Gross sales across all channels</p>
                       </div>
                     </div>
 
@@ -719,9 +737,11 @@ export const ReportsPage: React.FC = () => {
                           <ShoppingBag size={20} />
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <h3 className="text-3xl font-black text-slate-900">{totalSalesCount.toLocaleString()}</h3>
-                        <p className="text-xs text-slate-500 mt-1 font-medium">Fulfilled completed orders</p>
+                      <div className="mt-4 min-w-0">
+                        <h3 className="text-2xl sm:text-3xl font-black text-slate-900 truncate max-w-full">
+                          {totalSalesCount.toLocaleString()}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">Fulfilled completed orders</p>
                       </div>
                     </div>
 
@@ -733,11 +753,20 @@ export const ReportsPage: React.FC = () => {
                           <CreditCard size={20} />
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <h3 className="text-3xl font-black text-slate-900">
+                      <div className="mt-4 min-w-0">
+                        <h3 
+                          className={`font-black text-slate-900 tracking-tight truncate max-w-full ${
+                            (`₱${avgTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg lg:text-xl'
+                              : (`₱${avgTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl lg:text-2xl'
+                              : 'text-2xl sm:text-3xl'
+                          }`}
+                          title={`₱${avgTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
                           ₱{avgTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h3>
-                        <p className="text-xs text-slate-500 mt-1 font-medium">Average sales amount per receipt</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">Average sales amount per receipt</p>
                       </div>
                     </div>
 
@@ -751,11 +780,20 @@ export const ReportsPage: React.FC = () => {
                           <Tag size={20} />
                         </div>
                       </div>
-                      <div className="mt-4">
-                        <h3 className="text-3xl font-black text-slate-900">
+                      <div className="mt-4 min-w-0">
+                        <h3 
+                          className={`font-black text-slate-900 tracking-tight truncate max-w-full ${
+                            (`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg lg:text-xl'
+                              : (`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl lg:text-2xl'
+                              : 'text-2xl sm:text-3xl'
+                          }`}
+                          title={`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
                           ₱{preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h3>
-                        <p className="text-xs text-slate-500 mt-1 font-medium">{preorderOrders.length} pre-ordered items fulfilled</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">{preorderOrders.length} pre-ordered items fulfilled</p>
                       </div>
                     </div>
                   </div>
@@ -774,10 +812,19 @@ export const ReportsPage: React.FC = () => {
                           <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-700">Cash Payment Channel</span>
                           <span className="text-xs font-black bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">{cashPercentStr} of Sales</span>
                         </div>
-                        <h4 className="text-2xl font-black text-slate-900 mt-1">
+                        <h4 
+                          className={`font-black text-slate-900 mt-1 truncate max-w-full ${
+                            (`₱${cashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg'
+                              : (`₱${cashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl'
+                              : 'text-xl sm:text-2xl'
+                          }`}
+                          title={`₱${cashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
                           ₱{cashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h4>
-                        <p className="text-xs text-slate-500 font-medium mt-0.5">
+                        <p className="text-xs text-slate-500 font-medium mt-0.5 truncate">
                           {cashOrders.length.toLocaleString()} total cash payments processed
                         </p>
                         <div className="w-full bg-slate-100 rounded-full h-2 mt-3 overflow-hidden">
@@ -798,7 +845,16 @@ export const ReportsPage: React.FC = () => {
                           <span className="text-xs font-extrabold uppercase tracking-wider text-blue-700">GCash / E-Wallet Channel</span>
                           <span className="text-xs font-black bg-blue-100 text-blue-800 px-2.5 py-0.5 rounded-full">{gcashPercentStr} of Sales</span>
                         </div>
-                        <h4 className="text-2xl font-black text-slate-900 mt-1">
+                        <h4 
+                          className={`font-black text-slate-900 mt-1 truncate max-w-full ${
+                            (`₱${gcashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg'
+                              : (`₱${gcashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl'
+                              : 'text-xl sm:text-2xl'
+                          }`}
+                          title={`₱${gcashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
                           ₱{gcashRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h4>
                         <p className="text-xs text-slate-500 font-medium mt-0.5">
