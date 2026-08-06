@@ -277,9 +277,27 @@ export const StudentDashboard: React.FC = () => {
   const [expandedActivityIds, setExpandedActivityIds] = useState<Record<string, boolean>>({});
 
   const ringhopActivity = recentActivitiesList.find((a: any) => a.title?.toLowerCase().includes('ringhop'));
-  const ringhopImage = ringhopActivity?.galleryImages?.[0] || GALLERY_IMAGE_URLS[18];
+  const ringhopImage = ringhopActivity?.galleryImages?.[0] || 'https://res.cloudinary.com/doas4qcdo/image/upload/v1786039310/uc_coop/announcements/rkwg9fx9tdnvrpp8tztc.png';
 
   const banners = [
+    {
+      title: ringhopActivity?.title || 'Ringhop Ceremony 2026',
+      subtitle: ringhopActivity?.subtitle || 'Honoring Academic Dedication and Professional Excellence',
+      date: ringhopActivity?.date || 'June 30, 2026',
+      time: ringhopActivity?.time || '3:00 PM - 6:00 PM',
+      cta: 'Learn More',
+      image: ringhopImage,
+      action: () => {
+        const activitiesSection = document.getElementById(window.innerWidth < 768 ? 'recent-activities-mobile' : 'recent-activities');
+        if (activitiesSection) {
+          activitiesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      },
+      overlay: 'bg-gradient-to-r from-blue-950/90 via-blue-900/55 to-transparent',
+      border: 'border-blue-500/50',
+      badgeBg: 'bg-[#2563eb]',
+      btnBg: 'bg-[#2563eb] hover:bg-[#1d4ed8]',
+    },
     {
       title: 'Back to School 2026',
       subtitle: 'Get Your Coop Essentials & Exclusive Discounts',
@@ -310,24 +328,6 @@ export const StudentDashboard: React.FC = () => {
       border: 'border-emerald-500/50',
       badgeBg: 'bg-[#16a34a]',
       btnBg: 'bg-[#16a34a] hover:bg-[#15803d]',
-    },
-    {
-      title: ringhopActivity?.title || 'Ringhop Ceremony 2026',
-      subtitle: ringhopActivity?.subtitle || 'Honoring Academic Dedication and Professional Excellence',
-      date: ringhopActivity?.date || 'June 30, 2026',
-      time: ringhopActivity?.time || '3:00 PM - 6:00 PM',
-      cta: 'Learn More',
-      image: ringhopImage,
-      action: () => {
-        const activitiesSection = document.getElementById(window.innerWidth < 768 ? 'recent-activities-mobile' : 'recent-activities');
-        if (activitiesSection) {
-          activitiesSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-      },
-      overlay: 'bg-gradient-to-r from-blue-950/90 via-blue-900/55 to-transparent',
-      border: 'border-blue-500/50',
-      badgeBg: 'bg-[#2563eb]',
-      btnBg: 'bg-[#2563eb] hover:bg-[#1d4ed8]',
     },
   ];
 
