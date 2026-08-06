@@ -239,7 +239,7 @@ export const CommunityPage: React.FC = () => {
               ],
               attendees: item.attendees || (item.title?.toLowerCase().includes('ringhop') ? '300+ Members' : '150+ Members'),
               colorTheme: item.color_theme || item.colorTheme || 'emerald',
-              images: cleanImages.length > 0 ? cleanImages : COMMUNITY_GA_GALLERY_URLS,
+              images: (cleanImages.length > 0 ? cleanImages : COMMUNITY_GA_GALLERY_URLS).slice(0, 5),
             };
           });
 
@@ -255,7 +255,11 @@ export const CommunityPage: React.FC = () => {
     fetchActivities();
   }, []);
 
-  const selectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0] || communityEvents[0];
+  const rawSelectedEvent = eventsList.find(e => e.id === selectedEventId) || eventsList[0] || communityEvents[0];
+  const selectedEvent = {
+    ...rawSelectedEvent,
+    images: (rawSelectedEvent.images || COMMUNITY_GA_GALLERY_URLS).slice(0, 5),
+  };
 
   const themeBgMap: Record<string, string> = {
     emerald: 'bg-[#16a34a]',
@@ -608,44 +612,47 @@ export const CommunityPage: React.FC = () => {
                           <span>Event Gallery</span>
                         </h3>
                         <span className="text-xs font-semibold text-slate-500 bg-white px-2.5 py-1 rounded-full border border-slate-200">
-                          {currentImageIndex + 1} of {selectedEvent.images.length}
+                          {(currentImageIndex % (selectedEvent.images.length || 1)) + 1} of {selectedEvent.images.length}
                         </span>
                       </div>
 
                       <div className="relative">
                         <div 
                           className="aspect-video rounded-xl overflow-hidden shadow-lg border border-slate-200 bg-slate-900 cursor-pointer group relative"
-                          onClick={() => setPreviewImage(selectedEvent.images[currentImageIndex])}
+                          onClick={() => setPreviewImage(selectedEvent.images[currentImageIndex % (selectedEvent.images.length || 1)])}
                           title="Click to view full screen"
                         >
                           <img
-                            src={selectedEvent.images[currentImageIndex]}
-                            alt={`${selectedEvent.title} - Photo ${currentImageIndex + 1}`}
+                            src={selectedEvent.images[currentImageIndex % (selectedEvent.images.length || 1)]}
+                            alt={`${selectedEvent.title} - Photo ${(currentImageIndex % (selectedEvent.images.length || 1)) + 1}`}
                             className="w-full h-full object-cover transition-all duration-500 group-hover:scale-105"
                           />
                         </div>
                         
-                        {/* Interactive Gallery Dots */}
-                        <div className="flex items-center justify-center mt-3 gap-1.5">
-                          {selectedEvent.images.map((_: string, index: number) => (
-                            <button
-                              key={index}
-                              onClick={() => setCurrentImageIndex(index)}
-                              style={{
-                                width: index === currentImageIndex ? 20 : 6,
-                                height: 6,
-                                minWidth: 0,
-                                minHeight: 0,
-                                padding: 0,
-                              }}
-                              className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
-                                index === currentImageIndex
-                                  ? 'bg-[#16a34a]'
-                                  : 'bg-slate-300 hover:bg-slate-400'
-                              }`}
-                              title={`View photo ${index + 1}`}
-                            />
-                          ))}
+                        {/* Interactive Gallery Dots (Max 5) */}
+                        <div className="flex items-center justify-center mt-3 gap-1.5 overflow-hidden py-1">
+                          {selectedEvent.images.slice(0, 5).map((_: string, index: number) => {
+                            const isActive = (currentImageIndex % (selectedEvent.images.length || 1)) === index;
+                            return (
+                              <button
+                                key={index}
+                                onClick={() => setCurrentImageIndex(index)}
+                                style={{
+                                  width: isActive ? 20 : 6,
+                                  height: 6,
+                                  minWidth: 0,
+                                  minHeight: 0,
+                                  padding: 0,
+                                }}
+                                className={`rounded-full transition-all duration-300 border-0 shrink-0 cursor-pointer ${
+                                  isActive
+                                    ? 'bg-[#16a34a]'
+                                    : 'bg-slate-300 hover:bg-slate-400'
+                                }`}
+                                title={`View photo ${index + 1}`}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
                     </div>
