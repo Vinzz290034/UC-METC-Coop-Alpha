@@ -89,6 +89,7 @@ const PaginatedGallery: React.FC<PaginatedGalleryProps> = ({ images, onImageClic
                 src={getThumbnailUrl(img, 300)}
                 alt={`Gallery ${globalIndex + 1}`}
                 loading="eager"
+                onError={(e) => { (e.target as HTMLImageElement).src = img; }}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
               />
             </div>

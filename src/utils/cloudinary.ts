@@ -39,10 +39,15 @@ const fileToCompressedBase64 = (file: File | string, maxWidth = 1200, quality = 
 export function getThumbnailUrl(url: string, width = 350): string {
   if (!url || typeof url !== 'string') return '';
   if (url.includes('res.cloudinary.com') && url.includes('/upload/')) {
-    // Replace any existing transformation segment right after /upload/ (e.g. /upload/f_auto,q_auto,w_1200/ or /upload/w_300,f_auto,q_auto/)
+    // Strip any existing transformation segment (non-version, non-public-ID segments after /upload/)
+    // Cloudinary transformation params contain letters like f_, q_, w_, c_ etc.
+    // We remove the entire transformation block and replace with our own.
     return url.replace(
-      /\/upload\/(?:[a-z0-9_,-]+\/)?(v\d+|\w+)/i,
+      /\/upload\/(?:[^/]+\/)*?(v\d+\/)/i,
       `/upload/c_scale,w_${width},f_auto,q_auto/$1`
+    ).replace(
+      /\/upload\/(?:[^/]*,.*?\/)/i,
+      `/upload/c_scale,w_${width},f_auto,q_auto/`
     );
   }
   return url;
