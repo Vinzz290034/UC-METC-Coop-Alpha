@@ -744,6 +744,11 @@ export const StudentDashboard: React.FC = () => {
                 </h2>
               </div>
               {recentActivitiesList.map((activity: any) => {
+                const isExpanded = expandedActivityIds[activity.id] || false;
+                const toggleExpanded = () => {
+                  setExpandedActivityIds(prev => ({ ...prev, [activity.id]: !prev[activity.id] }));
+                };
+
                 const themeMap: Record<string, string> = {
                   emerald: 'bg-[#16a34a]',
                   purple: 'bg-[#7c3aed]',
@@ -757,27 +762,47 @@ export const StudentDashboard: React.FC = () => {
                 return (
                   <div key={activity.id} className="space-y-4">
                     <div className={`${themeBg} rounded-2xl p-5 text-white shadow-md relative overflow-hidden transition-colors duration-300`}>
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
-                    <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16 pointer-events-none"></div>
-                    <div className="relative z-10">
-                      {activity.subtitle && (
-                        <p className="text-white/80 text-xs mb-3 font-medium">{activity.subtitle}</p>
-                      )}
-                      
-                      <div className="text-white text-xs leading-relaxed text-justify mb-3">
-                        {activity.shortDescription}
-                      </div>
+                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 pointer-events-none"></div>
+                      <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full -ml-16 -mb-16 pointer-events-none"></div>
+                      <div className="relative z-10">
+                        {activity.title && (
+                          <h3 className="text-lg font-bold mb-1">{activity.title}</h3>
+                        )}
+                        {activity.subtitle && (
+                          <p className="text-white/80 text-xs mb-3 font-medium">{activity.subtitle}</p>
+                        )}
 
-                      <div className="space-y-0.5 text-[11px] text-white/80 font-medium pt-3 border-t border-white/20">
-                        {activity.photographers?.map((p: string, idx: number) => (
-                          <p key={`ph-${idx}`}>Photo By | {p}</p>
-                        ))}
-                        {(Array.isArray(activity.editor) ? activity.editor : (typeof activity.editor === 'string' ? activity.editor.split(',') : [])).map((e: any) => String(e).trim()).filter(Boolean).map((ed: string, idx: number) => (
-                          <p key={`ed-${idx}`}>Edited By | {ed}</p>
-                        ))}
+                        <div className="text-white text-xs leading-relaxed text-justify mb-3">
+                          {isExpanded ? (
+                            typeof activity.fullDescription === 'string' ? (
+                              <div className="whitespace-pre-line">{activity.fullDescription}</div>
+                            ) : (
+                              activity.fullDescription
+                            )
+                          ) : (
+                            activity.shortDescription
+                          )}
+                        </div>
+
+                        {activity.fullDescription && (
+                          <button 
+                            onClick={toggleExpanded}
+                            className="text-white font-bold text-xs underline cursor-pointer hover:text-white/90 transition-colors mb-3 block"
+                          >
+                            {isExpanded ? 'See less' : 'See more'}
+                          </button>
+                        )}
+
+                        <div className="space-y-0.5 text-[11px] text-white/80 font-medium pt-3 border-t border-white/20">
+                          {activity.photographers?.map((p: string, idx: number) => (
+                            <p key={`ph-${idx}`}>Photo By | {p}</p>
+                          ))}
+                          {(Array.isArray(activity.editor) ? activity.editor : (typeof activity.editor === 'string' ? activity.editor.split(',') : [])).map((e: any) => String(e).trim()).filter(Boolean).map((ed: string, idx: number) => (
+                            <p key={`ed-${idx}`}>Edited By | {ed}</p>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
 
                   {activity.galleryImages && activity.galleryImages.length > 0 && (
                     <div className="relative w-full rounded-2xl overflow-hidden bg-slate-950 border border-purple-100/80 shadow-md aspect-[16/9] max-h-[22rem]">
@@ -955,7 +980,7 @@ export const StudentDashboard: React.FC = () => {
                         {activity.subtitle && (
                           <p className="text-white/80 text-xs sm:text-sm mb-3 font-medium">{activity.subtitle}</p>
                         )}
-                        
+
                         <div className="text-white text-xs sm:text-sm leading-relaxed text-justify mb-4">
                           {isExpanded ? (
                             typeof activity.fullDescription === 'string' ? (

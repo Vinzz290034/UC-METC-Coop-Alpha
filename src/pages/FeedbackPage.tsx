@@ -49,7 +49,7 @@ const STORAGE_KEY = 'uc_metc_feedbacks_v1';
 
 export const FeedbackPage: React.FC = () => {
   const { user } = useAuth();
-  const { showNotification } = useUIStore();
+  const { showNotification, setSidebarOpen } = useUIStore();
   const { addNotification } = useNotificationStore();
   const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
 
@@ -259,6 +259,28 @@ export const FeedbackPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 animate-fade-in">
       <div className="max-w-7xl mx-auto space-y-8">
+
+        {/* Mobile Header with Hamburger */}
+        <div className="lg:hidden flex items-center gap-3 mb-2">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
+            aria-label="Open menu"
+          >
+            <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          <div>
+            <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-none">
+              {isAdminOrStaff ? 'Feedback Management' : 'Feedback & Suggestions'}
+            </h1>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              {isAdminOrStaff ? 'Moderate and respond to feedback' : 'Share your thoughts with us'}
+            </p>
+          </div>
+        </div>
+
         {/* Page Title & Hero */}
         <div className="bg-[#3b1d6e] text-white rounded-3xl p-6 sm:p-10 shadow-2xl relative overflow-hidden">
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
@@ -343,8 +365,8 @@ export const FeedbackPage: React.FC = () => {
         {activeTab === 'submit' && (
           <div className="bg-white border-2 border-purple-200 rounded-3xl p-6 sm:p-10 shadow-xl max-w-4xl mx-auto">
             <div className="mb-8 text-center sm:text-left">
-              <h2 className="text-2xl font-black text-slate-900 flex items-center gap-2">
-                <MessageSquare className="text-purple-600" size={26} />
+              <h2 className="text-2xl font-black text-slate-900 flex items-center justify-center sm:justify-start gap-2">
+                <MessageSquare className="text-purple-600 shrink-0" size={26} />
                 Share Your Experience with Us
               </h2>
               <p className="text-slate-600 text-sm mt-1">
