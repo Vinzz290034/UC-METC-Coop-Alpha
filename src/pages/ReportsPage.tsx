@@ -226,7 +226,12 @@ export const ReportsPage: React.FC = () => {
       }
     });
 
-    let topLedger = Object.values(pMap).sort((a, b) => (b.revenue || b.unitsSold) - (a.revenue || a.unitsSold));
+    let topLedger = Object.values(pMap).sort((a, b) => {
+      if (b.unitsSold !== a.unitsSold) {
+        return b.unitsSold - a.unitsSold;
+      }
+      return b.revenue - a.revenue;
+    });
 
     if (monthlySearchQuery.trim()) {
       const q = monthlySearchQuery.toLowerCase().trim();
@@ -518,7 +523,12 @@ export const ReportsPage: React.FC = () => {
                     }
                   });
 
-                  const topLedger = Object.values(monthlyMap).sort((a, b) => (b.revenue || b.unitsSold) - (a.revenue || a.unitsSold));
+                  const topLedger = Object.values(monthlyMap).sort((a, b) => {
+                    if (b.unitsSold !== a.unitsSold) {
+                      return b.unitsSold - a.unitsSold;
+                    }
+                    return b.revenue - a.revenue;
+                  });
 
                   csvRows.push(
                     [''],
