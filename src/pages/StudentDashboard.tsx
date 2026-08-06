@@ -22,7 +22,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { GlobalSearch } from '../components/GlobalSearch';
 import { WelcomeTour } from '../components/WelcomeTour';
 import { InsuranceModal } from '../components/InsuranceModal';
-import { GALLERY_IMAGE_URLS } from '../constants/cloudinaryGallery';
+import { GALLERY_IMAGE_URLS, COMMUNITY_GA_GALLERY_URLS } from '../constants/cloudinaryGallery';
 import { STUDENT_DASHBOARD_BANNER_IMAGE } from '../constants/cloudinaryAssets';
 
 export const StudentDashboard: React.FC = () => {
