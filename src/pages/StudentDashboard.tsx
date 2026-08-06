@@ -250,7 +250,26 @@ export const StudentDashboard: React.FC = () => {
       image: true,
       photographers: ['Vince Andrew Santoya', 'Kisses Peñera'],
       editor: 'Vince Andrew Santoya',
-      galleryImages: GALLERY_IMAGE_URLS,
+      galleryImages: COMMUNITY_GA_GALLERY_URLS,
+    },
+    {
+      id: 'act-default-2',
+      title: 'RINGHOP CEREMONY 2026',
+      subtitle: 'Honoring Academic Dedication and Professional Excellence',
+      date: 'June 30, 2026',
+      time: '3:00 PM - 6:00 PM',
+      shortDescription: 'Celebrating the achievements and academic milestone of our maritime students as they receive their official rings.',
+      fullDescription: (
+        <>
+          <p className="mb-4 text-justify">
+            The Ringhop Ceremony 2026 marks a memorable milestone for maritime students at UC METC. Graduating cadets and members gather to receive their official rings in a grand celebration honoring academic perseverance, discipline, and professional excellence.
+          </p>
+        </>
+      ),
+      image: true,
+      photographers: ['Vince Andrew Santoya', 'Staff Support'],
+      editor: 'Vince Andrew Santoya',
+      galleryImages: [GALLERY_IMAGE_URLS[18], GALLERY_IMAGE_URLS[26], GALLERY_IMAGE_URLS[13], GALLERY_IMAGE_URLS[21]],
     },
   ];
 
@@ -258,9 +277,7 @@ export const StudentDashboard: React.FC = () => {
   const [expandedActivityIds, setExpandedActivityIds] = useState<Record<string, boolean>>({});
 
   const ringhopActivity = recentActivitiesList.find((a: any) => a.title?.toLowerCase().includes('ringhop'));
-  const ringhopImage = (ringhopActivity?.galleryImages && ringhopActivity.galleryImages.length >= 7)
-    ? ringhopActivity.galleryImages[6]
-    : (ringhopActivity?.galleryImages?.[0] || GALLERY_IMAGE_URLS[2] || GALLERY_IMAGE_URLS[5]);
+  const ringhopImage = ringhopActivity?.galleryImages?.[0] || GALLERY_IMAGE_URLS[18];
 
   const banners = [
     {
