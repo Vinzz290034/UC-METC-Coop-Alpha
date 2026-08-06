@@ -176,6 +176,7 @@ CREATE TABLE IF NOT EXISTS announcements (
   title VARCHAR(255) NOT NULL,
   content TEXT NOT NULL,
   category VARCHAR(100) NOT NULL CHECK (category IN ('Maintenance', 'Services', 'Inventory', 'Registration', 'Events', 'General')),
+  image_url TEXT,
   author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   author_name VARCHAR(255) NOT NULL,
   author_role VARCHAR(50),

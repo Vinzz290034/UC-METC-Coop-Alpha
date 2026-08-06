@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -221,12 +223,26 @@
 
 /* Print styles */
 @media print {
-  .no-print {
-    display: none !important;
+  body * {
+    visibility: hidden !important;
   }
   
-  body {
-    @apply bg-white text-black;
+  .printable-document-card,
+  .printable-document-card * {
+    visibility: visible !important;
+  }
+
+  .printable-document-card {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 1.5rem !important;
+    margin: 0 !important;
+    background: white !important;
   }
 }
 
@@ -399,3 +415,226 @@
 .modal-content-in {
   animation: modalContentIn 0.4s ease-out;
 }
+/* ─────────────────────────────────────────────────────
+   SHARED DESIGN SYSTEM — loaded once, cached globally
+   (Replaces inline <style> blocks in each page component)
+   ───────────────────────────────────────────────────── */
+
+/* Google Font — Inter */
+* { font-family: 'Inter', sans-serif; }
+
+/* ── 3D Floating Keyframes ── */
+@keyframes float3d-a {
+  0%   { transform: translateY(0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  33%  { transform: translateY(-22px) rotateX(15deg) rotateY(20deg) rotateZ(5deg); }
+  66%  { transform: translateY(-10px) rotateX(-10deg) rotateY(-10deg) rotateZ(-5deg); }
+  100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+}
+@keyframes float3d-b {
+  0%   { transform: translateY(0px) rotateX(0deg) rotateZ(0deg); }
+  50%  { transform: translateY(-28px) rotateX(20deg) rotateZ(15deg); }
+  100% { transform: translateY(0px) rotateX(0deg) rotateZ(0deg); }
+}
+@keyframes float3d-c {
+  0%   { transform: translateY(0px) rotateY(0deg); }
+  50%  { transform: translateY(-18px) rotateY(25deg); }
+  100% { transform: translateY(0px) rotateY(0deg); }
+}
+@keyframes spin3d {
+  from { transform: rotateX(20deg) rotateY(0deg); }
+  to   { transform: rotateX(20deg) rotateY(360deg); }
+}
+@keyframes pulse-ring {
+  0%   { transform: scale(0.8); opacity: 1; }
+  100% { transform: scale(2);   opacity: 0; }
+}
+@keyframes slide-up-fade {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes shimmer-line {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+@keyframes glow-green {
+  0%, 100% { box-shadow: 0 0 20px rgba(22,163,74,0.3); }
+  50%       { box-shadow: 0 0 40px rgba(22,163,74,0.6), 0 0 80px rgba(22,163,74,0.2); }
+}
+@keyframes glow-purple {
+  0%, 100% { box-shadow: 0 0 20px rgba(124,58,237,0.3); }
+  50%       { box-shadow: 0 0 40px rgba(124,58,237,0.6), 0 0 80px rgba(124,58,237,0.2); }
+}
+@keyframes scan-line {
+  0%   { top: 0%; }
+  100% { top: 100%; }
+}
+@keyframes stat-pop-in {
+  from { transform: scale(0.85); opacity: 0; }
+  to   { transform: scale(1);    opacity: 1; }
+}
+@keyframes slide-up-fade-in {
+  from { transform: translateY(30px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── 3D Float Utility Classes ── */
+.animate-float-a { animation: float3d-a 7s ease-in-out infinite; }
+.animate-float-b { animation: float3d-b 9s ease-in-out infinite; }
+.animate-float-c { animation: float3d-c 6s ease-in-out infinite; }
+.animate-spin-3d { animation: spin3d 12s linear infinite; }
+
+/* ── Slide-up Entrance Utilities ── */
+.slide-up-1 { animation: slide-up-fade 0.8s ease-out 0.1s  both; }
+.slide-up-2 { animation: slide-up-fade 0.8s ease-out 0.25s both; }
+.slide-up-3 { animation: slide-up-fade 0.8s ease-out 0.4s  both; }
+.slide-up-4 { animation: slide-up-fade 0.8s ease-out 0.55s both; }
+
+/* ── Scroll-triggered Reveal ── */
+.slide-up-fade  { animation: slide-up-fade-in 0.7s ease-out both; }
+.stat-pop       { animation: stat-pop-in 0.6s cubic-bezier(0.34,1.4,0.64,1) both; }
+
+/* ── Card hover (3D lift) ── */
+.card-3d {
+  transform-style: preserve-3d;
+  transition: transform 0.4s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.4s ease, border-color 0.3s ease;
+}
+.card-3d:hover {
+  transform: perspective(800px) rotateX(-2deg) rotateY(2deg) translateY(-6px);
+  box-shadow: 0 20px 40px rgba(124,58,237,0.12), 0 0 25px rgba(22,163,74,0.08);
+}
+
+/* ── Announcement card (flat lift) ── */
+.card-lift {
+  transition: transform 0.35s cubic-bezier(0.16,1,0.3,1), box-shadow 0.35s ease, border-color 0.3s ease;
+}
+.card-lift:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 20px 40px -8px rgba(124,58,237,0.16), 0 8px 16px -4px rgba(0,0,0,0.04);
+  border-color: rgba(124,58,237,0.35);
+}
+
+/* ── Shimmer button effect ── */
+.btn-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.btn-shimmer::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 40%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+  animation: shimmer-line 2.5s infinite;
+}
+
+/* ── Solid green CTA button ── */
+.btn-green-glow {
+  background: #16a34a;
+  transition: all 0.3s ease;
+}
+.btn-green-glow:hover {
+  background: #15803d;
+  animation: glow-green 1.5s ease-in-out infinite;
+  transform: translateY(-2px);
+}
+
+/* ── Purple outline button ── */
+.btn-purple-outline {
+  border: 2px solid #7c3aed;
+  color: #7c3aed;
+  background: transparent;
+  transition: all 0.3s ease;
+}
+.btn-purple-outline:hover {
+  background: #7c3aed;
+  color: white;
+  transform: translateY(-2px);
+  animation: glow-purple 1.5s ease-in-out infinite;
+}
+
+/* ── Translucent fixed navbar ── */
+.nav-light {
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(24px);
+  border-bottom: 1px solid rgba(124,58,237,0.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+}
+
+/* ── Pulse ring indicator ── */
+.pulse-ring::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 2px solid #16a34a;
+  animation: pulse-ring 2s ease-out infinite;
+}
+
+/* ── Scan line overlay ── */
+.scan-overlay { position: relative; }
+.scan-overlay::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(22,163,74,0.3), transparent);
+  animation: scan-line 4s linear infinite;
+  pointer-events: none;
+}
+
+/* ── Section divider ── */
+.section-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(124,58,237,0.2), rgba(22,163,74,0.2), transparent);
+  margin: 0 auto;
+}
+
+/* ── Scrollbar (design system override) ── */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #7c3aed; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #16a34a; }
+
+/* ── Accessibility: Respect reduced-motion preference ── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-float-a,
+  .animate-float-b,
+  .animate-float-c,
+  .animate-spin-3d,
+  .slide-up-1,
+  .slide-up-2,
+  .slide-up-3,
+  .slide-up-4,
+  .btn-shimmer::after,
+  .scan-overlay::after,
+  .pulse-ring::before {
+    animation: none !important;
+  }
+}
+
+/* ── Custom Animated Dropdown Bounce Animation ── */
+@keyframes dropdownBounce {
+  0% {
+    opacity: 0;
+    transform: scale(0.95) translateY(-8px);
+  }
+  70% {
+    transform: scale(1.01) translateY(2px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-dropdown-bounce {
+  animation: dropdownBounce 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transform-origin: top center;
+}
+

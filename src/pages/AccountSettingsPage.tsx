@@ -49,7 +49,7 @@ export const AccountSettingsPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-8 px-4 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-br from-[#ebdcfc] via-[#f3e8ff] to-[#e2f7e5] py-8 px-4 animate-slide-in-right">
       <div className="max-w-2xl mx-auto">
         {/* Header */}
         <div className="mb-8 flex items-center space-x-2 sm:space-x-4">

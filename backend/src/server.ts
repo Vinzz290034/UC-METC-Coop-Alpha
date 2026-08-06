@@ -21,6 +21,7 @@ import messagesRoutes from './routes/messages.js';
 import publicRoutes from './routes/public.js';
 import productsRoutes from './routes/products.js';
 import announcementsRoutes from './routes/announcements.js';
+import activitiesRoutes from './routes/activities.js';
 import stockIntakeRoutes from './routes/stockIntake.js';
 import notificationsRoutes from './routes/notifications.js';
 
@@ -45,6 +46,7 @@ app.use('/api/orders', ordersRoutes);
 app.use('/api/messages', messagesRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/announcements', announcementsRoutes);
+app.use('/api/activities', activitiesRoutes);
 app.use('/api/stock-intake', stockIntakeRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/public', publicRoutes); // Public endpoints (no auth required)

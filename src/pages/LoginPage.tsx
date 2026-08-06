@@ -6,9 +6,156 @@ import { useUIStore } from '../store/uiStore';
 import { FloatingInput } from '../components/FloatingInput';
 import { FloatingSelect } from '../components/FloatingSelect';
 import { LoginTransition } from '../components/PageTransition';
-import { COOP_LOGO_URL, BACKGROUND_IMAGE_URL } from '../constants/cloudinaryAssets';
+import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 
-import { UserIcon, ChevronLeft, UserPlus } from 'lucide-react';
+import {
+  ChevronLeft,
+  UserPlus,
+  ShieldCheck,
+  GraduationCap,
+  Sparkles,
+  ArrowRight
+} from 'lucide-react';
+
+// ----- CSS & Animations (Matching LandingPage design layout) -----
+const styles = `
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+  * { font-family: 'Inter', sans-serif; }
+
+  /* 3D Floating Animations */
+  @keyframes float3d-a {
+    0%   { transform: translateY(0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+    33%  { transform: translateY(-22px) rotateX(15deg) rotateY(20deg) rotateZ(5deg); }
+    66%  { transform: translateY(-10px) rotateX(-10deg) rotateY(-10deg) rotateZ(-5deg); }
+    100% { transform: translateY(0px) rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  }
+  @keyframes float3d-b {
+    0%   { transform: translateY(0px) rotateX(0deg) rotateZ(0deg); }
+    50%  { transform: translateY(-28px) rotateX(20deg) rotateZ(15deg); }
+    100% { transform: translateY(0px) rotateX(0deg) rotateZ(0deg); }
+  }
+  @keyframes float3d-c {
+    0%   { transform: translateY(0px) rotateY(0deg); }
+    50%  { transform: translateY(-18px) rotateY(25deg); }
+    100% { transform: translateY(0px) rotateY(0deg); }
+  }
+  @keyframes spin3d {
+    from { transform: rotateX(20deg) rotateY(0deg); }
+    to   { transform: rotateX(20deg) rotateY(360deg); }
+  }
+  @keyframes slide-up-fade {
+    from { transform: translateY(40px); opacity: 0; }
+    to   { transform: translateY(0); opacity: 1; }
+  }
+  @keyframes shimmer-line {
+    0%   { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+  @keyframes scan-line {
+    0%   { top: 0%; }
+    100% { top: 100%; }
+  }
+
+  .animate-float-a { animation: float3d-a 7s ease-in-out infinite; }
+  .animate-float-b { animation: float3d-b 9s ease-in-out infinite; }
+  .animate-float-c { animation: float3d-c 6s ease-in-out infinite; }
+  .animate-spin-3d { animation: spin3d 12s linear infinite; }
+
+  .slide-up-1 { animation: slide-up-fade 0.8s ease-out 0.1s both; }
+  .slide-up-2 { animation: slide-up-fade 0.8s ease-out 0.25s both; }
+  .slide-up-3 { animation: slide-up-fade 0.8s ease-out 0.4s both; }
+  .slide-up-4 { animation: slide-up-fade 0.8s ease-out 0.55s both; }
+
+  /* 3D Card hover effect */
+  .card-3d {
+    transform-style: preserve-3d;
+    transition: transform 0.4s cubic-bezier(0.34,1.2,0.64,1), box-shadow 0.4s ease, border-color 0.3s ease;
+  }
+  .card-3d:hover {
+    transform: perspective(800px) rotateX(-2deg) rotateY(2deg) translateY(-6px);
+    box-shadow: 0 20px 40px rgba(124,58,237,0.12), 0 0 25px rgba(22,163,74,0.08);
+  }
+
+  /* Shimmer on buttons */
+  .btn-shimmer {
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-shimmer::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 40%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.25), transparent);
+    animation: shimmer-line 2.5s infinite;
+  }
+
+  /* Solid green button */
+  .btn-green-glow {
+    background: #16a34a;
+    transition: all 0.3s ease;
+  }
+  .btn-green-glow:hover {
+    background: #15803d;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(22,163,74,0.4);
+  }
+
+  /* Nav backdrop — light */
+  .nav-light {
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid rgba(124,58,237,0.12);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+  }
+
+  /* Scan line effect on hero */
+  .scan-overlay::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, rgba(22,163,74,0.3), transparent);
+    animation: scan-line 4s linear infinite;
+    pointer-events: none;
+  }
+`;
+
+// ----- 3D Shape Components -----
+const Shape3DCube: React.FC<{ size?: number; color: string; className?: string }> = ({ size = 50, color, className = '' }) => (
+  <div className={`animate-float-a ${className}`} style={{ width: size, height: size, transformStyle: 'preserve-3d', perspective: 400 }}>
+    <div style={{
+      width: size, height: size, background: color, border: `2px solid rgba(255,255,255,0.3)`,
+      borderRadius: 8, boxShadow: `0 0 30px ${color}55`, transform: 'rotateX(15deg) rotateY(30deg)',
+      transformStyle: 'preserve-3d', animation: 'spin3d 14s linear infinite',
+    }} />
+  </div>
+);
+
+const Shape3DPyramid: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`animate-float-b ${className}`} style={{
+    width: 0, height: 0, borderLeft: '30px solid transparent', borderRight: '30px solid transparent',
+    borderBottom: '50px solid rgba(22,163,74,0.5)', filter: 'drop-shadow(0 0 20px rgba(22,163,74,0.5))',
+  }} />
+);
+
+const Shape3DSphere: React.FC<{ size?: number; color: string; className?: string }> = ({ size = 40, color, className = '' }) => (
+  <div className={`animate-float-c rounded-full ${className}`} style={{
+    width: size, height: size,
+    background: `radial-gradient(circle at 35% 35%, rgba(255,255,255,0.4) 0%, ${color} 50%, rgba(0,0,0,0.3) 100%)`,
+    boxShadow: `0 0 35px ${color}66, inset -8px -8px 16px rgba(0,0,0,0.25)`,
+  }} />
+);
+
+const Shape3DRing: React.FC<{ className?: string }> = ({ className = '' }) => (
+  <div className={`animate-spin-3d ${className}`} style={{
+    width: 70, height: 70, border: '5px solid rgba(124,58,237,0.6)', borderRadius: '50%',
+    borderTopColor: 'rgba(22,163,74,0.9)', boxShadow: '0 0 25px rgba(124,58,237,0.35)',
+  }} />
+);
 
 
 const COURSES = ['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM', 'SHS', 'JHS'];
@@ -33,7 +180,7 @@ const getValidYearsForCourse = (courseName: string): string[] => {
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { login, register, logout } = useAuth();
+  const { user, login, register, logout } = useAuth();
   const { showNotification } = useUIStore();
   
   const [loginMode, setLoginMode] = useState<'selection' | 'admin_staff' | 'student'>('selection');
@@ -381,26 +528,100 @@ export const LoginPage: React.FC = () => {
 
 
   return (
-    <div
-      className={`min-h-screen flex flex-col items-center p-4 relative ${
-        loginMode === 'student' && formType === 'signup'
-          ? 'justify-start pt-20 md:justify-center md:pt-6 pb-10'
-          : 'justify-start pt-16 md:pt-8'
-      }`}
-      style={{
-        backgroundImage: `url(${BACKGROUND_IMAGE_URL})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-      }}
-    >
-      {isTransitioning && <LoginTransition />}
+    <>
+      <style>{styles}</style>
+      <div className="relative w-full min-h-screen text-slate-900 overflow-hidden scan-overlay flex flex-col justify-between" style={{ background: '#ffffff' }}>
+        
+        {/* Subtle dot grid pattern */}
+        <div
+          className="absolute inset-0 opacity-40 pointer-events-none"
+          style={{
+            backgroundImage: 'radial-gradient(circle, rgba(124,58,237,0.18) 1px, transparent 1px)',
+            backgroundSize: '40px 40px',
+          }}
+        />
+
+        {/* Ambient glows */}
+        <div
+          className="absolute top-1/4 left-1/4 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(124,58,237,0.12) 0%, transparent 70%)', filter: 'blur(50px)' }}
+        />
+        <div
+          className="absolute bottom-1/4 right-1/4 w-80 h-80 rounded-full pointer-events-none"
+          style={{ background: 'radial-gradient(circle, rgba(22,163,74,0.1) 0%, transparent 70%)', filter: 'blur(50px)' }}
+        />
+
+        {/* 3D floating shapes */}
+        <Shape3DCube size={55} color="rgba(124,58,237,0.65)" className="absolute top-24 left-8 sm:left-24 pointer-events-none" />
+        <Shape3DSphere size={45} color="rgba(22,163,74,0.65)" className="absolute top-32 right-8 sm:right-28 pointer-events-none" />
+        <Shape3DPyramid className="absolute bottom-40 left-12 sm:left-32 opacity-60 pointer-events-none" />
+        <Shape3DRing className="absolute bottom-32 right-8 sm:right-20 pointer-events-none" />
+
+        {isTransitioning && (
+          <LoginTransition
+            userName={user?.first_name}
+            userRole={user?.role === 'user' ? 'Student' : user?.role === 'admin' ? 'Administrator' : user?.role ? `${user.role.toUpperCase()}` : ''}
+          />
+        )}
+
+        {/* Navigation Bar */}
+        <nav className="fixed top-0 left-0 right-0 z-50 nav-light">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
+            <div className="flex items-center space-x-3 cursor-pointer" onClick={() => navigate('/')}>
+              <img
+                src={COOP_LOGO_URL}
+                alt="UC METC Logo"
+                className="w-9 h-9 rounded-full ring-2 shadow-lg hover:scale-105 transition-transform"
+                style={{ borderColor: 'rgba(124,58,237,0.4)' }}
+              />
+              <span className="text-lg sm:text-xl font-bold">
+                <span style={{ color: '#16a34a' }}>UC</span>
+                <span className="text-slate-800"> METC </span>
+                <span style={{ color: '#7c3aed' }}>SILMS</span>
+              </span>
+            </div>
+
+            <button
+              onClick={() => {
+                if (showVerification) {
+                  setShowVerification(false);
+                  setVerificationCode('');
+                  setVerificationError('');
+                  setVerificationSuccess('');
+                  return;
+                }
+                const isMobileVal = window.innerWidth < 768;
+                if (loginMode === 'selection') {
+                  navigate('/');
+                } else if (loginMode === 'admin_staff') {
+                  setLoginMode('selection');
+                  setAdminStaffError('');
+                  setAdminStaffEmail('');
+                  setAdminStaffPassword('');
+                } else if (loginMode === 'student') {
+                  if (formType === 'login') {
+                    if (isMobileVal) navigate('/');
+                    else setLoginMode('selection');
+                  } else {
+                    handleFormTypeChange('login');
+                  }
+                  setError('');
+                }
+              }}
+              className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-slate-600 hover:text-purple-700 bg-white/80 hover:bg-white border border-slate-200/80 hover:border-purple-300 shadow-xs backdrop-blur-md transition-all font-semibold text-sm group cursor-pointer"
+            >
+              <ChevronLeft size={18} className="group-hover:-translate-x-1 transition-transform text-purple-600" />
+              <span>{loginMode === 'selection' ? 'Back to Home' : 'Change Portal'}</span>
+            </button>
+          </div>
+        </nav>
       
       {/* Email Verification OTP Modal */}
       {showVerification && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-fade-in" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden modal-content-in mx-auto">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-purple-600 to-purple-400 p-4 sm:p-6 text-white text-center">
+            <div className="bg-[#7c3aed] p-4 sm:p-6 text-white text-center">
               <div className="w-12 h-12 sm:w-16 sm:h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-2 sm:mb-3">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="sm:w-8 sm:h-8"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
               </div>
@@ -452,7 +673,7 @@ export const LoginPage: React.FC = () => {
                   id="otp-verify-button"
                   type="submit"
                   disabled={verificationLoading || verificationCode.length !== 6}
-                  className="w-full bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-all duration-200 active:scale-95 text-sm sm:text-base"
+                  className="w-full bg-[#7c3aed] hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 sm:py-3 rounded-xl transition-all duration-200 active:scale-95 text-sm sm:text-base"
                 >
                   {verificationLoading ? 'Verifying...' : 'Verify Email'}
                 </button>
@@ -490,102 +711,76 @@ export const LoginPage: React.FC = () => {
         </div>
       )}
 
-      {/* Green to White to Purple Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-b from-green-400/60 via-white/30 to-purple-900/70"></div>
-      {/* Back Button */}
-      <button
-        onClick={() => {
-          // If OTP modal is visible, close it first instead of navigating
-          if (showVerification) {
-            setShowVerification(false);
-            setVerificationCode('');
-            setVerificationError('');
-            setVerificationSuccess('');
-            return;
-          }
-          // Check if mobile (below md breakpoint)
-          const isMobile = window.innerWidth < 768;
-          
-          if (loginMode === 'selection') {
-            navigate('/');
-          } else if (loginMode === 'admin_staff') {
-            setLoginMode('selection');
-            setAdminStaffError('');
-            setAdminStaffEmail('');
-            setAdminStaffPassword('');
-          } else if (loginMode === 'student') {
-            if (formType === 'login') {
-              // On mobile, go directly to landing page
-              if (isMobile) {
-                navigate('/');
-              } else {
-                setLoginMode('selection');
-              }
-            } else {
-              handleFormTypeChange('login');
-            }
-            setError('');
-          }
-        }}
-        className={`absolute top-4 md:top-6 left-4 md:left-6 flex items-center space-x-2 text-white transition-all group z-50 p-2 rounded-lg shadow-lg ${
-          loginMode === 'admin_staff'
-            ? 'bg-slate-700 hover:bg-slate-800'
-            : 'bg-purple-600 hover:bg-purple-700'
-        }`}
-        title="Back"
-      >
-        <ChevronLeft size={24} className="group-hover:-translate-x-1 transition-transform" />
-      </button>
-
-      <div className={`w-full flex items-center justify-center ${
+      <div className={`w-full flex items-center justify-center my-auto ${
         loginMode === 'selection'
-          ? 'min-h-[500px]'
+          ? 'min-h-[500px] pt-24 pb-12'
           : loginMode === 'student' && formType === 'signup'
-            ? 'min-h-0'
-            : 'mt-4 md:mt-0 min-h-[calc(100vh-8rem)]'
-      } ${loginMode === 'student' ? (formType !== 'login' ? 'max-w-md md:max-w-5xl' : 'max-w-md') : ''} relative z-10 page-pop-in animate-fade-in`}>
+            ? 'min-h-0 pt-24 pb-12'
+            : 'pt-24 pb-12'
+      } ${loginMode === 'student' ? (formType !== 'login' ? 'px-4 max-w-5xl mx-auto' : 'px-4') : ''} relative z-10 page-pop-in animate-fade-in`}>
+        
         {/* Selection Screen */}
         {loginMode === 'selection' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-3xl mx-auto px-6">
-            {/* Admin/Staff Login Box - Hidden on Mobile */}
-            <button
-              onClick={() => setLoginMode('admin_staff')}
-              className="hidden md:block bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm"
-            >
-              <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-slate-600 to-slate-800 rounded-full flex items-center justify-center">
-                  <UserIcon size={48} className="text-white" />
-                </div>
-                <h3 className="text-3xl font-bold text-slate-800">Admin/Staff Login</h3>
-                <p className="text-slate-600 text-base">Authorized Personnel Only</p>
-                <button className="mt-2 px-12 py-3 bg-slate-700 text-white rounded-lg hover:bg-slate-800 transition-colors font-semibold text-lg">
-                  Login
-                </button>
-              </div>
-            </button>
+          <div className="slide-up-2 max-w-4xl mx-auto px-4 sm:px-6 w-full text-center">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-xs sm:text-sm font-semibold mb-4 bg-purple-100/80 border border-purple-300/50 text-purple-700 shadow-xs">
+              <Sparkles size={14} className="text-purple-600" />
+              <span>Secure Digital Portal Access</span>
+            </div>
 
-            {/* Student Login Box */}
-            <button
-              onClick={() => setLoginMode('student')}
-              className="bg-white rounded-lg shadow-lg p-12 hover:shadow-2xl transition-all duration-300 transform hover:scale-105 w-full max-w-sm mx-auto"
-            >
-              <div className="flex flex-col items-center text-center space-y-6">
-                <div className="w-24 h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-full flex items-center justify-center">
-                  <UserIcon size={48} className="text-white" />
+            <h1 className="text-3xl sm:text-5xl font-black text-slate-900 tracking-tight mb-3">
+              Welcome to <span style={{ color: '#7c3aed' }}>UC METC SILMS</span>
+            </h1>
+            <p className="text-slate-600 text-sm sm:text-lg mb-10 max-w-xl mx-auto leading-relaxed">
+              Select your portal below to sign in or create a student account.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8 max-w-3xl mx-auto">
+              {/* Admin/Staff Login Box */}
+              <div
+                onClick={() => setLoginMode('admin_staff')}
+                className="card-3d bg-white/90 backdrop-blur-xl rounded-3xl p-8 sm:p-10 border border-purple-500/15 shadow-xl hover:shadow-2xl hover:border-purple-400 transition-all cursor-pointer flex flex-col items-center text-center justify-between group"
+              >
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 bg-slate-900 rounded-3xl flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition-transform">
+                    <ShieldCheck size={40} className="text-purple-300" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 mb-4">
+                    Authorized Personnel Only
+                  </span>
+                  <h3 className="text-2xl font-black text-slate-900 mb-6">Admin / Staff</h3>
                 </div>
-                <h3 className="text-3xl font-bold text-slate-800">Student Login</h3>
-                <p className="text-slate-600 text-base">Login or register as a student</p>
-                <button className="mt-2 px-12 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-semibold text-lg">
-                  Login
+                <button className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2">
+                  <span>Access Admin Portal</span>
+                  <ArrowRight size={16} />
                 </button>
               </div>
-            </button>
+
+              {/* Student Login Box */}
+              <div
+                onClick={() => setLoginMode('student')}
+                className="card-3d bg-white/90 backdrop-blur-xl rounded-3xl p-8 sm:p-10 border border-purple-500/15 shadow-xl hover:shadow-2xl hover:border-purple-400 transition-all cursor-pointer flex flex-col items-center text-center justify-between group"
+              >
+                <div className="flex flex-col items-center">
+                  <div className="w-20 h-20 bg-[#7c3aed] rounded-3xl flex items-center justify-center text-white mb-6 shadow-lg group-hover:scale-110 transition-transform">
+                    <GraduationCap size={40} className="text-green-300" />
+                  </div>
+                  <span className="px-3 py-1 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200 mb-4">
+                    Open to All Students
+                  </span>
+                  <h3 className="text-2xl font-black text-slate-900 mb-6">Student Portal</h3>
+                </div>
+                <button className="w-full py-3.5 btn-green-glow btn-shimmer text-white rounded-2xl font-bold text-sm shadow-md transition-all flex items-center justify-center gap-2">
+                  <span>Access Student Portal</span>
+                  <ArrowRight size={16} />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
         {/* Admin/Staff Login Form */}
         {loginMode === 'admin_staff' && (
-          <div className="w-full max-w-md bg-white rounded-lg shadow-lg overflow-hidden form-transition-in animate-scale-in">
+          <div className="w-full max-w-md bg-white/95 backdrop-blur-xl border border-purple-500/15 rounded-3xl shadow-2xl overflow-hidden form-transition-in animate-scale-in">
             {/* Header Banner */}
             <div className="h-24 bg-gradient-to-r from-slate-600 via-slate-700 to-slate-800 flex items-center justify-center relative overflow-hidden animate-slide-down">
               <div className="absolute inset-0 opacity-20">
@@ -678,7 +873,7 @@ export const LoginPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full bg-slate-700 text-white font-semibold py-3 rounded-lg hover:bg-slate-800 active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse"
+                  className="w-full bg-slate-700 text-white font-semibold py-3 rounded-lg hover:bg-slate-800 hover:shadow-md hover:shadow-slate-700/20 active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {loading ? 'Logging in...' : 'Login'}
                 </button>
@@ -694,7 +889,7 @@ export const LoginPage: React.FC = () => {
 
         {/* Student Form */}
         {loginMode === 'student' && (
-          <div key={formType} className={`bg-white rounded-lg shadow-lg overflow-hidden ${formType !== 'login' ? 'flex w-full' : 'w-full max-w-md'} form-transition-in animate-scale-in`}>
+          <div key={formType} className={`bg-white/95 backdrop-blur-xl border border-purple-500/15 rounded-3xl shadow-2xl overflow-hidden ${formType !== 'login' ? 'flex w-full' : 'w-full max-w-md mx-auto'} form-transition-in animate-scale-in`}>
             {/* Sidebar for Sign Up and Membership */}
             {formType !== 'login' && (
             <div className={`hidden md:flex w-2/5 bg-gradient-to-b from-purple-300 via-purple-400 to-purple-600 flex-col items-center justify-center p-10 relative overflow-hidden sidebar-slide-in animate-slide-in-left`}>
@@ -706,10 +901,10 @@ export const LoginPage: React.FC = () => {
                 <img 
                   src={COOP_LOGO_URL}
                   alt="UC METC Logo" 
-                  className="w-24 h-24 rounded-full mx-auto mb-4"
+                  className="w-24 h-24 rounded-full mx-auto mb-4 border-4 border-white/30 shadow-lg"
                 />
                 <h3 className="text-lg font-bold text-white mb-2">UC METC SILMS</h3>
-                <p className="text-sm text-white/90">
+                <p className="text-sm text-white/80">
                   {formType === 'signup' ? 'Create your account and join our community' : ''}
                 </p>
               </div>
@@ -826,7 +1021,7 @@ export const LoginPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full text-white font-semibold py-2.5 md:py-3 rounded-lg active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed button-pulse bg-purple-600 hover:bg-purple-700"
+                    className="w-full text-white font-semibold py-2.5 md:py-3 rounded-lg bg-purple-600 hover:bg-purple-700 hover:shadow-md hover:shadow-purple-500/20 active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loading ? 'Logging in...' : 'Login'}
                   </button>
@@ -859,11 +1054,11 @@ export const LoginPage: React.FC = () => {
                     <img 
                       src={COOP_LOGO_URL}
                       alt="UC METC Logo" 
-                      className="w-16 h-16 rounded-full border-2 border-white"
+                      className="w-14 h-14 rounded-full border-2 border-white/30 shadow-md"
                     />
-                    <div className="border-l-2 border-white/50 pl-4">
+                    <div className="border-l-2 border-white/40 pl-4">
                       <h2 className="text-xl font-bold text-white">REGISTER</h2>
-                      <p className="text-xs text-white/90 mt-0.5">Join UC METC SILMS community</p>
+                      <p className="text-xs text-white/80 mt-0.5">Join UC METC SILMS community</p>
                     </div>
                   </div>
                 </div>
@@ -1164,7 +1359,23 @@ export const LoginPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Footer */}
+      <footer className="py-6 px-4 sm:px-6 mt-auto z-10 border-t border-slate-200/80 bg-white/80 backdrop-blur-md">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500 font-medium">
+          <div className="flex items-center gap-2">
+            <img src={COOP_LOGO_URL} alt="Logo" className="w-5 h-5 rounded-full" />
+            <span>© 2026 UC METC SILMS. All rights reserved.</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-4">
+            <button onClick={() => navigate('/announcements')} className="hover:text-purple-700 transition-colors">Announcements</button>
+            <button onClick={() => navigate('/community')} className="hover:text-purple-700 transition-colors">Community</button>
+            <button onClick={() => navigate('/learn-more')} className="hover:text-purple-700 transition-colors">Learn More</button>
+          </div>
+        </div>
+      </footer>
     </div>
+    </>
   );
 };
 

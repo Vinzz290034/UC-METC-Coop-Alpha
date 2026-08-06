@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, X, ArrowRight, ShoppingBag, Home, Mail, CreditCard, Package, User } from 'lucide-react';
+import { Search, X, ArrowRight, ShoppingBag, Home, Mail, CreditCard, Package, User, MessageSquare } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 
 interface SearchResult {
@@ -59,8 +59,17 @@ export const GlobalSearch: React.FC = () => {
       title: 'Inbox',
       description: 'Read and send messages',
       path: '/inbox',
-      icon: <Mail size={20} className="text-blue-600" />,
-      keywords: ['messages', 'mail', 'communication'],
+      icon: <Mail size={20} className="text-purple-600" />,
+      keywords: ['messages', 'chat', 'support', 'mail'],
+    },
+    {
+      id: 'feedback',
+      type: 'page',
+      title: 'Feedback & Suggestions',
+      description: 'Submit feedback, rate services and view staff responses',
+      path: '/feedback',
+      icon: <MessageSquare size={20} className="text-purple-600" />,
+      keywords: ['feedback', 'rating', 'suggestions', 'review', 'comment', 'support'],
     },
     {
       id: 'transaction',

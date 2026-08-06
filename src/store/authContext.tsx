@@ -21,7 +21,11 @@ interface AuthContextType {
   refreshUser: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const g = globalThis as any;
+if (!g.__AUTH_CONTEXT__) {
+  g.__AUTH_CONTEXT__ = createContext<AuthContextType | undefined>(undefined);
+}
+const AuthContext: React.Context<AuthContextType | undefined> = g.__AUTH_CONTEXT__;
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -305,7 +309,20 @@ const ForbiddenModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within AuthProvider');
+    console.warn('[AUTH CONTEXT] useAuth called outside AuthProvider or during HMR transition.');
+    return {
+      user: null,
+      isAuthenticated: false,
+      token: null,
+      isLoading: false,
+      isValidating: true,
+      error: null,
+      login: async () => {},
+      register: async () => {},
+      logout: () => {},
+      hasRole: () => false,
+      refreshUser: async () => {},
+    };
   }
   return context;
 };

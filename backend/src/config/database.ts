@@ -95,6 +95,17 @@ export async function testConnection() {
     await pool.query('ALTER TABLE products ADD COLUMN IF NOT EXISTS image TEXT');
     await pool.query('ALTER TABLE products ALTER COLUMN image TYPE TEXT');
     
+    // Auto-migrate: convert legacy equipment category & EQUIP- SKUs to PPE-
+    try {
+      await pool.query("UPDATE products SET category = 'ppe' WHERE category = 'equipment'");
+      await pool.query("UPDATE products SET sku = REPLACE(sku, 'EQUIP-', 'PPE-') WHERE sku LIKE 'EQUIP-%'");
+    } catch (migErr) {
+      console.warn('⚠️ Could not update legacy EQUIP- SKUs:', migErr);
+    }
+    
+    // Auto-migrate: ensure image_url exists in announcements table
+    await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT');
+
     // Auto-migrate: ensure attachment exists in stock_intake table
     await pool.query('ALTER TABLE stock_intake ADD COLUMN IF NOT EXISTS attachment TEXT');
 
@@ -116,6 +127,33 @@ export async function testConnection() {
     } catch (constraintErr) {
       console.warn('⚠️  Could not update orders status check constraint:', constraintErr);
     }
+    // ── Auto-migrate: extend lockers table with rental fields ──
+    await pool.query("ALTER TABLE lockers ADD COLUMN IF NOT EXISTS location VARCHAR(255) DEFAULT 'Main Campus'");
+    await pool.query("ALTER TABLE lockers ADD COLUMN IF NOT EXISTS floor VARCHAR(100) DEFAULT 'Ground Floor'");
+    await pool.query("ALTER TABLE lockers ADD COLUMN IF NOT EXISTS size VARCHAR(20) DEFAULT 'Medium'");
+    await pool.query("ALTER TABLE lockers ADD COLUMN IF NOT EXISTS key_code VARCHAR(100)");
+
+    // ── Auto-migrate: create locker_rentals table ──
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS locker_rentals (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        locker_id UUID NOT NULL REFERENCES lockers(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        semester_count INTEGER NOT NULL DEFAULT 1,
+        start_date DATE,
+        end_date DATE,
+        rental_fee NUMERIC(10,2) NOT NULL DEFAULT 250.00,
+        deposit_fee NUMERIC(10,2) NOT NULL DEFAULT 200.00,
+        payment_status VARCHAR(20) NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('unpaid','partial','paid')),
+        status VARCHAR(20) NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','active','terminated','expired','rejected')),
+        terms_agreed BOOLEAN NOT NULL DEFAULT false,
+        agreed_at TIMESTAMP,
+        notes TEXT,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log('✓ Database self-healing migrations checked and applied successfully');
     
     return true;

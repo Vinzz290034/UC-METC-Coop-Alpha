@@ -233,7 +233,7 @@ export const KioskPage: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'ewallet'>('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
 
-  // Helper to resolve kiosk variant image, prioritizing database variant images
+  // Helper to resolve kiosk variant image, prioritizing database variant & product images
   const getKioskVariantImage = (product: Product | null, opts: Record<string, string>): string => {
     if (!product) return '';
     if (product.variants && Object.keys(product.variants).length > 0) {
@@ -246,7 +246,10 @@ export const KioskPage: React.FC = () => {
         return (variant as any).image;
       }
     }
-    return getProductImageByName(product.name, opts) || product.image || '';
+    if (product.image && product.image.trim() !== '' && product.image !== '📦') {
+      return product.image;
+    }
+    return getProductImageByName(product.name, opts) || '';
   };
 
   // GCash service fee calculation (matches CartPage logic)
@@ -271,11 +274,17 @@ export const KioskPage: React.FC = () => {
   const [researchTitle, setResearchTitle] = useState('');
   const [leadResearcher, setLeadResearcher] = useState('');
 
-  const hasVariants = selectedProduct ? (
-    ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name) ||
-    (selectedProduct.stock <= 0 && selectedProduct.allowPreorder === true) ||
-    (selectedProduct.options && selectedProduct.options.length > 0) ||
-    selectedProduct.name === 'Hard Bound'
+  // Derived active product from store to ensure real-time reflection of price, image, options & variants
+  const activeProduct = useMemo(() => {
+    if (!selectedProduct) return null;
+    return products.find(p => p.id === selectedProduct.id) || selectedProduct;
+  }, [products, selectedProduct]);
+
+  const hasVariants = activeProduct ? (
+    ['Gala', 'Type A & B Uniform'].includes(activeProduct.name) ||
+    (activeProduct.stock <= 0 && activeProduct.allowPreorder === true) ||
+    (activeProduct.options && activeProduct.options.length > 0) ||
+    activeProduct.name === 'Hard Bound'
   ) : false;
 
   const isSelectionConfigured = (product: Product, selectedOpts: Record<string, string>): boolean => {
@@ -298,18 +307,18 @@ export const KioskPage: React.FC = () => {
     return product.stock;
   };
 
-  const isMadeToOrderProduct = selectedProduct ? (
-    selectedProduct.madeToOrder === true ||
-    selectedProduct.is_made_to_order === true ||
-    ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(selectedProduct.name)
+  const isMadeToOrderProduct = activeProduct ? (
+    activeProduct.madeToOrder === true ||
+    (activeProduct as any).is_made_to_order === true ||
+    ['Type A & B Uniform', 'Gala', 'BSNAME Uniform', 'Hard Bound'].includes(activeProduct.name)
   ) : false;
 
-  const isSelectionOutOfStock = selectedProduct ? (
-    !isMadeToOrderProduct && isSelectionConfigured(selectedProduct, selectedOptions) && getSelectionStock(selectedProduct, selectedOptions) <= 0
+  const isSelectionOutOfStock = activeProduct ? (
+    !isMadeToOrderProduct && isSelectionConfigured(activeProduct, selectedOptions) && getSelectionStock(activeProduct, selectedOptions) <= 0
   ) : false;
 
-  const isPreorderAvailable = selectedProduct ? (
-    selectedProduct.allowPreorder !== false
+  const isPreorderAvailable = activeProduct ? (
+    activeProduct.allowPreorder !== false
   ) : false;
 
   // Success states
@@ -326,10 +335,10 @@ export const KioskPage: React.FC = () => {
   useEffect(() => {
     AppDataSync.loadProductsFromAPI();
     
-    // Poll for stock updates
+    // Poll for stock, price, image, variant updates every 3s
     const interval = setInterval(() => {
       AppDataSync.loadProductsFromAPI();
-    }, 15000);
+    }, 3000);
 
     return () => {
       clearInterval(interval);
@@ -504,7 +513,7 @@ export const KioskPage: React.FC = () => {
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
       if (p.available === false) return false;
-      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory || (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
       const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                            p.sku.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
@@ -513,10 +522,10 @@ export const KioskPage: React.FC = () => {
 
   // Cart operations
   const handleAddToCart = () => {
-    if (!selectedProduct) return;
+    if (!activeProduct) return;
 
     // Validate Hard Bound custom fields
-    if (selectedProduct.name === 'Hard Bound') {
+    if (activeProduct.name === 'Hard Bound') {
       if (!researchTitle.trim()) {
         showNotification('Please enter the Research Title', 'error');
         return;
@@ -528,15 +537,15 @@ export const KioskPage: React.FC = () => {
     }
 
     // Check if options are selected
-    if (selectedProduct.options && selectedProduct.options.length > 0) {
-      if (selectedProduct.name === 'BSNAME Uniform') {
-        const hasAnyOption = selectedProduct.options.some(option => selectedOptions[option.id]);
+    if (activeProduct.options && activeProduct.options.length > 0) {
+      if (activeProduct.name === 'BSNAME Uniform') {
+        const hasAnyOption = activeProduct.options.some(option => selectedOptions[option.id]);
         if (!hasAnyOption) {
           showNotification('Please select a size', 'error');
           return;
         }
       } else {
-        const missingOptions = selectedProduct.options.filter(option => !selectedOptions[option.id]);
+        const missingOptions = activeProduct.options.filter(option => !selectedOptions[option.id]);
         if (missingOptions.length > 0) {
           showNotification(`Please select your ${missingOptions.map(o => o.label.toLowerCase()).join(' and ')}`, 'error');
           return;
@@ -544,20 +553,20 @@ export const KioskPage: React.FC = () => {
       }
     }
 
-    const isTailoredProduct = ['Gala', 'Type A & B Uniform'].includes(selectedProduct.name);
-    const fullPrice = getSelectedPrice(selectedProduct, selectedOptions) || selectedProduct.price;
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform';
+    const fullPrice = getSelectedPrice(activeProduct, selectedOptions) || activeProduct.price;
     let actualPrice = fullPrice;
     
     if (isTailoredProduct && paymentType === 'downpayment') {
-      if (selectedProduct.name === 'Gala') {
+      if (activeProduct.name === 'Gala') {
         actualPrice = 500;
-      } else if (selectedProduct.name === 'Type A & B Uniform' || selectedProduct.name === 'BSNAME Uniform') {
+      } else {
         actualPrice = 1500;
       }
     }
 
     const mergedOptions = { ...selectedOptions };
-    if (selectedProduct.name === 'Hard Bound') {
+    if (activeProduct.name === 'Hard Bound') {
       mergedOptions['researchTitle'] = researchTitle.trim();
       mergedOptions['leadResearcher'] = leadResearcher.trim();
     }
@@ -571,8 +580,8 @@ export const KioskPage: React.FC = () => {
       .join('|');
     const paymentSuffix = isTailoredProduct ? `-${paymentType}` : '';
     const orderSuffix = resolvedOrderType === 'preorder' ? '-preorder' : '';
-    const cartItemId = `${selectedProduct.id}${optionsString ? `-${optionsString}` : ''}${paymentSuffix}${orderSuffix}`;
-    const productImage = getKioskVariantImage(selectedProduct, selectedOptions);
+    const cartItemId = `${activeProduct.id}${optionsString ? `-${optionsString}` : ''}${paymentSuffix}${orderSuffix}`;
+    const productImage = getKioskVariantImage(activeProduct, selectedOptions);
 
     // Check if item already in cart
     const existingIndex = cart.findIndex(item => item.id === cartItemId);
@@ -583,8 +592,8 @@ export const KioskPage: React.FC = () => {
     } else {
       setCart([...cart, {
         id: cartItemId,
-        productId: selectedProduct.id,
-        name: selectedProduct.name,
+        productId: activeProduct.id,
+        name: activeProduct.name,
         price: actualPrice,
         quantity: 1,
         image: productImage,
@@ -595,7 +604,7 @@ export const KioskPage: React.FC = () => {
       }]);
     }
 
-    showNotification(`${selectedProduct.name} added to cart`, 'success');
+    showNotification(`${activeProduct.name} added to cart`, 'success');
     setSelectedProduct(null);
     setSelectedOptions({});
     setPaymentType('full');
@@ -1002,7 +1011,8 @@ export const KioskPage: React.FC = () => {
                     { value: 'all', label: 'All Products' },
                     { value: 'uniform', label: 'Uniforms' },
                     { value: 'accessory', label: 'Accessories' },
-                    { value: 'equipment', label: 'Equipment' }
+                    { value: 'equipment', label: 'PPE' },
+                    { value: 'essentials', label: 'Essentials' }
                   ].map((cat) => (
                     <button
                       key={cat.value}
@@ -1023,7 +1033,9 @@ export const KioskPage: React.FC = () => {
               <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-2">
                 {filteredProducts.map((product) => {
                   const prices = getAvailablePrices(product);
-                  const image = getProductImageByName(product.name) || product.image || '';
+                  const image = (product.image && product.image.trim() !== '' && product.image !== '📦')
+                    ? product.image
+                    : (getProductImageByName(product.name) || '');
                   const isOutOfStock = product.stock <= 0 && product.allowPreorder === false;
                   
                   return (
@@ -1062,7 +1074,7 @@ export const KioskPage: React.FC = () => {
 
                       {/* Info */}
                       <div className="text-center w-full">
-                        <span className="text-[10px] font-mono text-gray-400 font-bold uppercase tracking-wider block mb-0.5">{product.sku}</span>
+                        <span className="text-[10px] font-mono text-gray-400 font-bold uppercase tracking-wider block mb-0.5">{product.sku ? product.sku.replace(/^GROC\s*-\s*/i, 'ESS-').replace(/^GROC-/i, 'ESS-') : product.sku}</span>
                         <h3 className="font-bold text-sm text-gray-800 group-hover:text-purple-700 truncate w-full px-1">{product.name}</h3>
                         <div className="mt-2 text-purple-600 font-extrabold text-base">
                           {prices ? (
@@ -1512,7 +1524,7 @@ export const KioskPage: React.FC = () => {
       </main>
 
       {/* PRODUCT DETAIL MODAL */}
-      {selectedProduct && (
+      {activeProduct && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 animate-fade-in">
           <div className="w-full max-w-3xl bg-white border-2 border-gray-200 rounded-3xl p-8 shadow-2xl overflow-y-auto max-h-[90vh] animate-scale-in">
             <div className="flex flex-col md:flex-row gap-8">
@@ -1520,17 +1532,40 @@ export const KioskPage: React.FC = () => {
               {/* Product Info */}
               <div className="w-full md:w-64 flex flex-col items-center flex-shrink-0">
                 <div className="w-full aspect-square bg-gray-50 border-2 border-gray-100 rounded-2xl p-4 flex items-center justify-center relative overflow-hidden mb-4 shadow-sm">
-                  {getKioskVariantImage(selectedProduct, selectedOptions) ? (
-                    <img src={getKioskVariantImage(selectedProduct, selectedOptions)} alt={selectedProduct.name} className="w-full h-full object-contain" />
+                  {getKioskVariantImage(activeProduct, selectedOptions) ? (
+                    <img src={getKioskVariantImage(activeProduct, selectedOptions)} alt={activeProduct.name} className="w-full h-full object-contain" />
                   ) : (
                     <span className="text-5xl">📦</span>
                   )}
                 </div>
-                <h3 className="font-black text-xl text-gray-900 text-center leading-tight mb-1">{selectedProduct.name}</h3>
-                <span className="text-xs font-mono text-gray-400 font-bold uppercase tracking-wider mb-3">{selectedProduct.sku}</span>
-                <div className="text-green-600 font-black text-2xl mt-1">
-                  ₱{(getSelectedPrice(selectedProduct, selectedOptions) || selectedProduct.price).toLocaleString()}
-                </div>
+                <h3 className="font-black text-xl text-gray-900 text-center leading-tight mb-1">{activeProduct.name}</h3>
+                <span className="text-xs font-mono text-gray-400 font-bold uppercase tracking-wider mb-3">{activeProduct.sku ? activeProduct.sku.replace(/^GROC\s*-\s*/i, 'ESS-').replace(/^GROC-/i, 'ESS-') : activeProduct.sku}</span>
+                {(() => {
+                  const isTailored = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform';
+                  const fullP = getSelectedPrice(activeProduct, selectedOptions) || activeProduct.price;
+                  let dispP = fullP;
+
+                  if (isTailored && paymentType === 'downpayment') {
+                    if (activeProduct.name === 'Gala') {
+                      dispP = 500;
+                    } else {
+                      dispP = 1500;
+                    }
+                  }
+
+                  return (
+                    <div className="flex flex-col items-center mt-1">
+                      <div className="text-green-600 font-black text-2xl">
+                        ₱{dispP.toLocaleString()}
+                      </div>
+                      {isTailored && paymentType === 'downpayment' && (
+                        <span className="text-[11px] font-bold text-purple-700 bg-purple-100 px-2.5 py-0.5 rounded-full mt-1.5 border border-purple-200">
+                          Downpayment (Full Price: ₱{fullP.toLocaleString()})
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               {/* Options */}
@@ -1538,12 +1573,12 @@ export const KioskPage: React.FC = () => {
                 <div>
                   <h4 className="text-lg font-black text-gray-800 uppercase tracking-wider mb-4 border-b pb-2 border-gray-100">Configure Item</h4>
                   
-                  {['Gala', 'Type A & B Uniform'].includes(selectedProduct.name) && (
+                  {(['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform') && (
                     <div className="mb-5">
                       <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Payment Options</label>
                       <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 border border-gray-200 rounded-xl">
                         <button onClick={() => setPaymentType('full')} className={`py-3 rounded-lg text-sm font-bold transition-all ${paymentType === 'full' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>Full Payment</button>
-                        <button onClick={() => setPaymentType('downpayment')} className={`py-3 rounded-lg text-sm font-bold transition-all ${paymentType === 'downpayment' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>Downpayment (₱{selectedProduct.name === 'Gala' ? '500' : '1,500'})</button>
+                        <button onClick={() => setPaymentType('downpayment')} className={`py-3 rounded-lg text-sm font-bold transition-all ${paymentType === 'downpayment' ? 'bg-purple-600 text-white shadow-md' : 'text-gray-500 hover:text-gray-700'}`}>Downpayment (₱{activeProduct.name === 'Gala' ? '500' : '1,500'})</button>
                       </div>
                     </div>
                   )}
@@ -1584,7 +1619,7 @@ export const KioskPage: React.FC = () => {
                     </div>
                   )}
 
-                  {selectedProduct.options && selectedProduct.options.map((option) => (
+                  {activeProduct.options && activeProduct.options.map((option) => (
                     <div key={option.id} className="mb-5">
                       <label className="block text-sm font-extrabold text-gray-500 mb-2 uppercase tracking-wider">{option.label}</label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -1602,7 +1637,7 @@ export const KioskPage: React.FC = () => {
                     </div>
                   ))}
 
-                  {selectedProduct.name === 'Hard Bound' && (
+                  {activeProduct.name === 'Hard Bound' && (
                     <div className="space-y-4 mb-5">
                       <div>
                         <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Research Title</label>

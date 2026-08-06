@@ -18,6 +18,8 @@ import {
   Lock,
   Settings,
   Tablet,
+  Truck,
+  MessageSquare,
 } from 'lucide-react';
 import { COOP_LOGO_URL } from '../constants/cloudinaryAssets';
 import { useUIStore } from '../store/uiStore';
@@ -36,12 +38,30 @@ const sidebarStyles = `
     }
   }
 
-  .sidebar-entrance {
-    animation: slide-in-left 0.5s ease-out forwards;
+  @keyframes emerald-glow-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
   }
 
-  .nav-item-entrance {
-    animation: slide-in-left 0.5s ease-out forwards;
+  .nav-active-animated {
+    background: linear-gradient(135deg, #16a34a 0%, #15803d 50%, #22c55e 100%);
+    background-size: 200% 200%;
+    animation: emerald-glow-flow 4s ease infinite;
+    box-shadow: 0 4px 18px rgba(22, 163, 74, 0.45);
+    border: 1px solid rgba(74, 222, 128, 0.3);
+  }
+
+  .nav-hover-animated {
+    position: relative;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .nav-hover-animated:hover {
+    background: linear-gradient(90deg, rgba(22, 163, 74, 0.25) 0%, rgba(34, 197, 94, 0.15) 100%);
+    border-color: rgba(34, 197, 94, 0.5);
+    box-shadow: 0 4px 14px rgba(22, 163, 74, 0.25);
+    transform: translateX(4px);
   }
 `;
 
@@ -108,6 +128,11 @@ export const Sidebar: React.FC = () => {
       roles: ['user'],
     },
     {
+      icon: <MessageSquare size={20} />,
+      label: 'Feedback',
+      id: 'feedback',
+    },
+    {
       icon: <Lock size={20} />,
       label: 'Locker Management',
       id: 'lockers',
@@ -117,6 +142,12 @@ export const Sidebar: React.FC = () => {
       icon: <Package size={20} />,
       label: 'Inventory',
       id: 'inventory',
+      roles: ['admin', 'staff'],
+    },
+    {
+      icon: <Truck size={20} />,
+      label: 'Suppliers',
+      id: 'suppliers',
       roles: ['admin', 'staff'],
     },
     {
@@ -145,7 +176,7 @@ export const Sidebar: React.FC = () => {
     },
     {
       icon: <Megaphone size={20} />,
-      label: 'Announcements',
+      label: 'Content Management',
       id: 'announcements-management',
       roles: ['admin', 'staff'],
     },
@@ -167,6 +198,7 @@ export const Sidebar: React.FC = () => {
 
   const handleNavigation = (id: string) => {
     setCurrentPage(id);
+    setSidebarOpen(false);
     navigate(`/${id}`);
   };
 
@@ -176,15 +208,8 @@ export const Sidebar: React.FC = () => {
 
   const confirmLogout = () => {
     setShowLogoutConfirm(false);
-    
-    // Perform logout
     logout();
-    
-    // Show notification
     showNotification('Signed out successfully', 'logout');
-    
-    // No need to navigate manually - App.tsx will automatically redirect
-    // to landing page when isAuthenticated becomes false
   };
 
   const cancelLogout = () => {
@@ -194,7 +219,8 @@ export const Sidebar: React.FC = () => {
   return (
     <>
       <style>{sidebarStyles}</style>
-      {/* Mobile toggle button - Hidden, pages handle their own hamburger menus */}
+
+      {/* Mobile toggle button */}
       <button
         onClick={() => setSidebarOpen(!sidebarOpen)}
         className="hidden"
@@ -205,61 +231,61 @@ export const Sidebar: React.FC = () => {
       {/* Sidebar overlay for mobile */}
       {sidebarOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
+          className="lg:hidden fixed inset-0 bg-black/60 z-30 backdrop-blur-xs"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-screen bg-gradient-to-b from-purple-900 via-purple-800 to-purple-900 text-white transition-all duration-300 z-40 w-64 ${
+        className={`fixed left-0 top-0 h-screen bg-[#3b1d6e] text-white transition-all duration-300 z-40 w-64 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
-        } lg:relative lg:translate-x-0 border-r border-purple-700/50`}
+        } lg:relative lg:translate-x-0 border-r border-purple-600/40 shadow-xl`}
       >
         <div className="h-full flex flex-col">
-          {/* Logo */}
-          <div className="p-6 border-b border-purple-600/50 flex items-center justify-between bg-gradient-to-r from-purple-800/50 to-purple-700/50">
-            <div className="flex items-center space-x-3">
+          {/* Logo Section */}
+          <div className="px-5 py-6 border-b border-purple-600/40 flex items-center justify-between bg-[#3b1d6e]">
+            <div className="flex items-center space-x-3.5 cursor-pointer group" onClick={() => navigate('/dashboard')}>
               <img 
                 src={COOP_LOGO_URL}
                 alt="UC METC Logo" 
-                className="w-10 h-10 rounded-full"
+                className="w-12 h-12 rounded-full border-2 border-emerald-500/80 shadow-md group-hover:scale-105 transition-transform duration-300"
               />
               <div className="flex flex-col justify-center">
-                <h1 className="text-[15px] font-bold leading-none bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+                <h1 className="text-lg font-black leading-tight text-emerald-400 tracking-wide group-hover:text-emerald-300 transition-colors">
                   UC METC
                 </h1>
-                <span className="text-[10px] text-slate-300 leading-none mt-1">SILMS</span>
+                <span className="text-xs text-purple-200 font-extrabold leading-none tracking-widest mt-1">SILMS</span>
               </div>
             </div>
 
-            {/* Mobile Close Button - Visible only on mobile/tablet (< lg) */}
+            {/* Mobile Close Button */}
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded-full hover:bg-white/10 active:scale-95 transition-all text-white flex items-center justify-center"
+              className="lg:hidden p-1 rounded-full hover:bg-purple-800/60 active:scale-95 transition-all text-purple-100 flex items-center justify-center"
               aria-label="Close menu"
             >
               <X size={20} />
             </button>
           </div>
 
-          {/* User info */}
+          {/* User Profile Info */}
           {user && (
             <button
               onClick={() => navigate('/account-settings')}
-              className="w-full p-4 border-b border-purple-600/50 bg-gradient-to-r from-purple-700/50 to-purple-600/50 hover:from-purple-600/50 hover:to-purple-500/50 transition-all duration-200 text-left"
+              className="w-full p-4 border-b border-purple-600/40 bg-[#3b1d6e] hover:bg-purple-800/50 transition-all duration-300 text-left group"
             >
               <div className="flex items-center space-x-3">
                 {/* Avatar */}
                 <div className="flex-shrink-0">
-                  <div className="w-12 h-12 rounded-full bg-white border-2 border-green-400 flex items-center justify-center shadow-lg hover:shadow-xl transition-shadow">
-                    <User size={30} className="text-slate-700" />
+                  <div className="w-11 h-11 rounded-full bg-white border-2 border-[#16a34a] group-hover:border-emerald-400 transition-colors duration-300 flex items-center justify-center shadow-sm">
+                    <User size={26} className="text-[#16a34a] group-hover:text-emerald-600 transition-colors duration-300" />
                   </div>
                 </div>
                 {/* User details */}
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate">{formatFullName(user.first_name, user.last_name)}</p>
-                  <p className="text-xs text-purple-200 truncate">
+                  <p className="text-sm font-bold text-white truncate group-hover:text-emerald-300 transition-colors duration-300">{formatFullName(user.first_name, user.last_name)}</p>
+                  <p className="text-xs text-emerald-300 truncate font-semibold group-hover:text-emerald-200 transition-colors duration-300">
                     {user.role === 'user' && user.course && user.year 
                       ? `${user.course}-${user.year.replace(/[a-z]+/gi, '')}` 
                       : user.role === 'user' 
@@ -272,30 +298,44 @@ export const Sidebar: React.FC = () => {
           )}
 
           {/* Navigation items */}
-          <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
-            {filteredItems.map((item, idx) => (
-              <button
-                key={item.id}
-                onClick={() => handleNavigation(item.id)}
-                className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-purple-100 hover:bg-green-500/40 transition-colors duration-200 group nav-item-entrance"
-                style={{ animationDelay: `${0.1 + idx * 0.05}s` }}
-              >
-                <span className="group-hover:text-green-300 transition-colors duration-200">
-                  {item.icon}
-                </span>
-                <span className="text-sm font-medium group-hover:text-green-300 transition-colors duration-200">{item.label}</span>
-              </button>
-            ))}
+          <nav className="flex-1 p-3.5 space-y-1.5 overflow-y-auto">
+            {filteredItems.map((item, idx) => {
+              const isActive = location.pathname === `/${item.id}` || (location.pathname === '/' && item.id === 'dashboard');
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => handleNavigation(item.id)}
+                  className={`group relative w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer text-sm font-semibold border border-transparent ${
+                    isActive
+                      ? 'nav-active-animated text-white'
+                      : 'nav-hover-animated text-purple-100 hover:text-white'
+                  }`}
+                  style={{ animationDelay: `${0.05 + idx * 0.03}s` }}
+                >
+                  <span className={`transition-all duration-300 ${
+                    isActive 
+                      ? 'text-white scale-110' 
+                      : 'text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 group-hover:rotate-6'
+                  }`}>
+                    {item.icon}
+                  </span>
+                  <span className="relative z-10 transition-colors duration-200">{item.label}</span>
+                  {isActive && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_#ffffff]" />
+                  )}
+                </button>
+              );
+            })}
           </nav>
 
           {/* Logout button */}
-          <div className="p-4 border-t border-purple-600/50">
+          <div className="p-4 border-t border-purple-600/40">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center space-x-2 px-4 py-2 rounded-lg bg-gradient-to-r from-red-500/30 to-red-600/20 text-red-100 hover:from-red-500/50 hover:to-red-600/40 transition-all duration-200 border border-red-400/30 hover:border-red-400/60"
+              className="w-full flex items-center space-x-2.5 px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 hover:text-red-200 transition-all duration-300 border border-red-500/30 hover:scale-[1.02] cursor-pointer font-semibold"
             >
               <LogOut size={18} />
-              <span className="text-sm font-medium">Logout</span>
+              <span className="text-sm">Logout</span>
             </button>
           </div>
         </div>
@@ -303,22 +343,22 @@ export const Sidebar: React.FC = () => {
 
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10001]">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm mx-4 animate-scale-in max-h-[90vh] overflow-y-auto">
-            <h2 className="text-2xl font-bold text-slate-900 mb-3">Confirm Logout</h2>
-            <p className="text-slate-600 mb-6">
-              Are you sure you want to log out? 
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[10001] backdrop-blur-xs">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 sm:p-8 max-w-sm mx-4 animate-scale-in">
+            <h2 className="text-xl font-bold text-slate-900 mb-2">Confirm Logout</h2>
+            <p className="text-slate-600 text-sm mb-6">
+              Are you sure you want to log out of your account?
             </p>
-            <div className="flex space-x-4">
+            <div className="flex space-x-3">
               <button
                 onClick={cancelLogout}
-                className="flex-1 px-4 py-3 rounded-lg bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold transition-all duration-200"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-all cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmLogout}
-                className="flex-1 px-4 py-3 rounded-lg bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white font-semibold transition-all duration-200 shadow-lg hover:shadow-xl"
+                className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-all shadow-md cursor-pointer"
               >
                 Logout
               </button>

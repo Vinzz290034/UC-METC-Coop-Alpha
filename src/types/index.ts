@@ -71,7 +71,7 @@ export interface Product {
   price: number;
   stock: number;
   sku: string;
-  category: 'uniform' | 'accessory' | 'equipment' | 'service';
+  category: 'uniform' | 'accessory' | 'equipment' | 'service' | 'grocery' | 'essentials' | 'ppe';
   createdAt: string;
   available?: boolean;
   allowPreorder?: boolean;
@@ -236,7 +236,9 @@ export type NotificationType =
   | 'order_cancelled'
   | 'membership_approved'
   | 'membership_rejected'
-  | 'insurance_approved';
+  | 'insurance_approved'
+  | 'feedback_submitted'
+  | 'feedback_replied';
 
 export interface Notification {
   id: string;

@@ -14,6 +14,63 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Failed to fetch inventory' });
   }
 });
+// Get inventory summary (transactions log: additions and deductions)
+router.get('/summary', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const result = await query(`
+      SELECT 
+        id,
+        transaction_date,
+        product_name,
+        variant,
+        action,
+        quantity,
+        unit_value,
+        total_value,
+        reference
+      FROM (
+        SELECT 
+          si.id::text AS id,
+          si.created_at AS transaction_date,
+          si.product_name AS product_name,
+          CASE 
+            WHEN si.selected_variant IS NULL THEN ''
+            ELSE si.selected_variant::text
+          END AS variant,
+          'addition' AS action,
+          si.quantity AS quantity,
+          si.cost_per_unit AS unit_value,
+          si.total_cost AS total_value,
+          'Purchase (' || COALESCE(si.supplier, 'Supplier') || ')' AS reference
+        FROM stock_intake si
+
+        UNION ALL
+
+        SELECT 
+          oi.id::text AS id,
+          COALESCE(o.completed_at, o.created_at) AS transaction_date,
+          oi.product_name AS product_name,
+          CASE 
+            WHEN oi.selected_options IS NULL THEN ''
+            ELSE oi.selected_options::text
+          END AS variant,
+          'deduction' AS action,
+          oi.quantity AS quantity,
+          oi.unit_price AS unit_value,
+          oi.subtotal AS total_value,
+          'Order #' || COALESCE(o.receipt_no, o.id::text) AS reference
+        FROM order_items oi
+        JOIN orders o ON oi.order_id = o.id
+        WHERE o.status IN ('completed', 'released')
+      ) tx
+      ORDER BY transaction_date DESC
+    `);
+    res.json({ transactions: result.rows });
+  } catch (err) {
+    console.error('Error fetching inventory summary:', err);
+    res.status(500).json({ message: 'Failed to fetch inventory summary' });
+  }
+});
 
 // Add inventory item (admin only)
 router.post('/', authMiddleware, adminMiddleware, async (req: Request, res: Response) => {

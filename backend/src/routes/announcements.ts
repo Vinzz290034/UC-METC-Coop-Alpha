@@ -38,7 +38,7 @@ const verifyAdminOrStaff = async (req: Request, res: Response, next: Function) =
 router.get('/public', async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, content, category, author_name, author_role,
+      `SELECT id, title, content, category, image_url, author_name, author_role,
        TO_CHAR(created_at, 'YYYY-MM-DD') as date, created_at, updated_at
        FROM announcements 
        ORDER BY created_at DESC`
@@ -54,7 +54,7 @@ router.get('/public', async (req: Request, res: Response) => {
 router.get('/', verifyUser, verifyAdminOrStaff, async (req: Request, res: Response) => {
   try {
     const result = await pool.query(
-      `SELECT id, title, content, category, author_id, author_name, author_role,
+      `SELECT id, title, content, category, image_url, author_id, author_name, author_role,
        TO_CHAR(created_at, 'YYYY-MM-DD') as date, created_at, updated_at
        FROM announcements 
        ORDER BY created_at DESC`
@@ -71,7 +71,7 @@ router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const result = await pool.query(
-      `SELECT id, title, content, category, author_name, author_role,
+      `SELECT id, title, content, category, image_url, author_name, author_role,
        TO_CHAR(created_at, 'YYYY-MM-DD') as date, created_at, updated_at
        FROM announcements 
        WHERE id = $1`,
@@ -92,8 +92,9 @@ router.get('/:id', async (req: Request, res: Response) => {
 // Create announcement (admin/staff only)
 router.post('/', verifyUser, verifyAdminOrStaff, async (req: Request, res: Response) => {
   try {
-    const { title, content, category } = req.body;
+    const { title, content, category, image_url, image } = req.body;
     const userId = (req as any).userId;
+    const imageUrl = image_url || image || null;
     
     // Validate required fields
     if (!title || !content || !category) {
@@ -119,19 +120,26 @@ router.post('/', verifyUser, verifyAdminOrStaff, async (req: Request, res: Respo
     const authorName = `${userResult.rows[0].first_name} ${userResult.rows[0].last_name}`;
     const authorRole = userResult.rows[0].role;
     
+    // Ensure image_url column exists
+    try {
+      await pool.query('ALTER TABLE announcements ADD COLUMN IF NOT EXISTS image_url TEXT');
+    } catch (e) {
+      // Ignore if exists
+    }
+    
     // Insert announcement
     const result = await pool.query(
-      `INSERT INTO announcements (title, content, category, author_id, author_name, author_role)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING id, title, content, category, author_id, author_name, author_role,
+      `INSERT INTO announcements (title, content, category, image_url, author_id, author_name, author_role)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       RETURNING id, title, content, category, image_url, author_id, author_name, author_role,
        TO_CHAR(created_at, 'YYYY-MM-DD') as date, created_at, updated_at`,
-      [title, content, category, userId, authorName, authorRole]
+      [title, content, category, imageUrl, userId, authorName, authorRole]
     );
     
     res.status(201).json(result.rows[0]);
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to create announcement:', error);
-    res.status(500).json({ error: 'Failed to create announcement' });
+    res.status(500).json({ error: error?.message || 'Failed to create announcement' });
   }
 });
 
@@ -139,7 +147,8 @@ router.post('/', verifyUser, verifyAdminOrStaff, async (req: Request, res: Respo
 router.put('/:id', verifyUser, verifyAdminOrStaff, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { title, content, category } = req.body;
+    const { title, content, category, image_url, image } = req.body;
+    const imageUrl = image_url || image || null;
     
     // Validate required fields
     if (!title || !content || !category) {
@@ -155,11 +164,11 @@ router.put('/:id', verifyUser, verifyAdminOrStaff, async (req: Request, res: Res
     // Update announcement
     const result = await pool.query(
       `UPDATE announcements 
-       SET title = $1, content = $2, category = $3, updated_at = NOW()
-       WHERE id = $4
-       RETURNING id, title, content, category, author_id, author_name, author_role,
+       SET title = $1, content = $2, category = $3, image_url = $4, updated_at = NOW()
+       WHERE id = $5
+       RETURNING id, title, content, category, image_url, author_id, author_name, author_role,
        TO_CHAR(created_at, 'YYYY-MM-DD') as date, created_at, updated_at`,
-      [title, content, category, id]
+      [title, content, category, imageUrl, id]
     );
     
     if (result.rows.length === 0) {

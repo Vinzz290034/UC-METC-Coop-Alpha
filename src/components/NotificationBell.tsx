@@ -4,12 +4,24 @@
 import React, { useState, useEffect } from 'react';
 import { Bell } from 'lucide-react';
 import { useNotificationStore } from '../store/notificationStore';
+import { useAuth } from '../store/authContext';
 import { NotificationDropdown } from './NotificationDropdown';
 
 export const NotificationBell: React.FC = () => {
-  const { unreadCount } = useNotificationStore();
+  const { user } = useAuth();
+  const { notifications } = useNotificationStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showPulse, setShowPulse] = useState(false);
+
+  const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
+  const filteredNotifs = notifications.filter(n => {
+    if (isAdminOrStaff) {
+      return n.user_id === 'admin' || n.type === 'feedback_submitted' || n.user_id === user?.id || n.type === 'pending_order';
+    }
+    return n.user_id === user?.id || n.user_id === 'guest' || n.type === 'feedback_replied';
+  });
+
+  const unreadCount = filteredNotifs.filter(n => !n.is_read).length;
 
   // Show pulse animation when new notification arrives
   useEffect(() => {

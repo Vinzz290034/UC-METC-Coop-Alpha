@@ -235,10 +235,68 @@ class ApiClient {
     });
   }
 
+  async getAvailableLockers() {
+    return this.request<any>('/lockers/available');
+  }
+
+  async getMyLocker() {
+    return this.request<any>('/lockers/mine');
+  }
+
+  async applyForLocker(locker_id: string, semester_count: number, terms_agreed: boolean) {
+    return this.request<any>('/lockers/apply', {
+      method: 'POST',
+      body: JSON.stringify({ locker_id, semester_count, terms_agreed }),
+    });
+  }
+
+  async getLockerRentals() {
+    return this.request<any>('/lockers/rentals');
+  }
+
+  async approveLockerRental(rentalId: string, key_code?: string, start_date?: string, end_date?: string) {
+    return this.request<any>(`/lockers/rentals/${rentalId}/approve`, {
+      method: 'PUT',
+      body: JSON.stringify({ key_code, start_date, end_date }),
+    });
+  }
+
+  async rejectLockerRental(rentalId: string, notes?: string) {
+    return this.request<any>(`/lockers/rentals/${rentalId}/reject`, {
+      method: 'PUT',
+      body: JSON.stringify({ notes }),
+    });
+  }
+
+  async markLockerRentalPaid(rentalId: string, payment_status: 'paid' | 'partial') {
+    return this.request<any>(`/lockers/rentals/${rentalId}/mark-paid`, {
+      method: 'PUT',
+      body: JSON.stringify({ payment_status }),
+    });
+  }
+
+  async terminateLockerRental(rentalId: string) {
+    return this.request<any>(`/lockers/rentals/${rentalId}/terminate`, {
+      method: 'PUT',
+    });
+  }
+
+  async updateLockerDetails(id: string, data: { status?: string; location?: string; floor?: string; size?: string; key_code?: string }) {
+    return this.request<any>(`/lockers/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Inventory endpoints
   async getInventory() {
     return this.request<any>('/inventory');
   }
+
+  async getInventorySummary() {
+    return this.request<any>('/inventory/summary');
+  }
+
 
   async createInventoryItem(data: any) {
     return this.request<any>('/inventory', {
@@ -541,6 +599,35 @@ class ApiClient {
     }, userId);
   }
 
+  // Recent Activities endpoints
+  async getPublicActivities() {
+    return this.request<any>('/activities/public');
+  }
+
+  async getActivities(userId: string) {
+    return this.request<any>('/activities', {}, userId);
+  }
+
+  async createActivity(activityData: any, userId: string) {
+    return this.request<any>('/activities', {
+      method: 'POST',
+      body: JSON.stringify(activityData),
+    }, userId);
+  }
+
+  async updateActivity(activityId: string, activityData: any, userId: string) {
+    return this.request<any>(`/activities/${activityId}`, {
+      method: 'PUT',
+      body: JSON.stringify(activityData),
+    }, userId);
+  }
+
+  async deleteActivity(activityId: string, userId: string) {
+    return this.request<any>(`/activities/${activityId}`, {
+      method: 'DELETE',
+    }, userId);
+  }
+
   // Stock Intake methods
   async getStockIntakeRecords(userId: string) {
     return this.request<any>('/stock-intake', {
@@ -551,6 +638,13 @@ class ApiClient {
   async createStockIntakeRecord(recordData: any, userId: string) {
     return this.request<any>('/stock-intake', {
       method: 'POST',
+      body: JSON.stringify(recordData),
+    }, userId);
+  }
+
+  async updateStockIntakeRecord(recordId: string, recordData: any, userId: string) {
+    return this.request<any>(`/stock-intake/${recordId}`, {
+      method: 'PUT',
       body: JSON.stringify(recordData),
     }, userId);
   }

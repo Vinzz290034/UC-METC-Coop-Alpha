@@ -169,7 +169,7 @@ export const DashboardPage: React.FC = () => {
 
 
   return (
-    <div className="min-h-screen animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-br from-[#ebdcfc] via-[#f3e8ff] to-[#e2f7e5] animate-slide-in-right">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* Header with Notification Bell */}
         <div className="mb-8">

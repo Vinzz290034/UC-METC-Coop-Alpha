@@ -30,10 +30,29 @@ interface NotificationState {
   startPolling: () => void;
 }
 
+const NOTIF_STORAGE_KEY = 'uc_metc_notifications_v1';
+
+const loadLocalNotifications = (): Notification[] => {
+  try {
+    const saved = localStorage.getItem(NOTIF_STORAGE_KEY);
+    return saved ? JSON.parse(saved) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveLocalNotifications = (notifs: Notification[]) => {
+  try {
+    localStorage.setItem(NOTIF_STORAGE_KEY, JSON.stringify(notifs));
+  } catch {
+    // silent
+  }
+};
+
 export const useNotificationStore = create<NotificationState>((set, get) => ({
   // Initial state
-  notifications: [],
-  unreadCount: 0,
+  notifications: loadLocalNotifications(),
+  unreadCount: loadLocalNotifications().filter(n => !n.is_read).length,
   isLoading: false,
   isConnected: false,
   error: null,
@@ -107,10 +126,14 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   // Add a new notification to the list
   addNotification: (notification: Notification) => {
-    set(state => ({
-      notifications: [notification, ...state.notifications],
-      unreadCount: state.unreadCount + 1,
-    }));
+    set(state => {
+      const updated = [notification, ...state.notifications.filter(n => n.id !== notification.id)];
+      saveLocalNotifications(updated);
+      return {
+        notifications: updated,
+        unreadCount: updated.filter(n => !n.is_read).length,
+      };
+    });
 
     // Acknowledge receipt
     websocketClient.acknowledgeNotification(notification.id);
@@ -118,54 +141,45 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
   // Set notifications list
   setNotifications: (notifications: Notification[]) => {
-    set({ notifications });
+    saveLocalNotifications(notifications);
+    set({ notifications, unreadCount: notifications.filter(n => !n.is_read).length });
   },
 
   // Mark a notification as read
   markAsRead: async (notificationId: string) => {
-    try {
-      // Optimistically update UI
-      set(state => ({
-        notifications: state.notifications.map(n =>
-          n.id === notificationId ? { ...n, is_read: true } : n
-        ),
-      }));
-      get().decrementUnreadCount();
+    set(state => {
+      const updated = state.notifications.map(n =>
+        n.id === notificationId ? { ...n, is_read: true } : n
+      );
+      saveLocalNotifications(updated);
+      return {
+        notifications: updated,
+        unreadCount: updated.filter(n => !n.is_read).length,
+      };
+    });
 
-      // Call API
+    try {
       await apiClient.markNotificationAsRead(notificationId);
     } catch (error) {
-      console.error('[NotificationStore] Error marking as read:', error);
-      // Revert optimistic update
-      set(state => ({
-        notifications: state.notifications.map(n =>
-          n.id === notificationId ? { ...n, is_read: false } : n
-        ),
-      }));
-      get().incrementUnreadCount();
+      // silent
     }
   },
 
   // Mark all notifications as read
   markAllAsRead: async () => {
-    const previousNotifications = get().notifications;
-    const previousUnreadCount = get().unreadCount;
-    try {
-      // Optimistically update UI
-      set(state => ({
-        notifications: state.notifications.map(n => ({ ...n, is_read: true })),
+    set(state => {
+      const updated = state.notifications.map(n => ({ ...n, is_read: true }));
+      saveLocalNotifications(updated);
+      return {
+        notifications: updated,
         unreadCount: 0,
-      }));
+      };
+    });
 
-      // Call API
+    try {
       await apiClient.markAllNotificationsAsRead();
     } catch (error) {
-      console.error('[NotificationStore] Error marking all as read:', error);
-      // Revert optimistic update
-      set({
-        notifications: previousNotifications,
-        unreadCount: previousUnreadCount,
-      });
+      // silent
     }
   },
 
@@ -196,14 +210,35 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await apiClient.getNotifications(20, 0) as any;
+      const apiNotifs: Notification[] = response?.data?.notifications || [];
+      const localNotifs: Notification[] = loadLocalNotifications();
+
+      // Merge & deduplicate by ID (local feedback notifications prioritized)
+      const mergedMap = new Map<string, Notification>();
+      localNotifs.forEach(n => mergedMap.set(n.id, n));
+      apiNotifs.forEach(n => {
+        if (!mergedMap.has(n.id)) {
+          mergedMap.set(n.id, n);
+        }
+      });
+
+      const mergedList = Array.from(mergedMap.values()).sort(
+        (a, b) => new Date(b.created_at || Date.now()).getTime() - new Date(a.created_at || Date.now()).getTime()
+      );
+
+      saveLocalNotifications(mergedList);
+
       set({
-        notifications: response.data.notifications,
-        unreadCount: response.data.unreadCount,
+        notifications: mergedList,
+        unreadCount: mergedList.filter(n => !n.is_read).length,
         isLoading: false,
       });
     } catch (error: any) {
       console.error('[NotificationStore] Error fetching notifications:', error);
+      const localNotifs = loadLocalNotifications();
       set({
+        notifications: localNotifs,
+        unreadCount: localNotifs.filter(n => !n.is_read).length,
         error: error.message || 'Failed to load notifications',
         isLoading: false,
       });

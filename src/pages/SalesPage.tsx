@@ -106,6 +106,13 @@ export const SalesPage: React.FC = () => {
   const [hardboundOrders, setHardboundOrders] = useState<any[]>([]);
   const [hardboundSearchQuery, setHardboundSearchQuery] = useState<string>('');
   const [hardboundFilterDate, setHardboundFilterDate] = useState<string>('');
+  const [hardboundCurrentPage, setHardboundCurrentPage] = useState<number>(1);
+  const [hardboundRowsPerPage, setHardboundRowsPerPage] = useState<number>(15);
+
+  // Reset pagination when search query or filter date changes
+  useEffect(() => {
+    setHardboundCurrentPage(1);
+  }, [hardboundSearchQuery, hardboundFilterDate]);
   const [insuranceRevenue, setInsuranceRevenue] = useState<number>(0);
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
@@ -933,13 +940,33 @@ export const SalesPage: React.FC = () => {
     }
   };
 
+  // Helper to check if an item is a downpayment item
+  const isDownpaymentItem = (item: any): boolean => {
+    const paymentType = item.paymentType || item.payment_type;
+    if (paymentType === 'downpayment') return true;
+    if (paymentType === 'full') return false;
+
+    // For legacy orders or items without explicit paymentType, check subtotal
+    const productName = item.productName || item.product_name || item.name || '';
+    const subtotal = parseFloat(item.subtotal || item.price || 0);
+
+    if (productName.includes('Gala') && subtotal === 500) return true;
+    if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
+    return false;
+  };
+
   const loadPreOrderOrders = async () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
       
-      // Filter for pre-order items
+      // Filter for pre-order items (excluding downpayment items)
       const preOrders = allOrders.filter((order: any) => {
         if (!order.items || !Array.isArray(order.items)) return false;
+        
+        // Exclude orders that contain downpayment items
+        const hasDownpayment = order.items.some(isDownpaymentItem);
+        if (hasDownpayment) return false;
+
         return order.items.some((item: any) => item.orderType === 'preorder' || item.order_type === 'preorder');
       });
       
@@ -955,32 +982,11 @@ export const SalesPage: React.FC = () => {
       
       // Filter for downpayment items AND balance payment orders
       const downpaymentOrdersFiltered = allOrders.filter((order: any) => {
-        // Exclude pre-order orders
-        const isPreOrder = order.items && Array.isArray(order.items) && order.items.some((item: any) => item.orderType === 'preorder' || item.order_type === 'preorder');
-        if (isPreOrder) return false;
-
         // Include balance payment orders (receipt starts with BAL-)
         if (order.receipt_no && order.receipt_no.startsWith('BAL-')) return true;
         
         if (!order.items || !Array.isArray(order.items)) return false;
-        return order.items.some((item: any) => {
-          const paymentType = item.paymentType || item.payment_type;
-          
-          // If payment_type is explicitly set to 'downpayment', include it
-          if (paymentType === 'downpayment') return true;
-          
-          // For legacy orders without payment_type, check if it's a downpayment based on price
-          const productName = item.productName || item.product_name || '';
-          const subtotal = parseFloat(item.subtotal || 0);
-          
-          // Gala downpayment is ₱500
-          if (productName.includes('Gala') && subtotal === 500) return true;
-          
-          // Type A & B Uniform or BSNAME Uniform downpayment is ₱1,500
-          if ((productName.includes('Type A & B Uniform') || productName.includes('BSNAME Uniform')) && subtotal === 1500) return true;
-          
-          return false;
-        });
+        return order.items.some(isDownpaymentItem);
       });
       
       setDownpaymentOrders(downpaymentOrdersFiltered);
@@ -1777,7 +1783,7 @@ export const SalesPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 sm:p-6 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-br from-[#ebdcfc] via-[#f3e8ff] to-[#e2f7e5] p-4 sm:p-6 animate-slide-in-right">
       <div className="max-w-7xl mx-auto">
         {/* Header with Export Button */}
         <div className="mb-6 sm:mb-8 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 sm:gap-0">
@@ -1818,7 +1824,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('pending')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'pending'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1828,7 +1834,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('daily')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'daily'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1838,7 +1844,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('history')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'history'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1848,7 +1854,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('remittance')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'remittance'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1858,7 +1864,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('tailored')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'tailored'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1868,7 +1874,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('fulfillment')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'fulfillment'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1878,7 +1884,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('insurance')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'insurance'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1888,7 +1894,7 @@ export const SalesPage: React.FC = () => {
               onClick={() => setActiveTab('hardbound')}
               className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
                 activeTab === 'hardbound'
-                  ? 'text-blue-600 border-b-2 border-blue-600'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
@@ -1899,7 +1905,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Pending Orders Tab */}
         {activeTab === 'pending' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
               <div className="p-6">
                 {/* Search Bar */}
@@ -2192,7 +2198,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Daily Summary Tab */}
         {activeTab === 'daily' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {/* Summary Cards */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
@@ -2493,7 +2499,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Remittance Tab */}
         {activeTab === 'remittance' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {/* Date Navigation */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -2704,7 +2710,7 @@ export const SalesPage: React.FC = () => {
 
         {/* History Tab */}
         {activeTab === 'history' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {/* Date Navigation */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
@@ -3059,7 +3065,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Tailored Orders Tab */}
         {activeTab === 'tailored' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="flex items-center justify-between mb-4">
                 <div>
@@ -3188,14 +3194,6 @@ export const SalesPage: React.FC = () => {
                       const bgColor = order.type === 'preorder' ? 'bg-purple-50 border-purple-200' 
                                     : order.type === 'downpayment' ? 'bg-orange-50 border-orange-200'
                                     : 'bg-green-50 border-green-200';
-                      
-                      const badgeColor = order.type === 'preorder' ? 'bg-purple-100 text-purple-700'
-                                       : order.type === 'downpayment' ? 'bg-orange-100 text-orange-700'
-                                       : 'bg-green-100 text-green-700';
-                      
-                      const badgeLabel = order.type === 'preorder' ? 'PRE-ORDER'
-                                       : order.type === 'downpayment' ? 'DOWNPAYMENT'
-                                       : 'FULL PAYMENT';
 
                       const filteredItems = (order.items || []).filter((item: any) => {
                         if (order.type === 'preorder') {
@@ -3268,14 +3266,27 @@ export const SalesPage: React.FC = () => {
                           <div className="bg-white rounded p-3">
                             <p className="text-sm font-semibold text-slate-700 mb-2">Items:</p>
                             <div className="space-y-1">
-                              {filteredItems.map((item: any, idx: number) => (
-                                <div key={idx} className="text-xs text-slate-600 flex items-center gap-2">
-                                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${badgeColor}`}>
-                                    {badgeLabel}
-                                  </span>
-                                  <p>• {formatProductNameWithVariants(item)} (Qty: {item.quantity}) - ₱{parseFloat(item.subtotal).toLocaleString()}</p>
-                                </div>
-                              ))}
+                              {filteredItems.map((item: any, idx: number) => {
+                                const isDownpay = isDownpaymentItem(item);
+                                const isPre = (item.orderType === 'preorder' || item.order_type === 'preorder') && !isDownpay;
+
+                                const itemBadgeColor = isDownpay
+                                  ? 'bg-orange-100 text-orange-700 border border-orange-200'
+                                  : isPre
+                                  ? 'bg-purple-100 text-purple-700 border border-purple-200'
+                                  : 'bg-green-100 text-green-700 border border-green-200';
+
+                                const itemBadgeLabel = isDownpay ? 'DOWNPAYMENT' : isPre ? 'PRE-ORDER' : 'FULL PAYMENT';
+
+                                return (
+                                  <div key={idx} className="text-xs text-slate-600 flex items-center gap-2">
+                                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${itemBadgeColor}`}>
+                                      {itemBadgeLabel}
+                                    </span>
+                                    <span>• {parseAndFormatLegacyProductName(item.productName || item.product_name || '', item.selectedOptions)} (Qty: {item.quantity}) - ₱{parseFloat(item.subtotal || 0).toLocaleString()}</span>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
@@ -3290,7 +3301,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Order Fulfillment Tab */}
         {activeTab === 'fulfillment' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="mb-6">
                 <h3 className="text-lg font-semibold text-slate-900 mb-1">Order Fulfillment</h3>
@@ -3753,7 +3764,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Insurance Revenue Tab */}
         {activeTab === 'insurance' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {/* Revenue Summary Card */}
             <div className="bg-gradient-to-r from-purple-600 to-purple-500 rounded-xl p-8 text-white shadow-lg">
               <div className="flex items-center justify-between">
@@ -3887,7 +3898,7 @@ export const SalesPage: React.FC = () => {
 
         {/* Hardbound Tab */}
         {activeTab === 'hardbound' && (
-          <div className="space-y-6">
+          <div className="space-y-6 animate-fade-in">
             {/* Header Summary */}
             <div className="bg-purple-600 rounded-xl p-8 text-white shadow-lg">
               <div className="flex items-center justify-between">
@@ -3995,100 +4006,177 @@ export const SalesPage: React.FC = () => {
                     );
                   }
 
+                  // Calculate pagination
+                  const totalItems = filtered.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / hardboundRowsPerPage));
+                  const currentPageClamped = Math.min(hardboundCurrentPage, totalPages);
+                  const startIndex = (currentPageClamped - 1) * hardboundRowsPerPage;
+                  const endIndex = Math.min(startIndex + hardboundRowsPerPage, totalItems);
+                  const paginatedOrders = filtered.slice(startIndex, endIndex);
+
                   return (
                     <div className="space-y-6">
-                      {filtered.map((order: any) => (
-                        <div
-                           key={order.id}
-                           className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
-                        >
-                          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
-                            <div>
-                              <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                                <h4 className="font-semibold text-slate-900 text-base">
-                                  {formatFullName(order.first_name, order.last_name)}
-                                </h4>
-                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                  order.status === 'pending'
-                                    ? 'bg-amber-100 text-amber-700'
-                                    : order.status === 'completed'
-                                    ? 'bg-green-100 text-green-700'
-                                    : order.status === 'released'
-                                    ? 'bg-purple-100 text-purple-700'
-                                    : 'bg-red-100 text-red-700'
-                                }`}>
-                                  {order.status.toUpperCase()}
-                                </span>
+                      {/* Paginated Hardbound Cards List */}
+                      <div className="space-y-6">
+                        {paginatedOrders.map((order: any) => (
+                          <div
+                             key={order.id}
+                             className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
+                          >
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                                  <h4 className="font-semibold text-slate-900 text-base">
+                                    {formatFullName(order.first_name, order.last_name)}
+                                  </h4>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                    order.status === 'pending'
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : order.status === 'completed'
+                                      ? 'bg-green-100 text-green-700'
+                                      : order.status === 'released'
+                                      ? 'bg-purple-100 text-purple-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {order.status.toUpperCase()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium">
+                                  Student ID: {order.id_number || 'N/A'} • Email: {order.email}
+                                </p>
                               </div>
-                              <p className="text-xs text-slate-500 font-medium">
-                                Student ID: {order.id_number || 'N/A'} • Email: {order.email}
-                              </p>
+                              <div className="text-left md:text-right">
+                                <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
+                                <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                              </div>
                             </div>
-                            <div className="text-left md:text-right">
-                              <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
-                              <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
-                            </div>
-                          </div>
 
-                          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                            {/* Research Metadata */}
-                            <div className="lg:col-span-8 space-y-3">
-                              {order.items?.map((item: any, idx: number) => {
-                                const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
-                                if (!isHardbound) return null;
-                                return (
-                                  <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-                                    <div className="flex items-center gap-2 text-purple-600 mb-2">
-                                      <BookOpen size={16} />
-                                      <span className="text-xs font-bold uppercase tracking-wider">Research Metadata</span>
-                                    </div>
-                                    <div className="space-y-2.5">
-                                      <div>
-                                        <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Research Title</p>
-                                        <p className="text-sm font-semibold text-slate-800 leading-snug">
-                                          {item.selectedOptions?.researchTitle || 'N/A'}
-                                        </p>
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                              {/* Research Metadata */}
+                              <div className="lg:col-span-8 space-y-3">
+                                {order.items?.map((item: any, idx: number) => {
+                                  const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
+                                  if (!isHardbound) return null;
+                                  return (
+                                    <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                      <div className="flex items-center gap-2 text-purple-600 mb-2">
+                                        <BookOpen size={16} />
+                                        <span className="text-xs font-bold uppercase tracking-wider">Research Metadata</span>
                                       </div>
-                                      <div>
-                                        <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Lead Researcher</p>
-                                        <div className="flex items-center gap-1.5 mt-0.5">
-                                          <User size={14} className="text-slate-400" />
-                                          <p className="text-sm font-medium text-slate-800">
-                                            {item.selectedOptions?.leadResearcher || 'N/A'}
+                                      <div className="space-y-2.5">
+                                        <div>
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Research Title</p>
+                                          <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                            {item.selectedOptions?.researchTitle || 'N/A'}
                                           </p>
+                                        </div>
+                                        <div>
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Lead Researcher</p>
+                                          <div className="flex items-center gap-1.5 mt-0.5">
+                                            <User size={14} className="text-slate-400" />
+                                            <p className="text-sm font-medium text-slate-800">
+                                              {item.selectedOptions?.leadResearcher || 'N/A'}
+                                            </p>
+                                          </div>
                                         </div>
                                       </div>
                                     </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-
-                            {/* Payment Summary & Actions */}
-                            <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-                              <div>
-                                <p className="text-xs text-slate-500 mb-1">Amount:</p>
-                                <p className="text-2xl font-bold text-slate-900 mb-2">
-                                  ₱{(order.items || [])
-                                    .filter((item: any) => {
-                                      const productName = item.productName || item.product_name || '';
-                                      return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
-                                    })
-                                    .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
-                                    .toLocaleString()}
-                                </p>
-                                <div className="text-xs text-slate-500 font-medium">
-                                  Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
-                                  {order.payment_method === 'ewallet' && order.reference_number && (
-                                    <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
-                                  )}
-                                </div>
+                                  );
+                                })}
                               </div>
 
+                              {/* Payment Summary & Actions */}
+                              <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Amount:</p>
+                                  <p className="text-2xl font-bold text-slate-900 mb-2">
+                                    ₱{(order.items || [])
+                                      .filter((item: any) => {
+                                        const productName = item.productName || item.product_name || '';
+                                        return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
+                                      })
+                                      .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
+                                      .toLocaleString()}
+                                  </p>
+                                  <div className="text-xs text-slate-500 font-medium">
+                                    Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
+                                    {order.payment_method === 'ewallet' && order.reference_number && (
+                                      <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
+                                    )}
+                                  </div>
+                                </div>
+
+                              </div>
                             </div>
                           </div>
+                        ))}
+                      </div>
+
+                      {/* Pagination Controls Footer */}
+                      <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        {/* Rows per page & record count readout */}
+                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span>Rows per page:</span>
+                            <select
+                              value={hardboundRowsPerPage}
+                              onChange={(e) => {
+                                setHardboundRowsPerPage(Number(e.target.value));
+                                setHardboundCurrentPage(1);
+                              }}
+                              className="px-2.5 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-slate-800 font-bold"
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={25}>25</option>
+                              <option value={50}>50</option>
+                              <option value={100}>100</option>
+                            </select>
+                          </div>
+                          <span>
+                            Showing <strong className="text-slate-900">{totalItems > 0 ? startIndex + 1 : 0}</strong> to <strong className="text-slate-900">{endIndex}</strong> of <strong className="text-slate-900">{totalItems}</strong> orders
+                          </span>
                         </div>
-                      ))}
+
+                        {/* Page Navigation Buttons */}
+                        <div className="flex items-center space-x-1.5">
+                          <button
+                            onClick={() => setHardboundCurrentPage(1)}
+                            disabled={currentPageClamped === 1}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="First Page"
+                          >
+                            « First
+                          </button>
+                          <button
+                            onClick={() => setHardboundCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPageClamped === 1}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <ChevronLeft size={14} />
+                            <span>Prev</span>
+                          </button>
+                          <span className="px-3 py-1.5 text-xs font-extrabold text-purple-700 bg-purple-50 rounded-lg border border-purple-200">
+                            Page {currentPageClamped} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() => setHardboundCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => setHardboundCurrentPage(totalPages)}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="Last Page"
+                          >
+                            Last »
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}

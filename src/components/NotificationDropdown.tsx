@@ -3,8 +3,9 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, ShoppingCart, UserCheck, CheckCircle, XCircle, Users, Bell } from 'lucide-react';
+import { Mail, ShoppingCart, UserCheck, CheckCircle, XCircle, Users, Bell, MessageSquare } from 'lucide-react';
 import { useNotificationStore } from '../store/notificationStore';
+import { useAuth } from '../store/authContext';
 import type { Notification, NotificationType } from '../types';
 
 interface NotificationDropdownProps {
@@ -15,6 +16,7 @@ interface NotificationDropdownProps {
 export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOpen, onClose }) => {
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const { user } = useAuth();
   const { notifications, markAsRead, markAllAsRead } = useNotificationStore();
 
   // Close dropdown when clicking outside
@@ -42,6 +44,10 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOp
   // Get icon for notification type
   const getNotificationIcon = (type: NotificationType) => {
     switch (type) {
+      case 'feedback_submitted':
+        return <MessageSquare size={20} className="text-purple-600" />;
+      case 'feedback_replied':
+        return <MessageSquare size={20} className="text-emerald-600" />;
       case 'new_message':
         return <Mail size={20} className="text-blue-600" />;
       case 'pending_order':
@@ -98,8 +104,17 @@ export const NotificationDropdown: React.FC<NotificationDropdownProps> = ({ isOp
     await markAllAsRead();
   };
 
+  // Filter notifications for current user
+  const userNotifications = notifications.filter(n => {
+    const isAdminOrStaff = user?.role === 'admin' || user?.role === 'staff';
+    if (isAdminOrStaff) {
+      return n.user_id === 'admin' || n.type === 'feedback_submitted' || n.user_id === user?.id || n.type === 'pending_order';
+    }
+    return n.user_id === user?.id || n.user_id === 'guest' || (n.type === 'feedback_replied' && (n.user_id === user?.id || !n.user_id));
+  });
+
   // Get recent notifications (max 10)
-  const recentNotifications = notifications.slice(0, 10);
+  const recentNotifications = userNotifications.slice(0, 10);
 
   return (
     <div

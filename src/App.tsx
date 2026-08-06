@@ -31,6 +31,8 @@ import { UserManagementPage } from './pages/UserManagementPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { KioskPage } from './pages/KioskPage';
 import { PublicReceiptPage } from './pages/PublicReceiptPage';
+import { SuppliersPage } from './pages/SuppliersPage';
+import { FeedbackPage } from './pages/FeedbackPage';
 
 
 function AppContent() {
@@ -100,9 +102,11 @@ function AppContent() {
                 <Route path="/transaction" element={<TransactionPage />} />
                 <Route path="/billing-history" element={<BillingHistoryPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
+                <Route path="/feedback" element={<FeedbackPage />} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/lockers" element={<LockerManagementPage />} />
                 <Route path="/inventory" element={<InventoryPage />} />
+                <Route path="/suppliers" element={<SuppliersPage />} />
                 <Route path="/sales" element={<SalesPage />} />
                 <Route path="/members" element={<MembersPage />} />
                 <Route path="/user-management" element={<UserManagementPage />} />

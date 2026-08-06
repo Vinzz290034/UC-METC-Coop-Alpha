@@ -239,11 +239,12 @@ export const MerchandisePage: React.FC = () => {
     { value: 'all', label: 'All Products' },
     { value: 'uniform', label: 'Uniforms' },
     { value: 'accessory', label: 'Accessories' },
-    { value: 'equipment', label: 'Equipment' },
+    { value: 'equipment', label: 'PPE' },
+    { value: 'essentials', label: 'Essentials' },
   ];
 
   const filteredProducts = normalizedProducts.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory;
+    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory || (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          p.sku.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -729,7 +730,7 @@ export const MerchandisePage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen py-8 px-4 md:px-8 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-br from-[#ebdcfc] via-[#f3e8ff] to-[#e2f7e5] py-8 px-4 md:px-8 animate-slide-in-right">
       <style>{cartButtonStyles}</style>
       <div className="max-w-7xl mx-auto">
         {/* Header */}
@@ -1239,14 +1240,14 @@ export const MerchandisePage: React.FC = () => {
                 <div>
                   <p className="text-sm text-slate-600 mb-1">SKU</p>
                   <p className="font-mono bg-slate-100 p-2 rounded text-slate-900">
-                    {selectedProduct.sku}
+                    {selectedProduct.sku ? selectedProduct.sku.replace(/^GROC\s*-\s*/i, 'ESS-').replace(/^GROC-/i, 'ESS-') : ''}
                   </p>
                 </div>
 
                 <div>
                   <p className="text-sm text-slate-600 mb-1">Category</p>
                   <p className="text-slate-900 font-semibold capitalize">
-                    {selectedProduct.category}
+                    {(selectedProduct.category === 'grocery' || selectedProduct.category === 'essentials') ? 'Essentials' : selectedProduct.category}
                   </p>
                 </div>
 

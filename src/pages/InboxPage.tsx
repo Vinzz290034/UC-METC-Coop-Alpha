@@ -636,7 +636,7 @@ export const InboxPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-purple-200 via-purple-300 to-purple-400 py-4 sm:py-8 px-4 animate-slide-in-right">
+    <div className="min-h-screen bg-gradient-to-br from-[#ebdcfc] via-[#f3e8ff] to-[#e2f7e5] py-4 sm:py-8 px-4 animate-slide-in-right">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -1487,11 +1487,11 @@ export const InboxPage: React.FC = () => {
             className="relative max-w-5xl max-h-[90vh] flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative inline-block rounded-2xl border border-white/10 shadow-2xl">
+            <div className="relative inline-block p-1 sm:p-1.5 bg-black/40 border border-white/10 rounded-2xl shadow-2xl">
               <img 
                 src={previewImage.url} 
                 alt={previewImage.name}
-                className="max-w-full max-h-[78vh] object-contain rounded-2xl block"
+                className="max-w-full max-h-[78vh] object-contain rounded-xl block"
               />
               <button
                 onClick={() => setPreviewImage(null)}
