@@ -565,14 +565,6 @@ export const LearnMorePage: React.FC = () => {
               </div>
             </div>
 
-            {/* Bottom Counter Note */}
-            <div className="slide-up-4 text-center">
-              <p className="inline-flex items-center gap-2 text-slate-500 text-sm font-semibold bg-white/80 px-5 py-2.5 rounded-full border border-slate-200 backdrop-blur-md shadow-2xs">
-                <Sparkles size={16} className="text-purple-600" />
-                <span>Empowering UC METC Cooperative Members</span>
-              </p>
-            </div>
-
           </div>
         </section>
 
