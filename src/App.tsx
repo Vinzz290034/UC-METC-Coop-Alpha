@@ -1,3 +1,4 @@
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
@@ -5,6 +6,13 @@ import { Layout } from './components/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ToastContainer } from './components/Toast';
 import { useEffect, useRef } from 'react';
+
+// Guard that redirects non-admin users to the dashboard
+const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user || user.role !== 'admin') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
 
 // Pages
 import { LandingPage } from './pages/LandingPage';
@@ -102,7 +110,7 @@ function AppContent() {
                 <Route path="/transaction" element={<TransactionPage />} />
                 <Route path="/billing-history" element={<BillingHistoryPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/feedback" element={<FeedbackPage />} />
+                <Route path="/feedback" element={<AdminOnly><FeedbackPage /></AdminOnly>} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/lockers" element={<LockerManagementPage />} />
                 <Route path="/inventory" element={<InventoryPage />} />
@@ -112,7 +120,7 @@ function AppContent() {
                 <Route path="/user-management" element={<UserManagementPage />} />
                 <Route path="/reports" element={<ReportsPage />} />
                 <Route path="/announcements" element={<AnnouncementsPage />} />
-                <Route path="/announcements-management" element={<AnnouncementsManagementPage />} />
+                <Route path="/announcements-management" element={<AdminOnly><AnnouncementsManagementPage /></AdminOnly>} />
                 <Route path="/account-settings" element={<AccountSettingsPage />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />

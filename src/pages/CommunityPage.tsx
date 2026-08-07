@@ -231,12 +231,20 @@ export const CommunityPage: React.FC = () => {
               location: item.location || (item.title?.toLowerCase().includes('ringhop') ? 'SM Seaside Sky Hall' : 'AVR 1 UC METC Campus'),
               status: 'completed',
               shortDescription: item.short_description || item.shortDescription || '',
-              highlights: [
-                'Approval of cooperative initiatives',
-                'Community engagement & workshops',
-                'Financial performance presentations',
-                'Election of board of directors',
-              ],
+              highlights: item.title?.toLowerCase().includes('ringhop')
+                ? [
+                    'Ring conferral ceremony for graduating candidates',
+                    'Inspirational messages from faculty and industry mentors',
+                    'Formal oath-taking of professional responsibility',
+                    'Recognition of academic excellence and achievements',
+                    'Celebratory reception with families and loved ones',
+                  ]
+                : [
+                    'Approval of cooperative initiatives',
+                    'Community engagement & workshops',
+                    'Financial performance presentations',
+                    'Election of board of directors',
+                  ],
               attendees: item.attendees || (item.title?.toLowerCase().includes('ringhop') ? '300+ Members' : '150+ Members'),
               colorTheme: item.color_theme || item.colorTheme || 'emerald',
               images: cleanImages.length > 0 ? cleanImages : GALLERY_IMAGE_URLS,
@@ -584,13 +592,13 @@ export const CommunityPage: React.FC = () => {
 
                       <div className="pt-4 border-t border-slate-100">
                         <h4 className="text-base sm:text-xl font-bold text-slate-900 mb-4 flex items-center gap-2">
-                          <CheckCircle2 size={18} className="text-green-600" />
+                          <CheckCircle2 size={18} className="text-blue-600" />
                           <span>Key Highlights</span>
                         </h4>
                         <ul className="space-y-3">
                           {selectedEvent.highlights.map((highlight: string, index: number) => (
                             <li key={index} className="flex items-start gap-3">
-                              <div className="w-2.5 h-2.5 bg-[#16a34a] rounded-full mt-1.5 flex-shrink-0" />
+                              <div className="w-2.5 h-2.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0" />
                               <span className="text-slate-700 text-sm sm:text-base font-medium leading-normal">
                                 {highlight}
                               </span>

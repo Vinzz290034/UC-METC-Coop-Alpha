@@ -131,6 +131,7 @@ export const Sidebar: React.FC = () => {
       icon: <MessageSquare size={20} />,
       label: 'Feedback',
       id: 'feedback',
+      roles: ['admin'],
     },
     {
       icon: <Lock size={20} />,
@@ -178,7 +179,7 @@ export const Sidebar: React.FC = () => {
       icon: <Megaphone size={20} />,
       label: 'Content Management',
       id: 'announcements-management',
-      roles: ['admin', 'staff'],
+      roles: ['admin'],
     },
   ];
 

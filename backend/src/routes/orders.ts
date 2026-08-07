@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { notificationService } from '../services/notificationService.js';
+import { emailService } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -503,7 +504,55 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
           link: '/transaction',
         });
       }
-      
+
+      // Send receipt email for walk-in kiosk orders when marked as completed
+      if (
+        (status === 'completed' || status === 'released') &&
+        previousStatus === 'pending'
+      ) {
+        try {
+          const receiptResult = await pool.query(
+            `SELECT o.receipt_no, o.total_amount, o.payment_method, o.completed_at,
+                    o.is_walk_in, o.walk_in_name, o.walk_in_contact_number,
+                    json_agg(json_build_object(
+                      'productName', oi.product_name,
+                      'quantity', oi.quantity,
+                      'unitPrice', oi.unit_price,
+                      'subtotal', oi.subtotal
+                    )) as items
+             FROM orders o
+             LEFT JOIN order_items oi ON o.id = oi.order_id
+             WHERE o.id = $1
+             GROUP BY o.id`,
+            [id]
+          );
+
+          const order = receiptResult.rows[0];
+
+          if (
+            order &&
+            order.is_walk_in &&
+            order.walk_in_contact_number &&
+            order.walk_in_contact_number.includes('@')
+          ) {
+            // Fire-and-forget — don't block the response on email delivery
+            emailService.sendWalkInReceiptEmail({
+              email: order.walk_in_contact_number,
+              customerName: order.walk_in_name || 'Customer',
+              receiptNo: order.receipt_no,
+              totalAmount: order.total_amount,
+              items: order.items,
+              paymentMethod: order.payment_method,
+              completedAt: new Date(order.completed_at),
+            }).catch((err: unknown) => {
+              console.error('[orders] Failed to send walk-in receipt email:', err);
+            });
+          }
+        } catch (emailErr) {
+          console.error('[orders] Error fetching order data for receipt email:', emailErr);
+        }
+      }
+
       res.json(updatedOrder);
     } catch (error) {
       await client.query('ROLLBACK');
