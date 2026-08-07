@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { createServer } from 'http';
 import { config } from './config/config.js';
 import { testConnection } from './config/database.js';
@@ -28,9 +29,10 @@ import notificationsRoutes from './routes/notifications.js';
 const app = express();
 const httpServer = createServer(app);
 
-// Middleware
-app.use(express.json({ limit: '100mb' }));
-app.use(express.urlencoded({ limit: '100mb', extended: true }));
+// Security & Middleware
+app.use(helmet()); // Sets secure HTTP headers
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(cors(config.cors));
 
 // Routes

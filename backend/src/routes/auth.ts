@@ -5,12 +5,46 @@ import crypto from 'crypto';
 import dns from 'dns';
 import { promisify } from 'util';
 import emailValidator from 'email-validator';
+import rateLimit from 'express-rate-limit';
 import { config } from '../config/config.js';
 import { query } from '../config/database.js';
 import { User, AuthPayload } from '../types/index.js';
 import { emailService } from '../services/emailService.js';
 
 const router = Router();
+
+// Rate limiters
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // max 10 login attempts per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many login attempts. Please try again in 15 minutes.' },
+});
+
+const otpLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // max 10 OTP attempts per window per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many attempts. Please try again in 15 minutes.' },
+});
+
+const forgotPasswordLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // max 5 forgot-password requests per hour per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many password reset requests. Please try again in 1 hour.' },
+});
+
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10, // max 10 registrations per hour per IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many registration attempts. Please try again in 1 hour.' },
+});
 
 // Store reset codes temporarily (in production, use Redis or database)
 const resetCodes = new Map<string, { code: string; email: string; expiresAt: number }>();
@@ -57,7 +91,7 @@ const withTimeout = <T>(promise: Promise<T>, ms: number, fallbackValue: T): Prom
   ]);
 };
 
-router.post('/login', async (req: Request, res: Response) => {
+router.post('/login', loginLimiter, async (req: Request, res: Response) => {
   try {
     const { email, id_number, password } = req.body;
 
@@ -135,7 +169,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-router.post('/register', async (req: Request, res: Response) => {
+router.post('/register', registerLimiter, async (req: Request, res: Response) => {
   try {
     const { email, password, first_name, middle_name, last_name, role, id_number } = req.body;
 
@@ -170,9 +204,9 @@ router.post('/register', async (req: Request, res: Response) => {
       }
     }
 
-    // Hash password now, but DO NOT insert user into DB yet
+    // Hash password — role is always forced to 'user', never trust client-supplied role
     const hashedPassword = await bcryptjs.hash(password, 10);
-    const userRole = role || 'user';
+    const userRole = 'user';
 
     // Generate 6-digit OTP
     const verificationCode = crypto.randomInt(100000, 999999).toString();
@@ -218,7 +252,7 @@ router.post('/register', async (req: Request, res: Response) => {
 });
 
 // Verify email with OTP code — this is where the user is actually created in the DB
-router.post('/verify-email', async (req: Request, res: Response) => {
+router.post('/verify-email', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
 
@@ -281,7 +315,7 @@ router.post('/verify-email', async (req: Request, res: Response) => {
 });
 
 // Resend verification code for pending registration
-router.post('/resend-verification', async (req: Request, res: Response) => {
+router.post('/resend-verification', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
@@ -320,7 +354,7 @@ router.post('/resend-verification', async (req: Request, res: Response) => {
 });
 
 // Request password reset - send code via email
-router.post('/forgot-password', async (req: Request, res: Response) => {
+router.post('/forgot-password', forgotPasswordLimiter, async (req: Request, res: Response) => {
   try {
     const { email } = req.body;
 
@@ -376,7 +410,7 @@ router.post('/forgot-password', async (req: Request, res: Response) => {
 });
 
 // Verify reset code
-router.post('/verify-reset-code', async (req: Request, res: Response) => {
+router.post('/verify-reset-code', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email, code } = req.body;
 
@@ -406,7 +440,7 @@ router.post('/verify-reset-code', async (req: Request, res: Response) => {
 });
 
 // Reset password with code
-router.post('/reset-password', async (req: Request, res: Response) => {
+router.post('/reset-password', otpLimiter, async (req: Request, res: Response) => {
   try {
     const { email, code, newPassword } = req.body;
 

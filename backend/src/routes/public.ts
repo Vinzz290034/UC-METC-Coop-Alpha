@@ -95,7 +95,30 @@ router.get('/receipt/:receiptNo', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Receipt not found' });
     }
 
-    res.json(result.rows[0]);
+    const row = result.rows[0];
+
+    // Return only the fields needed to display the receipt —
+    // strip PII (id_number, contact number, full email, membership_status)
+    // from this unauthenticated public endpoint.
+    res.json({
+      id: row.id,
+      receipt_no: row.receipt_no,
+      total_amount: row.total_amount,
+      payment_method: row.payment_method,
+      reference_number: row.reference_number,
+      status: row.status,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      is_walk_in: row.is_walk_in,
+      // Safe display fields only — no id_number, contact, or membership_status
+      first_name: row.first_name,
+      walk_in_name: row.walk_in_name,
+      walk_in_course: row.walk_in_course,
+      walk_in_year: row.walk_in_year,
+      course: row.course,
+      year: row.year,
+      items: row.items,
+    });
   } catch (error) {
     console.error('[public/receipt] Error fetching receipt:', error);
     res.status(500).json({ error: 'Failed to fetch receipt' });

@@ -4,6 +4,8 @@ import { authMiddleware, adminMiddleware, invalidateUserCache } from '../middlew
 import { User } from '../types/index.js';
 import { notificationService } from '../services/notificationService.js';
 import { emailService } from '../services/emailService.js';
+import bcryptjs from 'bcryptjs';
+import crypto from 'crypto';
 
 const router = Router();
 
@@ -395,12 +397,14 @@ router.put('/membership-requests/:requestId/approve', authMiddleware, async (req
       const firstName = nameParts[0] || 'User';
       const lastName = nameParts.slice(1).join(' ') || '';
 
-      // Create user with a temporary password (hash would be better in production)
+      // Create user with a securely hashed random temporary password
+      const tempPassword = crypto.randomBytes(32).toString('hex');
+      const hashedTempPassword = await bcryptjs.hash(tempPassword, 10);
       const createUserResult = await query(
         `INSERT INTO users (email, password, first_name, last_name, role, membership_status, status)
          VALUES ($1, $2, $3, $4, 'user', 'approved', 'active')
          RETURNING id, email, first_name, last_name, role, membership_status`,
-        [memberRequest.email, 'temp_password_change_required', firstName, lastName]
+        [memberRequest.email, hashedTempPassword, firstName, lastName]
       );
 
       userId = createUserResult.rows[0].id;

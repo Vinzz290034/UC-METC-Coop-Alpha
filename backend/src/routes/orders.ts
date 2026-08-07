@@ -2,36 +2,27 @@ import express, { Request, Response } from 'express';
 import { pool } from '../config/database.js';
 import { notificationService } from '../services/notificationService.js';
 import { emailService } from '../services/emailService.js';
+import { authMiddleware } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Middleware to verify user ID
-const verifyUser = (req: Request, res: Response, next: Function) => {
-  const userId = req.headers['x-user-id'] as string;
-  if (!userId) {
-    return res.status(401).json({ error: 'User ID required' });
-  }
-  (req as any).userId = userId;
-  next();
-};
-
 // Create order from cart
-router.post('/create', verifyUser, async (req: Request, res: Response) => {
+router.post('/create', authMiddleware, async (req: Request, res: Response) => {
   try {
     console.log('[ORDER CREATE] Request received:', {
       body: req.body,
-      userId: (req as any).userId,
+      userId: req.user!.id,
       headers: req.headers
     });
 
     const { items, totalAmount, paymentMethod, referenceNumber, receiptNo, orderType } = req.body;
-    let userId = (req as any).userId;
+    let userId: string | null = req.user!.id;
     let orderStatus = 'pending';
     let completedAt: Date | null = null;
     let createdAt = new Date();
 
     // Check if the requesting user is admin/staff
-    const requestingUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [(req as any).userId]);
+    const requestingUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [req.user!.id]);
     const isStaffOrAdmin = requestingUserResult.rows[0] && ['admin', 'staff'].includes(requestingUserResult.rows[0].role);
 
     if (isStaffOrAdmin) {
@@ -213,7 +204,7 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
       }
 
       // Clear cart only if this is NOT a manual admin/staff recorded offline order for another student
-      if (finalOrderType !== 'insurance' && (!isStaffOrAdmin || userId === (req as any).userId)) {
+      if (finalOrderType !== 'insurance' && (!isStaffOrAdmin || userId === req.user!.id)) {
         await client.query('DELETE FROM cart_items WHERE user_id = $1', [userId]);
       }
 
@@ -256,9 +247,9 @@ router.post('/create', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Get user's orders
-router.get('/', verifyUser, async (req: Request, res: Response) => {
+router.get('/', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     const result = await pool.query(
       `SELECT 
@@ -301,10 +292,10 @@ router.get('/', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Get order by ID
-router.get('/:id', verifyUser, async (req: Request, res: Response) => {
+router.get('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     const result = await pool.query(
       `SELECT o.*, json_agg(json_build_object(
@@ -337,11 +328,11 @@ router.get('/:id', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Update order status (for staff/admin only)
-router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
+router.put('/:id/status', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     // Verify user is admin or staff
     const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
@@ -567,10 +558,10 @@ router.put('/:id/status', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Cancel order (user can only cancel pending orders)
-router.put('/:id/cancel', verifyUser, async (req: Request, res: Response) => {
+router.put('/:id/cancel', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     const orderResult = await pool.query(
       `SELECT status FROM orders WHERE id = $1 AND user_id = $2`,
@@ -597,9 +588,9 @@ router.put('/:id/cancel', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Get all pending orders (for staff/admin)
-router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
+router.get('/pending/list', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     // Verify user is admin or staff
     const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
@@ -647,10 +638,10 @@ router.get('/pending/list', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Delete order completely
-router.delete('/:id', verifyUser, async (req: Request, res: Response) => {
+router.delete('/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     // Verify order belongs to user and is pending
     const orderResult = await pool.query(
@@ -680,10 +671,10 @@ router.delete('/:id', verifyUser, async (req: Request, res: Response) => {
 });
 
 // Admin/staff delete order completely and restore stock if completed
-router.delete('/admin/:id', verifyUser, async (req: Request, res: Response) => {
+router.delete('/admin/:id', authMiddleware, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     // Verify user is admin or staff
     const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
@@ -783,9 +774,9 @@ router.delete('/admin/:id', verifyUser, async (req: Request, res: Response) => {
 
 // Get all orders (for staff/admin) or user-specific orders
 // This endpoint checks user role and returns appropriate data
-router.get('/all/transactions', verifyUser, async (req: Request, res: Response) => {
+router.get('/all/transactions', authMiddleware, async (req: Request, res: Response) => {
   try {
-    const userId = (req as any).userId;
+    const userId = req.user!.id;
 
     // Get user info to check role
     const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
