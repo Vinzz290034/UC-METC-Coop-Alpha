@@ -504,7 +504,7 @@ export const CommunityPage: React.FC = () => {
 
             {/* Event Selection Tabs */}
             {eventsList.length > 1 && (
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              <div className="slide-up-3 flex flex-wrap items-center justify-center gap-3 mb-8">
                 {eventsList.map((evt) => {
                   const isSelected = evt.id === selectedEvent.id;
                   return (
@@ -528,7 +528,7 @@ export const CommunityPage: React.FC = () => {
             )}
 
             {/* Main Featured Event Card */}
-            <div className="slide-up-3 max-w-5xl mx-auto">
+            <div className="slide-up-4 max-w-5xl mx-auto">
               <div className="card-hover-smooth bg-white/90 backdrop-blur-xl rounded-3xl shadow-xl overflow-hidden border border-purple-500/15">
                 
                 {/* Event Card Solid Banner Header */}

@@ -14,6 +14,13 @@ const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   return <>{children}</>;
 };
 
+// Guard that allows admin and user, but blocks staff
+const NotStaff: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+  if (!user || user.role === 'staff') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 // Pages
 import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
@@ -110,7 +117,7 @@ function AppContent() {
                 <Route path="/transaction" element={<TransactionPage />} />
                 <Route path="/billing-history" element={<BillingHistoryPage />} />
                 <Route path="/inbox" element={<InboxPage />} />
-                <Route path="/feedback" element={<AdminOnly><FeedbackPage /></AdminOnly>} />
+                <Route path="/feedback" element={<NotStaff><FeedbackPage /></NotStaff>} />
                 <Route path="/notifications" element={<NotificationsPage />} />
                 <Route path="/lockers" element={<LockerManagementPage />} />
                 <Route path="/inventory" element={<InventoryPage />} />
