@@ -355,12 +355,10 @@ export const KioskPage: React.FC = () => {
         handleResetKiosk();
         showNotification('Kiosk session reset due to inactivity');
       }, 180000); // 3 minutes
-    } else if (step === 'success') {
-      // Auto-reset after 3 minutes on the success/QR code page if left unattended
-      idleTimerRef.current = setTimeout(() => {
-        handleResetKiosk();
-      }, 180000); // 3 minutes
     }
+    // NOTE: No idle timer for 'success' step — the Order Placed and QR Receipt
+    // screens must stay visible indefinitely so the customer can scan/read their
+    // receipt without being redirected back to the kiosk portal.
   };
 
   useEffect(() => {
