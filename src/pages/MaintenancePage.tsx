@@ -106,12 +106,12 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
 
     try {
       const res = await login(email, password);
-      if (res.user.role === 'admin' || res.user.role === 'staff') {
+      if (res.user.role === 'admin') {
         setShowAdminLogin(false);
         if (onBypass) onBypass();
         navigate('/dashboard', { replace: true });
       } else {
-        setLoginError('Access denied: Only Administrators and Staff can bypass Maintenance Mode.');
+        setLoginError('Access denied: Only Administrators can bypass Maintenance Mode.');
       }
     } catch (err: any) {
       setLoginError(err?.message || 'Invalid credentials. Please verify your Email and Password.');
@@ -211,7 +211,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
                   <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center">
                     <Lock className="w-4 h-4" />
                   </div>
-                  Staff / Admin Maintenance Bypass
+                  Admin Maintenance Bypass
                 </div>
                 <button
                   onClick={() => setShowAdminLogin(false)}
@@ -222,7 +222,7 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
               </div>
 
               <p className="text-xs text-slate-600 leading-relaxed font-medium">
-                If you are an authorized Administrator or Staff member, sign in to bypass Maintenance Mode and access management controls.
+                If you are an authorized Administrator, sign in to bypass Maintenance Mode and access management controls.
               </p>
 
               {loginError && (

@@ -123,10 +123,10 @@ function AppContent() {
   }
 
   // ── MAINTENANCE MODE GUARD ──
-  // If maintenance mode is ON and user is NOT an admin or staff, block access and show MaintenancePage
-  const isAdminOrStaff = user && (user.role === 'admin' || user.role === 'staff');
+  // If maintenance mode is ON and user is NOT an admin, block access and show MaintenancePage
+  const isAdmin = user && user.role === 'admin';
   
-  if (maintenanceState.enabled && !isAdminOrStaff) {
+  if (maintenanceState.enabled && !isAdmin) {
     return (
       <Routes>
         <Route path="/login" element={<LoginPage />} />
@@ -138,13 +138,13 @@ function AppContent() {
   return (
     <>
       <ScrollToTop />
-      {/* Persistent Banner for Admin/Staff when Maintenance Mode is ON */}
-      {maintenanceState.enabled && isAdminOrStaff && (
+      {/* Persistent Banner for Admin when Maintenance Mode is ON */}
+      {maintenanceState.enabled && isAdmin && (
         <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between shadow-md z-[9999] relative border-b border-amber-500/30">
           <div className="flex items-center gap-2">
             <Wrench size={16} className="animate-bounce text-amber-200" />
             <span>
-              <strong>MAINTENANCE MODE IS ACTIVE:</strong> Public portal and user access are restricted. You are viewing in Admin/Staff Bypass mode.
+              <strong>MAINTENANCE MODE IS ACTIVE:</strong> Public portal and non-admin access are restricted. You are viewing in Admin Bypass mode.
             </span>
           </div>
           <div className="flex items-center gap-3">

@@ -219,8 +219,9 @@ export const SettingsPage: React.FC = () => {
         {/* ── LEFT COLUMN (Main Settings) ── */}
         <div className="lg:col-span-2 space-y-8">
           
-          {/* ── SYSTEM MAINTENANCE MODE CONTROL CARD ── */}
-          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
+          {/* ── SYSTEM MAINTENANCE MODE CONTROL CARD (ADMIN ONLY) ── */}
+          {user && user.role === 'admin' && (
+            <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
             <div className="flex items-start sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
               <div className="flex items-start sm:items-center gap-3 flex-1 min-w-0">
                 <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold flex-shrink-0 mt-0.5 sm:mt-0">
@@ -332,6 +333,7 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
+          )}
 
           {/* ── SESSION TIMEOUT CARD ── */}
           <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-sm space-y-6">
