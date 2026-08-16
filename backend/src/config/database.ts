@@ -154,6 +154,15 @@ export async function testConnection() {
       )
     `);
 
+    // ── Auto-migrate: create system_settings table ──
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS system_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value TEXT NOT NULL,
+        updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
     console.log('✓ Database self-healing migrations checked and applied successfully');
     
     return true;

@@ -16,10 +16,25 @@ import {
   Calendar,
   AlertTriangle,
   XCircle,
+  FileText,
+  Lock,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
+import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+
+// Default physical lockers fallback
+const defaultPhysicalLockers = [
+  { id: 'l-1', locker_number: 'MS-13', location: 'Machine Shop', floor: 'Ground Floor', size: 'Medium', status: 'available' },
+  { id: 'l-2', locker_number: 'MS-14', location: 'Machine Shop', floor: 'Ground Floor', size: 'Medium', status: 'available' },
+  { id: 'l-3', locker_number: 'SL-109', location: 'Seamanship Lab', floor: 'Ground Floor', size: 'Large', status: 'available' },
+  { id: 'l-4', locker_number: 'SL-110', location: 'Seamanship Lab', floor: 'Ground Floor', size: 'Large', status: 'available' },
+  { id: 'l-5', locker_number: 'BE-201', location: 'Basic Ed', floor: 'Ground Floor', size: 'Small', status: 'available' },
+  { id: 'l-6', locker_number: 'BE-202', location: 'Basic Ed', floor: 'Ground Floor', size: 'Small', status: 'available' },
+  { id: 'l-7', locker_number: 'AVR-301', location: 'AVR Building', floor: 'Ground Floor', size: 'Medium', status: 'available' },
+  { id: 'l-8', locker_number: 'AVR-302', location: 'AVR Building', floor: 'Ground Floor', size: 'Medium', status: 'available' },
+];
 
 export const ReportsPage: React.FC = () => {
   const { user } = useAuth();
@@ -33,6 +48,7 @@ export const ReportsPage: React.FC = () => {
 
   // Fetch data directly from database
   const [sales, setSales] = useState<any[]>([]);
+  const [lockersList, setLockersList] = useState<any[]>(defaultPhysicalLockers);
 
   // States for Sales report tab filters
   const [salesPaymentFilter, setSalesPaymentFilter] = useState<'all' | 'cash' | 'ewallet'>('all');
@@ -48,36 +64,83 @@ export const ReportsPage: React.FC = () => {
   const productMapByName = useMemo(() => {
     const map = new Map<string, any>();
     products.forEach(p => {
-      if (p.name) map.set(p.name.toLowerCase().trim(), p);
+      if (p.name) {
+        const norm = p.name.toLowerCase().trim();
+        map.set(norm, p);
+        const base = norm.split(' - ')[0].split('(')[0].trim();
+        if (base && !map.has(base)) map.set(base, p);
+      }
       if (p.id) map.set(p.id, p);
     });
     return map;
   }, [products]);
 
-  // Fetch orders, locker rentals, and products from API on mount with polling
+  // Fetch orders, locker rentals, lockers, and products from API on mount with polling
   useEffect(() => {
     let isSubscribed = true;
     const fetchAllData = async () => {
       try {
-        const [orders, rentals, catalog] = await Promise.all([
-          apiClient.getAllTransactions(user?.id || ''),
-          apiClient.getLockerRentals(),
-          apiClient.getProducts(),
+        const [orders, rentalsRes, catalog, lockersRes] = await Promise.all([
+          apiClient.getAllTransactions(user?.id || '').catch(() => []),
+          apiClient.getLockerRentals().catch(() => []),
+          apiClient.getProducts().catch(() => []),
+          apiClient.getLockers().catch(() => ({ lockers: [] })),
         ]);
 
-        if (isSubscribed && Array.isArray(orders)) {
-          setSales(prev => {
-            if (prev.length === orders.length && JSON.stringify(prev[0] || {}) === JSON.stringify(orders[0] || {})) {
-              return prev;
+        // Merge API rentals with localStorage pending rentals
+        const apiRentalsList = Array.isArray(rentalsRes) 
+          ? rentalsRes 
+          : (Array.isArray(rentalsRes?.rentals) ? rentalsRes.rentals : []);
+
+        let localPendingList: any[] = [];
+        try {
+          const savedGlobal = localStorage.getItem('coop_global_pending_lockers');
+          if (savedGlobal) {
+            localPendingList = JSON.parse(savedGlobal);
+          }
+          // Also scan all localStorage keys for user locker rentals
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('locker_rental_') || key.startsWith('coop_user_rental_'))) {
+              try {
+                const item = JSON.parse(localStorage.getItem(key) || '{}');
+                if (item && (item.rental_id || item.id || item.locker_number || item.lockerId)) {
+                  localPendingList.push(item);
+                }
+              } catch (e) {}
             }
-            return orders;
-          });
-        }
-        if (isSubscribed && Array.isArray(rentals) && rentals.length > 0) {
-          setLockerRentals(rentals);
-        }
-        if (isSubscribed && Array.isArray(catalog) && catalog.length > 0) {
-          setProducts(catalog);
+          }
+        } catch (e) {}
+
+        const mergedRentals = [...apiRentalsList, ...localPendingList];
+
+        // Deduplicate rentals by rental_id / id or locker_number
+        const rentalMap = new Map<string, any>();
+        mergedRentals.forEach(r => {
+          const key = r.rental_id || r.id || `${r.first_name}_${r.locker_number}`;
+          if (key) rentalMap.set(key, r);
+        });
+        const finalRentals = Array.from(rentalMap.values());
+
+        // Merge physical lockers
+        const fetchedLockers = Array.isArray(lockersRes?.lockers) && lockersRes.lockers.length > 0
+          ? lockersRes.lockers
+          : (Array.isArray(lockersRes) && lockersRes.length > 0 ? lockersRes : defaultPhysicalLockers);
+
+        if (isSubscribed) {
+          if (Array.isArray(orders)) {
+            setSales(prev => {
+              if (prev.length === orders.length && JSON.stringify(prev[0] || {}) === JSON.stringify(orders[0] || {})) {
+                return prev;
+              }
+              return orders;
+            });
+          }
+          setLockerRentals(finalRentals);
+          setLockersList(fetchedLockers);
+          if (Array.isArray(catalog) && catalog.length > 0) {
+            setProducts(catalog);
+          }
         }
       } catch (error) {
         // Silent catch
@@ -91,20 +154,40 @@ export const ReportsPage: React.FC = () => {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [user?.id, user?.role, setLockerRentals, setProducts]);
+  }, [user?.id, user?.role, setLockerRentals, setProducts, setLockersList]);
 
   const [reportType, setReportType] = useState<
-    'sales' | 'inventory' | 'lockers' | 'income' | 'insurance'
+    'sales' | 'inventory' | 'lockers' | 'income' | 'insurance' | 'classring'
   >('sales');
   const [dateRange, setDateRange] = useState({ from: '', to: '' });
   const [selectedInventoryCategory, setSelectedInventoryCategory] = useState<string>('all');
   const [inventorySearchQuery, setInventorySearchQuery] = useState<string>('');
   const [insuranceSearchQuery, setInsuranceSearchQuery] = useState<string>('');
   const [insuranceStatusFilter, setInsuranceStatusFilter] = useState<'all' | 'completed' | 'pending'>('all');
+  const [classRingSearchQuery, setClassRingSearchQuery] = useState<string>('');
+  const [classRingStatusFilter, setClassRingStatusFilter] = useState<'all' | 'completed' | 'pending' | 'cancelled'>('all');
+  const [showVariantDetails, setShowVariantDetails] = useState<boolean>(true);
 
-  // Memoized completed sales list
+  const isClassRingOrder = (order: any): boolean => {
+    if (!order) return false;
+    if (order.order_type === 'class_ring') return true;
+    if (order.items && Array.isArray(order.items)) {
+      return order.items.some((item: any) => {
+        const name = (item.product_name || item.productName || item.name || '').toLowerCase();
+        return name.includes('class ring') || (name.includes('ring') && !name.includes('pershing'));
+      });
+    }
+    const mainName = (order.product_name || order.productName || order.name || '').toLowerCase();
+    return mainName.includes('class ring') || (mainName.includes('ring') && !mainName.includes('pershing'));
+  };
+
+  // Memoized completed sales list (excluding Class Rings so Coop revenue is strictly separated)
   const completedSales = useMemo(() => {
-    return sales.filter(s => s && (s.status === 'completed' || s.status === 'released'));
+    return sales.filter(s => s && (s.status === 'completed' || s.status === 'released') && !isClassRingOrder(s));
+  }, [sales]);
+
+  const classRingSales = useMemo(() => {
+    return sales.filter(s => s && isClassRingOrder(s));
   }, [sales]);
 
   const generateSalesReport = () => {
@@ -198,30 +281,66 @@ export const ReportsPage: React.FC = () => {
 
     const pMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number; sku?: string } } = {};
 
+    const getGeneralProductName = (item: any, matchedProduct: any): string => {
+      if (matchedProduct?.name) return matchedProduct.name;
+      const rawName = String(item.productName || item.product_name || item.name || 'General Merchandise').trim();
+      let baseName = rawName.split(' - ')[0].split('(')[0].split(':')[0].trim();
+      const found = productMapByName.get(baseName.toLowerCase());
+      return found?.name || baseName || 'General Merchandise';
+    };
+
+    const getItemVariantName = (item: any, matchedProduct: any): string => {
+      const rawName = item.productName || item.product_name || item.name || matchedProduct?.name || 'General Merchandise';
+      const options = item.selectedOptions || item.options || {};
+      const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
+
+      if (rawName.includes('(') && rawName.includes(':')) {
+        return parseAndFormatLegacyProductName(rawName, unitPrice);
+      }
+
+      return formatProductName(rawName, options, unitPrice);
+    };
+
     selectedSales.forEach(s => {
       if (s.items && Array.isArray(s.items)) {
         s.items.forEach((item: any) => {
           const rawName = item.productName || item.product_name || item.name || 'General Merchandise';
           const normName = rawName.toLowerCase().trim();
-          const matchedProduct = productMapByName.get(normName) || (item.productId ? productMapByName.get(item.productId) : null) || (item.product_id ? productMapByName.get(item.product_id) : null);
-
-          const canonicalName = matchedProduct?.name || rawName.trim();
-          const mapKey = (matchedProduct?.id || canonicalName).toLowerCase();
+          const baseNormName = rawName.split(' - ')[0].split('(')[0].toLowerCase().trim();
+          const matchedProduct = productMapByName.get(normName) || productMapByName.get(baseNormName) || (item.productId ? productMapByName.get(item.productId) : null) || (item.product_id ? productMapByName.get(item.product_id) : null);
 
           const qty = parseInt(String(item.quantity || item.qty || 1), 10) || 1;
           const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
           const itemSubtotal = qty * unitPrice;
-
           const category = matchedProduct?.category || 'general';
           const sku = matchedProduct?.sku || item.sku || '';
 
-          if (!pMap[mapKey]) {
-            pMap[mapKey] = { name: canonicalName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku };
-          } else if (pMap[mapKey].price === 0 && unitPrice > 0) {
-            pMap[mapKey].price = unitPrice;
+          if (showVariantDetails) {
+            // Detailed Variant Mode: Group by specific variant name & price point
+            const variantName = getItemVariantName(item, matchedProduct);
+            const mapKey = `${variantName.toLowerCase().trim()}::${unitPrice}`;
+
+            if (!pMap[mapKey]) {
+              pMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku };
+            }
+            pMap[mapKey].unitsSold += qty;
+            pMap[mapKey].revenue += itemSubtotal;
+          } else {
+            // General Mode: Group strictly by base product name across all variants
+            const generalName = getGeneralProductName(item, matchedProduct);
+            const mapKey = generalName.toLowerCase().trim();
+
+            if (!pMap[mapKey]) {
+              pMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, sku };
+            }
+            pMap[mapKey].unitsSold += qty;
+            pMap[mapKey].revenue += itemSubtotal;
+            if (matchedProduct?.price) {
+              pMap[mapKey].price = matchedProduct.price;
+            } else if (pMap[mapKey].unitsSold > 0) {
+              pMap[mapKey].price = pMap[mapKey].revenue / pMap[mapKey].unitsSold;
+            }
           }
-          pMap[mapKey].unitsSold += qty;
-          pMap[mapKey].revenue += itemSubtotal;
         });
       }
     });
@@ -250,7 +369,7 @@ export const ReportsPage: React.FC = () => {
       selectedMonthTotalUnits: totalUnits,
       maxMonthlyUnits: maxUnits,
     };
-  }, [completedSales, selectedSalesMonth, monthlySearchQuery, productMapByName]);
+  }, [completedSales, selectedSalesMonth, monthlySearchQuery, productMapByName, showVariantDetails, products]);
 
   const generateInventoryReport = () => {
     try {
@@ -279,27 +398,27 @@ export const ReportsPage: React.FC = () => {
 
   const generateLockerReport = () => {
     try {
-      const available = lockers.filter((l) => l?.status === 'available').length;
-      const occupied = lockers.filter((l) => l?.status === 'occupied').length;
-      const maintenance = lockers.filter((l) => l?.status === 'under_maintenance').length;
-      const occupancyRate = lockers.length > 0 ? String(((occupied / lockers.length) * 100).toFixed(1)) : '0';
+      const activeOrPendingRentals = lockerRentals.filter(r => (r.status || r.rental_status) === 'active' || r.payment_status === 'paid' || r.status === 'pending');
+      const occupiedLockerCodes = new Set(activeOrPendingRentals.map(r => r.locker_number || r.locker_code || r.lockerId).filter(Boolean));
+      
+      const totalLockersCount = Math.max((lockersList || lockers || []).length, occupiedLockerCodes.size, 8);
+      const occupiedCount = occupiedLockerCodes.size;
+      const availableCount = Math.max(0, totalLockersCount - occupiedCount);
+      const occupancyRate = totalLockersCount > 0 ? ((occupiedCount / totalLockersCount) * 100).toFixed(1) : '0.0';
+
+      const pendingApps = lockerRentals.filter(r => (r.status === 'pending' || r.rental_status === 'pending') && r.payment_status !== 'paid');
+      const activePaid = lockerRentals.filter(r => r.payment_status === 'paid' || r.status === 'active');
 
       return {
         title: 'Locker Occupancy Report',
         data: [
-          { label: 'Total Lockers', value: String(lockers.length) },
-          { label: 'Available Lockers', value: String(available) },
-          { label: 'Occupied Lockers', value: String(occupied) },
-          { label: 'Under Maintenance', value: String(maintenance) },
+          { label: 'Total Lockers', value: String(totalLockersCount) },
+          { label: 'Available Lockers', value: String(availableCount) },
+          { label: 'Occupied Lockers', value: String(occupiedCount) },
+          { label: 'Under Maintenance', value: '0' },
           { label: 'Occupancy Rate', value: `${occupancyRate}%` },
-          {
-            label: 'Active Rentals',
-            value: String(lockerRentals.filter((r) => r?.status === 'active').length),
-          },
-          {
-            label: 'Expired Rentals',
-            value: String(lockerRentals.filter((r) => r?.status === 'expired').length),
-          },
+          { label: 'Active Rentals', value: String(activePaid.length) },
+          { label: 'Pending Applications', value: String(pendingApps.length) },
         ],
       };
     } catch (error) {
@@ -316,7 +435,10 @@ export const ReportsPage: React.FC = () => {
       const productSalesOrders = completedSales.filter(s => (s.order_type || s.orderType) !== 'insurance');
       const productSalesRev = productSalesOrders.reduce((sum, s) => sum + (parseFloat(String(s.total_amount || s.totalAmount || 0)) || 0), 0);
 
-      const rentalIncome = lockerRentals.reduce((sum, r) => sum + (parseFloat(String(r.rentalFee || 0)) || 0), 0);
+      const rentalIncome = lockerRentals.reduce((sum, r) => {
+        const val = parseFloat(String(r.rental_fee ?? r.rentalFee ?? r.total_amount ?? r.totalAmount ?? r.rental_amount ?? r.amount ?? r.price ?? 250));
+        return sum + (isNaN(val) ? 250 : val);
+      }, 0);
       const totalIncome = productSalesRev + rentalIncome + insuranceRev;
 
       return {
@@ -380,6 +502,31 @@ export const ReportsPage: React.FC = () => {
     }
   };
 
+  const generateClassRingReport = () => {
+    try {
+      const totalOrders = classRingSales.length;
+      const totalRevenue = classRingSales.reduce((sum, s) => {
+        const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
+        return sum + (isNaN(amount) ? 0 : amount);
+      }, 0);
+      const completedOrders = classRingSales.filter(s => s.status === 'completed' || s.status === 'released').length;
+      const pendingOrders = classRingSales.filter(s => s.status === 'pending').length;
+
+      return {
+        title: 'Class Ring Orders & Trust Analytics',
+        data: [
+          { label: 'Total Ring Orders', value: String(totalOrders) },
+          { label: 'Total Trust Revenue', value: `₱${totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+          { label: 'Completed Orders', value: String(completedOrders) },
+          { label: 'Pending Payment', value: String(pendingOrders) },
+          { label: 'Segregated Account', value: 'Royal Gem MPC' },
+        ],
+      };
+    } catch (error) {
+      return { title: 'Class Ring Orders & Trust Analytics', data: [] };
+    }
+  };
+
   const getReport = () => {
     switch (reportType) {
       case 'sales':
@@ -392,6 +539,8 @@ export const ReportsPage: React.FC = () => {
         return generateIncomeReport();
       case 'insurance':
         return generateInsuranceReport();
+      case 'classring':
+        return generateClassRingReport();
       default:
         return { title: '', data: [] };
     }
@@ -421,13 +570,14 @@ export const ReportsPage: React.FC = () => {
         </div>
 
         {/* Report Type Selection */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           {[
             { id: 'sales', label: 'Sales' },
             { id: 'inventory', label: 'Inventory' },
             { id: 'lockers', label: 'Locker Occupancy' },
             { id: 'income', label: 'Income Breakdown' },
             { id: 'insurance', label: 'Insurance' },
+            { id: 'classring', label: 'Class Ring' },
           ].map((option) => (
             <button
               key={option.id}
@@ -439,6 +589,7 @@ export const ReportsPage: React.FC = () => {
                     | 'lockers'
                     | 'income'
                     | 'insurance'
+                    | 'classring'
                 )
               }
               className={`px-4 py-3 rounded-lg font-semibold transition-all ${
@@ -499,26 +650,47 @@ export const ReportsPage: React.FC = () => {
                     return ym === selectedSalesMonth;
                   });
 
-                  const monthlyMap: { [name: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number } } = {};
+                  const monthlyMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number } } = {};
                   selectedMonthSales.forEach(s => {
                     if (s.items && Array.isArray(s.items)) {
                       s.items.forEach((item: any) => {
-                        const name = item.productName || item.product_name || item.name || 'General Merchandise';
-                        const qty = parseInt(String(item.quantity || item.qty || 1), 10) || 1;
-                        const matchedProduct = products.find(p => (p.name || '').toLowerCase().trim() === (name || '').toLowerCase().trim() || (item.productId && p.id === item.productId) || (item.product_id && p.id === item.product_id));
+                        const rawName = item.productName || item.product_name || item.name || 'General Merchandise';
+                        const matchedProduct = products.find(p => (p.name || '').toLowerCase().trim() === (rawName || '').toLowerCase().trim() || (item.productId && p.id === item.productId) || (item.product_id && p.id === item.product_id));
                         
+                        const options = item.selectedOptions || item.options || {};
                         const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
-                        const subtotal = parseFloat(String(item.subtotal || item.total_amount || item.totalAmount || 0)) || (qty * unitPrice);
 
+                        const qty = parseInt(String(item.quantity || item.qty || 1), 10) || 1;
+                        const subtotal = parseFloat(String(item.subtotal || item.total_amount || item.totalAmount || 0)) || (qty * unitPrice);
                         const category = matchedProduct?.category || 'general';
 
-                        if (!monthlyMap[name]) {
-                          monthlyMap[name] = { name: matchedProduct?.name || name, category, unitsSold: 0, revenue: 0, price: unitPrice };
-                        } else if (monthlyMap[name].price === 0 && unitPrice > 0) {
-                          monthlyMap[name].price = unitPrice;
+                        if (showVariantDetails) {
+                          let variantName = formatProductName(rawName, options, unitPrice);
+                          if (rawName.includes('(') && rawName.includes(':')) {
+                            variantName = parseAndFormatLegacyProductName(rawName, unitPrice);
+                          }
+                          const mapKey = `${variantName.toLowerCase().trim()}::${unitPrice}`;
+
+                          if (!monthlyMap[mapKey]) {
+                            monthlyMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice };
+                          }
+                          monthlyMap[mapKey].unitsSold += qty;
+                          monthlyMap[mapKey].revenue += subtotal > 0 ? subtotal : (unitPrice * qty);
+                        } else {
+                          const generalName = matchedProduct?.name || (rawName.includes('(') ? rawName.split('(')[0] : rawName.split(' - ')[0]).trim();
+                          const mapKey = generalName.toLowerCase().trim();
+
+                          if (!monthlyMap[mapKey]) {
+                            monthlyMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice };
+                          }
+                          monthlyMap[mapKey].unitsSold += qty;
+                          monthlyMap[mapKey].revenue += subtotal > 0 ? subtotal : (unitPrice * qty);
+                          if (matchedProduct?.price) {
+                            monthlyMap[mapKey].price = matchedProduct.price;
+                          } else if (monthlyMap[mapKey].unitsSold > 0) {
+                            monthlyMap[mapKey].price = monthlyMap[mapKey].revenue / monthlyMap[mapKey].unitsSold;
+                          }
                         }
-                        monthlyMap[name].unitsSold += qty;
-                        monthlyMap[name].revenue += subtotal > 0 ? subtotal : (unitPrice * qty);
                       });
                     }
                   });
@@ -542,6 +714,37 @@ export const ReportsPage: React.FC = () => {
                       prod.price.toFixed(2),
                       prod.revenue.toFixed(2)
                     ])
+                  );
+                }
+
+                if (reportType === 'classring') {
+                  csvRows.push(
+                    [''],
+                    ['CLASS RING PURCHASES LEDGER (ROYAL GEM TRUST ACCOUNT)'],
+                    ['Receipt No', 'Cadet Name', 'Contact Number', 'Contact Address', 'Program', 'Grad Year', 'Model', 'Ring Size', 'Material', 'Finish', 'Birthstone', 'Inside Engraving', 'Total Price', 'Method', 'Status', 'Date'],
+                    ...classRingSales.map((s) => {
+                      const item = s.items?.[0] || {};
+                      const opts = item.selectedOptions || s.selectedOptions || {};
+                      const cadetName = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.walk_in_name || 'N/A';
+                      return [
+                        s.receipt_no || 'N/A',
+                        `"${cadetName.replace(/"/g, '""')}"`,
+                        `"${(opts['Contact Number'] || s.contact_number || 'N/A').replace(/"/g, '""')}"`,
+                        `"${(opts['Contact Address'] || s.address || 'N/A').replace(/"/g, '""')}"`,
+                        opts['Degree/Program'] || s.course || 'BSMT',
+                        opts['Graduation Year'] || '2026',
+                        opts['Model'] || 'Medium',
+                        opts['Ring Size'] || 'Size 8',
+                        opts['Material'] || 'Stainless Steel',
+                        opts['Finish'] || 'Natural Gold',
+                        opts['Birthstone'] || 'September',
+                        `"${(opts['Inside Engraving'] || 'None').replace(/"/g, '""')}"`,
+                        parseFloat(s.total_amount || 0).toFixed(2),
+                        s.payment_method === 'cash' ? 'Cash' : 'GCash',
+                        s.status,
+                        new Date(s.created_at || s.createdAt).toLocaleDateString()
+                      ];
+                    })
                   );
                 }
 
@@ -973,6 +1176,32 @@ export const ReportsPage: React.FC = () => {
                           )}
                         </div>
 
+                        {/* View Mode Toggle: General vs Detailed Variants */}
+                        <div className="flex items-center gap-1 bg-purple-50/80 border border-purple-200 p-1 rounded-xl">
+                          <button
+                            type="button"
+                            onClick={() => setShowVariantDetails(false)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              !showVariantDetails
+                                ? 'bg-purple-600 text-white shadow-sm'
+                                : 'text-purple-700 hover:text-purple-900'
+                            }`}
+                          >
+                            General View
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowVariantDetails(true)}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                              showVariantDetails
+                                ? 'bg-purple-600 text-white shadow-sm'
+                                : 'text-purple-700 hover:text-purple-900'
+                            }`}
+                          >
+                            Detailed Variants
+                          </button>
+                        </div>
+
                         {/* Month Dropdown / Selector */}
                         <select
                           value={selectedSalesMonth}
@@ -1083,7 +1312,7 @@ export const ReportsPage: React.FC = () => {
                               else if (idx === 2) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-800 text-amber-100 font-black text-xs">🥉 #3</span>;
 
                               return (
-                                <tr key={prod.name} className="hover:bg-purple-50/40 transition-colors">
+                                <tr key={`${prod.name}-${prod.price}-${prod.unitsSold}-${showVariantDetails}`} className="hover:bg-purple-50/40 transition-colors">
                                   <td className="py-3.5 px-4 text-center">
                                     {rankBadge}
                                   </td>
@@ -1452,24 +1681,25 @@ export const ReportsPage: React.FC = () => {
               );
             })()}
 
-            {/* Locker Occupancy Donut Chart */}
+            {/* Locker Occupancy Donut Chart & Detailed Ledger Table */}
             {reportType === 'lockers' && (() => {
-              const available = lockers.filter((l) => l?.status === 'available').length;
-              const occupied = lockers.filter((l) => l?.status === 'occupied').length;
-              const maintenance = lockers.filter((l) => l?.status === 'under_maintenance').length;
-              const total = lockers.length || 1;
+              const activeOrPending = lockerRentals.filter(r => (r.status || r.rental_status) === 'active' || r.payment_status === 'paid' || r.status === 'pending');
+              const occupiedLockerCodes = new Set(activeOrPending.map(r => r.locker_number || r.locker_code || r.lockerId).filter(Boolean));
               
-              const chartSize = 400;
+              const total = Math.max((lockersList || lockers || []).length, occupiedLockerCodes.size, 8);
+              const occupied = occupiedLockerCodes.size;
+              const available = Math.max(0, total - occupied);
+              const pendingCount = lockerRentals.filter(r => (r.status === 'pending' || r.rental_status === 'pending') && r.payment_status !== 'paid').length;
+              
+              const chartSize = 320;
               const centerX = chartSize / 2;
               const centerY = chartSize / 2;
-              const radius = 120;
-              const innerRadius = 70;
+              const radius = 100;
+              const innerRadius = 60;
               
-              // Calculate angles
-              const availableAngle = (available / total) * 360;
-              const occupiedAngle = (occupied / total) * 360;
+              const availableAngle = total > 0 ? (available / total) * 360 : 360;
+              const occupiedAngle = total > 0 ? (occupied / total) * 360 : 0;
               
-              // Helper to create arc path
               const createArc = (startAngle: number, endAngle: number, outerR: number, innerR: number) => {
                 const start = (startAngle - 90) * Math.PI / 180;
                 const end = (endAngle - 90) * Math.PI / 180;
@@ -1484,84 +1714,170 @@ export const ReportsPage: React.FC = () => {
                 const y4 = centerY + innerR * Math.sin(start);
                 
                 const largeArc = endAngle - startAngle > 180 ? 1 : 0;
-                
                 return `M ${x1} ${y1} A ${outerR} ${outerR} 0 ${largeArc} 1 ${x2} ${y2} L ${x3} ${y3} A ${innerR} ${innerR} 0 ${largeArc} 0 ${x4} ${y4} Z`;
               };
               
               return (
-                <div className="mb-8 animate-fade-in">
-                  <div className="bg-gradient-to-br from-purple-50 via-white to-green-50 border-2 border-purple-200 rounded-2xl p-8 shadow-xl">
-                    <h3 className="text-2xl font-bold text-slate-900 mb-6">Locker Status Distribution</h3>
+                <div className="space-y-8 animate-fade-in">
+                  {/* Status Distribution Card */}
+                  <div className="bg-gradient-to-br from-purple-50/80 via-white to-emerald-50/80 border-2 border-purple-200 rounded-2xl p-6 sm:p-8 shadow-md">
+                    <h3 className="text-xl sm:text-2xl font-black text-slate-900 mb-6 flex items-center gap-2">
+                      <Lock size={24} className="text-purple-600" /> Locker Status & Occupancy Distribution
+                    </h3>
                     
-                    <div className="flex items-center justify-center gap-12">
-                      <svg width={chartSize} height={chartSize}>
-                        {/* Occupied - Green */}
+                    <div className="flex flex-col sm:flex-row items-center justify-center gap-8 lg:gap-16">
+                      <svg width={chartSize} height={chartSize} className="flex-shrink-0">
+                        {/* Occupied - Emerald */}
                         <path
                           d={createArc(0, occupiedAngle, radius, innerRadius)}
                           fill="#10b981"
                           className="animate-fade-in"
-                          style={{ animationDelay: '0.1s' }}
                         />
                         
                         {/* Available - Purple */}
                         <path
-                          d={createArc(occupiedAngle, occupiedAngle + availableAngle, radius, innerRadius)}
+                          d={createArc(occupiedAngle, 360, radius, innerRadius)}
                           fill="#8b5cf6"
                           className="animate-fade-in"
-                          style={{ animationDelay: '0.2s' }}
-                        />
-                        
-                        {/* Maintenance - Gray */}
-                        <path
-                          d={createArc(occupiedAngle + availableAngle, 360, radius, innerRadius)}
-                          fill="#94a3b8"
-                          className="animate-fade-in"
-                          style={{ animationDelay: '0.3s' }}
                         />
                         
                         {/* Center text */}
                         <text
                           x={centerX}
-                          y={centerY - 10}
+                          y={centerY - 8}
                           textAnchor="middle"
-                          className="text-3xl font-bold fill-slate-900"
+                          className="text-3xl font-black fill-slate-900"
                         >
                           {total}
                         </text>
                         <text
                           x={centerX}
-                          y={centerY + 15}
+                          y={centerY + 16}
                           textAnchor="middle"
-                          className="text-sm fill-slate-600"
+                          className="text-xs font-bold fill-slate-500 uppercase tracking-wider"
                         >
                           Total Lockers
                         </text>
                       </svg>
                       
-                      {/* Legend */}
-                      <div className="space-y-4">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-6 h-6 rounded bg-green-500"></div>
+                      {/* Legend Stats */}
+                      <div className="grid grid-cols-2 gap-4 w-full max-w-sm">
+                        <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full bg-emerald-500 flex-shrink-0" />
                           <div>
-                            <p className="text-sm font-semibold text-slate-700">Occupied</p>
-                            <p className="text-2xl font-bold text-green-600">{occupied}</p>
+                            <p className="text-xs font-bold text-emerald-800 uppercase tracking-wide">Occupied</p>
+                            <p className="text-xl font-black text-emerald-950">{occupied}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-6 h-6 rounded bg-purple-500"></div>
+
+                        <div className="bg-purple-50 border border-purple-200 p-4 rounded-xl flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full bg-purple-500 flex-shrink-0" />
                           <div>
-                            <p className="text-sm font-semibold text-slate-700">Available</p>
-                            <p className="text-2xl font-bold text-purple-600">{available}</p>
+                            <p className="text-xs font-bold text-purple-800 uppercase tracking-wide">Available</p>
+                            <p className="text-xl font-black text-purple-950">{available}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-6 h-6 rounded bg-slate-400"></div>
+
+                        <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full bg-amber-500 flex-shrink-0" />
                           <div>
-                            <p className="text-sm font-semibold text-slate-700">Maintenance</p>
-                            <p className="text-2xl font-bold text-slate-600">{maintenance}</p>
+                            <p className="text-xs font-bold text-amber-800 uppercase tracking-wide">Pending</p>
+                            <p className="text-xl font-black text-amber-950">{pendingCount}</p>
+                          </div>
+                        </div>
+
+                        <div className="bg-blue-50 border border-blue-200 p-4 rounded-xl flex items-center gap-3">
+                          <div className="w-4 h-4 rounded-full bg-blue-500 flex-shrink-0" />
+                          <div>
+                            <p className="text-xs font-bold text-blue-800 uppercase tracking-wide">Occupancy Rate</p>
+                            <p className="text-xl font-black text-blue-950">{total > 0 ? ((occupied / total) * 100).toFixed(1) : 0}%</p>
                           </div>
                         </div>
                       </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Locker Applications & Rentals Table */}
+                  <div className="bg-white border-2 border-purple-200 rounded-2xl overflow-hidden shadow-md">
+                    <div className="bg-slate-50 p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between">
+                      <h4 className="font-extrabold text-slate-900 text-base sm:text-lg flex items-center gap-2">
+                        <FileText size={20} className="text-purple-600" /> Locker Applications & Rental Registry
+                      </h4>
+                      <span className="text-xs font-bold bg-purple-100 text-purple-800 px-3 py-1 rounded-full border border-purple-200">
+                        {lockerRentals.length} Total Records
+                      </span>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs sm:text-sm">
+                        <thead className="bg-purple-900 text-white font-extrabold text-[11px] uppercase tracking-wider">
+                          <tr>
+                            <th className="py-3 px-4">Date</th>
+                            <th className="py-3 px-4">Student Renter</th>
+                            <th className="py-3 px-4">Locker Code</th>
+                            <th className="py-3 px-4">Location</th>
+                            <th className="py-3 px-4">Duration</th>
+                            <th className="py-3 px-4 text-right">Rental Fee</th>
+                            <th className="py-3 px-4 text-right">Key Deposit</th>
+                            <th className="py-3 px-4 text-center">Payment Status</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 font-medium text-slate-700">
+                          {lockerRentals.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-400 font-bold">
+                                No locker rental applications registered yet.
+                              </td>
+                            </tr>
+                          ) : (
+                            lockerRentals.map((r, idx) => {
+                              const isPaid = r.payment_status === 'paid';
+                              const renterName = r.renter_name || `${r.first_name || ''} ${r.last_name || ''}`.trim() || 'Student Renter';
+                              const studentId = r.id_number || r.idNumber || 'N/A';
+                              const course = r.course || 'METC';
+                              const lockerCode = r.locker_number || r.locker_code || r.lockerId || 'SL-109';
+                              const location = r.location || 'Seamanship Lab';
+                              const semCount = r.semester_count || r.semesterCount || 1;
+                              const rentalFee = parseFloat(r.rental_fee || 250);
+                              const depositFee = parseFloat(r.deposit_fee || 200);
+
+                              return (
+                                <tr key={r.id || r.rental_id || idx} className="hover:bg-purple-50/50 transition-colors">
+                                  <td className="py-3 px-4 font-mono text-slate-500 whitespace-nowrap">
+                                    {new Date(r.created_at || r.createdAt || Date.now()).toLocaleDateString()}
+                                  </td>
+                                  <td className="py-3 px-4 whitespace-nowrap">
+                                    <div className="font-bold text-slate-900">{renterName}</div>
+                                    <div className="text-[11px] text-slate-400 font-mono">{studentId} ({course})</div>
+                                  </td>
+                                  <td className="py-3 px-4 font-mono font-bold text-purple-700 whitespace-nowrap">
+                                    {lockerCode}
+                                  </td>
+                                  <td className="py-3 px-4 whitespace-nowrap font-medium text-slate-600">
+                                    {location}
+                                  </td>
+                                  <td className="py-3 px-4 whitespace-nowrap font-semibold text-slate-700">
+                                    {semCount} Sem
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                    ₱{rentalFee.toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-4 text-right font-mono font-bold text-purple-700 whitespace-nowrap">
+                                    ₱{depositFee.toFixed(2)}
+                                  </td>
+                                  <td className="py-3 px-4 text-center whitespace-nowrap">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black uppercase ${
+                                      isPaid ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}>
+                                      {isPaid ? 'PAID' : 'PENDING'}
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
@@ -1585,7 +1901,10 @@ export const ReportsPage: React.FC = () => {
               const productGcashRev = productSalesRev - productCashRev;
 
               // 3. Locker Rentals Income (Fetched from lockerRentals store / API)
-              const lockerRev = lockerRentals.reduce((sum, r) => sum + (parseFloat(String(r.rentalFee || 0)) || 0), 0);
+              const lockerRev = lockerRentals.reduce((sum, r) => {
+                const val = parseFloat(String(r.rental_fee ?? r.rentalFee ?? r.total_amount ?? r.totalAmount ?? r.rental_amount ?? r.amount ?? r.price ?? 250));
+                return sum + (isNaN(val) ? 250 : val);
+              }, 0);
 
               const totalGrossIncome = productSalesRev + lockerRev + insuranceRev;
 
@@ -1949,6 +2268,278 @@ export const ReportsPage: React.FC = () => {
                                   </td>
                                   <td className="py-3.5 px-4 text-center text-xs text-slate-500 font-medium">
                                     {new Date(order.created_at || order.createdAt).toLocaleDateString()}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Class Ring Report Section */}
+            {reportType === 'classring' && (() => {
+              const filteredRings = classRingSales.filter((s) => {
+                if (classRingStatusFilter === 'completed' && s.status !== 'completed' && s.status !== 'released') return false;
+                if (classRingStatusFilter === 'pending' && s.status !== 'pending') return false;
+                if (classRingStatusFilter === 'cancelled' && s.status !== 'cancelled') return false;
+
+                if (!classRingSearchQuery.trim()) return true;
+                const q = classRingSearchQuery.toLowerCase().trim();
+                const item = s.items?.[0] || {};
+                const opts = item.selectedOptions || s.selectedOptions || {};
+                const cadetName = `${s.first_name || ''} ${s.last_name || ''}`.toLowerCase();
+                const receipt = (s.receipt_no || '').toLowerCase();
+                const engraving = (opts['Inside Engraving'] || '').toLowerCase();
+                const model = (opts['Model'] || '').toLowerCase();
+
+                return cadetName.includes(q) || receipt.includes(q) || engraving.includes(q) || model.includes(q);
+              });
+
+              const completedCount = classRingSales.filter(s => s.status === 'completed' || s.status === 'released').length;
+              const pendingCount = classRingSales.filter(s => s.status === 'pending').length;
+              const totalRev = classRingSales.reduce((sum, s) => sum + parseFloat(String(s.total_amount || s.totalAmount || 0)), 0);
+
+              // Calculate Model breakdown
+              const modelCounts: { [model: string]: number } = {};
+              // Calculate Program breakdown
+              const programCounts: { [program: string]: number } = { BSMT: 0, BSMARE: 0 };
+              // Calculate Material breakdown
+              const materialCounts: { [mat: string]: number } = {};
+
+              classRingSales.forEach(s => {
+                const item = s.items?.[0] || {};
+                const opts = item.selectedOptions || s.selectedOptions || {};
+                const model = opts['Model'] || 'Medium';
+                const program = opts['Degree/Program'] || s.course || 'BSMT';
+                const material = opts['Material'] || 'Stainless Steel';
+
+                modelCounts[model] = (modelCounts[model] || 0) + 1;
+                materialCounts[material] = (materialCounts[material] || 0) + 1;
+
+                if (program.toUpperCase().includes('BSMARE')) {
+                  programCounts['BSMARE'] += 1;
+                } else {
+                  programCounts['BSMT'] += 1;
+                }
+              });
+
+              return (
+                <div className="mb-8 animate-fade-in space-y-8">
+                  {/* Overview Banner Card */}
+                  <div className="bg-blue-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                      <div className="space-y-1">
+                        <span className="px-3 py-1 bg-white/20 text-white rounded-full text-xs font-bold uppercase tracking-wider border border-white/30">
+                          Segregated Royal Gem Trust Account
+                        </span>
+                        <h3 className="text-3xl font-black mt-2">Class Ring Orders & Detailed Analytics</h3>
+                        <p className="text-blue-100 text-sm max-w-2xl leading-relaxed">
+                          Comprehensive report of all maritime graduation class ring submissions, gemstone specifications, cadet details, and segregated trust funds.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[130px] text-center">
+                          <span className="text-xs text-blue-200 font-bold block uppercase tracking-wider">Total Submissions</span>
+                          <span className="text-2xl font-black">{classRingSales.length}</span>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[130px] text-center">
+                          <span className="text-xs text-emerald-300 font-bold block uppercase tracking-wider">Completed</span>
+                          <span className="text-2xl font-black text-emerald-300">{completedCount}</span>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[130px] text-center">
+                          <span className="text-xs text-amber-300 font-bold block uppercase tracking-wider">Pending</span>
+                          <span className="text-2xl font-black text-amber-300">{pendingCount}</span>
+                        </div>
+                        <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl p-4 min-w-[160px] text-center">
+                          <span className="text-xs text-blue-200 font-bold block uppercase tracking-wider">Total Trust Funds</span>
+                          <span className="text-2xl font-black text-white">₱{totalRev.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Breakdown Metrics Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Program Distribution */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                      <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        <span>Program Distribution</span>
+                      </h4>
+                      <div className="space-y-3">
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                            <span>BSMT (Marine Transportation)</span>
+                            <span>{programCounts['BSMT']} orders</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-blue-600 rounded-full" style={{ width: `${classRingSales.length > 0 ? (programCounts['BSMT'] / classRingSales.length) * 100 : 0}%` }}></div>
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="flex justify-between text-xs font-bold text-slate-700 mb-1">
+                            <span>BSMARE (Marine Engineering)</span>
+                            <span>{programCounts['BSMARE']} orders</span>
+                          </div>
+                          <div className="w-full h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-600 rounded-full" style={{ width: `${classRingSales.length > 0 ? (programCounts['BSMARE'] / classRingSales.length) * 100 : 0}%` }}></div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Ring Model Preference */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                      <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        <span>Top Ring Models</span>
+                      </h4>
+                      <div className="space-y-2 text-xs">
+                        {Object.keys(modelCounts).length === 0 ? (
+                          <p className="text-slate-400 font-medium">No order model data available</p>
+                        ) : (
+                          Object.entries(modelCounts).map(([modelName, count]) => (
+                            <div key={modelName} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                              <span className="font-semibold text-slate-800">{modelName}</span>
+                              <span className="font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">{count} orders</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Material & Finish Distribution */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+                      <h4 className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-4 flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                        <span>Material & Finish Options</span>
+                      </h4>
+                      <div className="space-y-2 text-xs">
+                        {Object.keys(materialCounts).length === 0 ? (
+                          <p className="text-slate-400 font-medium">No material data available</p>
+                        ) : (
+                          Object.entries(materialCounts).map(([matName, count]) => (
+                            <div key={matName} className="flex justify-between items-center py-1.5 border-b border-slate-100 last:border-0">
+                              <span className="font-semibold text-slate-800">{matName}</span>
+                              <span className="font-bold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-100">{count} orders</span>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Detailed Class Ring Purchases Table Card */}
+                  <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6">
+                      <div>
+                        <h3 className="text-xl font-bold text-slate-900">Detailed Class Ring Purchases Ledger</h3>
+                        <p className="text-xs text-slate-500 mt-1">Complete cadet details, ring specs, contact info, and inside engravings</p>
+                      </div>
+
+                      {/* Controls */}
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        <div className="relative w-full sm:w-64">
+                          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                          <input
+                            type="text"
+                            placeholder="Search cadet, receipt, engraving..."
+                            value={classRingSearchQuery}
+                            onChange={(e) => setClassRingSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                          />
+                        </div>
+
+                        <select
+                          value={classRingStatusFilter}
+                          onChange={(e: any) => setClassRingStatusFilter(e.target.value)}
+                          className="w-full sm:w-auto px-4 py-2 border border-slate-300 rounded-xl bg-white text-xs font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                        >
+                          <option value="all">All Statuses ({classRingSales.length})</option>
+                          <option value="completed">Completed / Paid ({completedCount})</option>
+                          <option value="pending">Pending Cashier ({pendingCount})</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Table */}
+                    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-blue-600 text-white font-bold uppercase tracking-wider text-[11px]">
+                          <tr>
+                            <th className="py-3.5 px-4 min-w-[140px]">Receipt #</th>
+                            <th className="py-3.5 px-4 min-w-[140px]">Cadet Name</th>
+                            <th className="py-3.5 px-4 min-w-[130px]">Program & Year</th>
+                            <th className="py-3.5 px-4 min-w-[280px]">Ring Specifications</th>
+                            <th className="py-3.5 px-4 min-w-[140px]">Inside Engraving</th>
+                            <th className="py-3.5 px-4 min-w-[220px]">Contact & Address</th>
+                            <th className="py-3.5 px-4 text-right min-w-[110px]">Price</th>
+                            <th className="py-3.5 px-4 text-center min-w-[110px]">Status</th>
+                            <th className="py-3.5 px-4 text-center min-w-[100px]">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200 font-medium text-slate-800">
+                          {filteredRings.length === 0 ? (
+                            <tr>
+                              <td colSpan={9} className="py-12 text-center text-slate-500 font-semibold">
+                                No Class Ring purchases match your search filters.
+                              </td>
+                            </tr>
+                          ) : (
+                            filteredRings.map((s) => {
+                              const item = s.items?.[0] || {};
+                              const opts = item.selectedOptions || s.selectedOptions || {};
+                              const cadetName = `${s.first_name || ''} ${s.last_name || ''}`.trim() || s.walk_in_name || 'Cadet Member';
+
+                              return (
+                                <tr key={s.id || s.receipt_no} className="hover:bg-blue-50/40 transition-colors">
+                                  <td className="py-3.5 px-4 font-mono font-bold text-blue-700">
+                                    #{s.receipt_no}
+                                  </td>
+                                  <td className="py-3.5 px-4 font-bold text-slate-900">
+                                    {cadetName}
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <span className="font-bold text-slate-900">{opts['Degree/Program'] || s.course || 'BSMT'}</span>
+                                    <span className="text-slate-500 block text-[11px]">Class of {opts['Graduation Year'] || '2026'}</span>
+                                  </td>
+                                  <td className="py-3.5 px-4 min-w-[280px] space-y-1 leading-relaxed">
+                                    <div><strong>Model:</strong> {opts['Model'] || 'Medium'} ({opts['Ring Size'] || 'Size 8'})</div>
+                                    <div><strong>Finish:</strong> {opts['Material'] || 'Stainless Steel'} - {opts['Finish'] || 'Gold'}</div>
+                                    <div className="text-slate-500"><strong>Stone:</strong> {opts['Birthstone'] || 'September'}</div>
+                                  </td>
+                                  <td className="py-3.5 px-4">
+                                    <span className="px-2.5 py-1 bg-blue-50 text-blue-900 rounded-lg border border-blue-200 font-mono font-bold inline-block">
+                                      "{opts['Inside Engraving'] || 'None'}"
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 space-y-0.5 max-w-[200px] truncate">
+                                    <div>📞 {opts['Contact Number'] || s.contact_number || 'N/A'}</div>
+                                    <div className="text-slate-500 truncate" title={opts['Contact Address'] || s.address}>📍 {opts['Contact Address'] || s.address || 'N/A'}</div>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-right font-bold text-blue-700 text-sm">
+                                    ₱{parseFloat(s.total_amount || 0).toLocaleString()}
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center">
+                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                                      s.status === 'completed' || s.status === 'released'
+                                        ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                        : s.status === 'cancelled'
+                                        ? 'bg-red-100 text-red-800 border border-red-300'
+                                        : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    }`}>
+                                      {s.status}
+                                    </span>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center text-slate-500 text-xs">
+                                    {new Date(s.created_at || s.createdAt).toLocaleDateString()}
                                   </td>
                                 </tr>
                               );

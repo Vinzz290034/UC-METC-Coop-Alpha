@@ -1,11 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './store/authContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { Layout } from './components/Layout';
 import { ScrollToTop } from './components/ScrollToTop';
 import { ToastContainer } from './components/Toast';
-import { useEffect, useRef } from 'react';
 
 // Guard that redirects non-admin users to the dashboard
 const AdminOnly: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -48,12 +47,45 @@ import { KioskPage } from './pages/KioskPage';
 import { PublicReceiptPage } from './pages/PublicReceiptPage';
 import { SuppliersPage } from './pages/SuppliersPage';
 import { FeedbackPage } from './pages/FeedbackPage';
+import { SettingsPage } from './pages/SettingsPage';
+import { MaintenancePage } from './pages/MaintenancePage';
+import { getMaintenanceState, MaintenanceState, setMaintenanceState, syncMaintenanceStateFromBackend } from './utils/maintenanceManager';
+import { Wrench } from 'lucide-react';
 
 
 function AppContent() {
-  const { isAuthenticated, isValidating } = useAuth();
+  const { user, isAuthenticated, isValidating } = useAuth();
   const navigate = useNavigate();
   const prevAuthRef = useRef<boolean | null>(null);
+  
+  // ── Maintenance Mode State Listener & Global Backend Sync ──
+  const [maintenanceState, setMaintenanceStateState] = useState<MaintenanceState>(getMaintenanceState);
+
+  useEffect(() => {
+    const handleUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent<MaintenanceState>;
+      if (customEvent.detail) {
+        setMaintenanceStateState(customEvent.detail);
+      } else {
+        setMaintenanceStateState(getMaintenanceState());
+      }
+    };
+
+    window.addEventListener('silms_maintenance_updated', handleUpdate);
+
+    // Initial backend global sync check on page load
+    syncMaintenanceStateFromBackend();
+
+    // Periodic global sync polling every 15 seconds across all devices
+    const pollInterval = setInterval(() => {
+      syncMaintenanceStateFromBackend();
+    }, 15000);
+
+    return () => {
+      window.removeEventListener('silms_maintenance_updated', handleUpdate);
+      clearInterval(pollInterval);
+    };
+  }, []);
 
   // Track authentication state changes and redirect on logout
   useEffect(() => {
@@ -73,8 +105,12 @@ function AppContent() {
 
     // Detect logout: was authenticated, now not authenticated
     if (prevAuthRef.current === true && isAuthenticated === false) {
-      console.log('[APP] Logout detected! Navigating to landing page');
-      navigate('/', { replace: true });
+      console.log('[APP] Logout detected! Checking maintenance state before navigating');
+      syncMaintenanceStateFromBackend();
+      const currentMaint = getMaintenanceState();
+      if (!currentMaint.enabled) {
+        navigate('/', { replace: true });
+      }
     }
 
     // Update ref for next comparison
@@ -86,9 +122,50 @@ function AppContent() {
     return <div className="w-full h-screen bg-white flex items-center justify-center" />;
   }
 
+  // ── MAINTENANCE MODE GUARD ──
+  // If maintenance mode is ON and user is NOT an admin or staff, block access and show MaintenancePage
+  const isAdminOrStaff = user && (user.role === 'admin' || user.role === 'staff');
+  
+  if (maintenanceState.enabled && !isAdminOrStaff) {
+    return (
+      <Routes>
+        <Route path="/login" element={<LoginPage />} />
+        <Route path="*" element={<MaintenancePage />} />
+      </Routes>
+    );
+  }
+
   return (
     <>
       <ScrollToTop />
+      {/* Persistent Banner for Admin/Staff when Maintenance Mode is ON */}
+      {maintenanceState.enabled && isAdminOrStaff && (
+        <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-amber-700 text-white px-4 py-2.5 text-xs font-bold flex flex-wrap items-center justify-between shadow-md z-[9999] relative border-b border-amber-500/30">
+          <div className="flex items-center gap-2">
+            <Wrench size={16} className="animate-bounce text-amber-200" />
+            <span>
+              <strong>MAINTENANCE MODE IS ACTIVE:</strong> Public portal and user access are restricted. You are viewing in Admin/Staff Bypass mode.
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setMaintenanceState(false);
+              }}
+              className="bg-white/20 hover:bg-white/30 text-white px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer"
+            >
+              Turn Off Maintenance Mode
+            </button>
+            <button 
+              onClick={() => navigate('/settings')} 
+              className="bg-slate-900/60 hover:bg-slate-900 text-amber-200 px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer"
+            >
+              System Settings
+            </button>
+          </div>
+        </div>
+      )}
+
       {!isAuthenticated ? (
         <Routes key="unauthenticated">
           <Route path="/" element={<LandingPage />} />
@@ -129,6 +206,7 @@ function AppContent() {
                 <Route path="/announcements" element={<AnnouncementsPage />} />
                 <Route path="/announcements-management" element={<AdminOnly><AnnouncementsManagementPage /></AdminOnly>} />
                 <Route path="/account-settings" element={<AccountSettingsPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
               </Routes>

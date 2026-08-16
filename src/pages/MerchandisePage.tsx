@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { ShoppingBag, ShoppingCart, Filter, X, Eye, Package } from 'lucide-react';
+import { ShoppingBag, ShoppingCart, Filter, X, Eye, Package, Sparkles, Gem, Award, ShieldCheck, FileText, Check, UserCheck, ChevronDown } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
@@ -54,6 +54,19 @@ const cartButtonStyles = `
     animation: cart-pulse 0.4s ease-in-out;
   }
 
+  @keyframes ring-pulse-glow {
+    0%, 100% {
+      box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4), 0 0 0 0 rgba(59, 130, 246, 0.4);
+    }
+    50% {
+      box-shadow: 0 6px 24px rgba(37, 99, 235, 0.6), 0 0 0 6px rgba(59, 130, 246, 0);
+    }
+  }
+
+  .ring-btn-glow {
+    animation: ring-pulse-glow 2.5s infinite ease-in-out;
+  }
+
   @keyframes slideDown {
     from {
       opacity: 0;
@@ -85,6 +98,702 @@ const cartButtonStyles = `
   }
 `;
 
+// ----- Faceted Colored Diamond SVG Icon -----
+const FacetedGemIcon: React.FC<{ color: string; border: string; className?: string }> = ({ color, border, className = "w-7 h-7" }) => {
+  const cleanColor = color.replace('#', '');
+  const gradId = `gem-grad-${cleanColor}`;
+  const tableGradId = `table-grad-${cleanColor}`;
+
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id={gradId} x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.8" />
+          <stop offset="25%" stopColor={color} />
+          <stop offset="85%" stopColor={color} />
+          <stop offset="100%" stopColor="#0f172a" stopOpacity="0.8" />
+        </linearGradient>
+        <linearGradient id={tableGradId} x1="6" y1="3" x2="18" y2="9" gradientUnits="userSpaceOnUse">
+          <stop offset="0%" stopColor="#ffffff" stopOpacity="0.75" />
+          <stop offset="50%" stopColor={color} />
+          <stop offset="100%" stopColor="#ffffff" stopOpacity="0.2" />
+        </linearGradient>
+      </defs>
+      
+      {/* Outer Gem Silhouette with Shadow */}
+      <path 
+        d="M6.5 3.5H17.5L21.5 9L12 21L2.5 9L6.5 3.5Z" 
+        fill={`url(#${gradId})`} 
+        stroke={border} 
+        strokeWidth="1.2" 
+        strokeLinejoin="round"
+      />
+
+      {/* Facet Lines & Light Reflective Polygons */}
+      <polygon points="8.5,3.5 15.5,3.5 17.5,9 6.5,9" fill={`url(#${tableGradId})`} fillOpacity="0.85" stroke="#ffffff" strokeWidth="0.6" strokeOpacity="0.8" />
+      <polygon points="6.5,3.5 8.5,3.5 6.5,9 2.5,9" fill="#ffffff" fillOpacity="0.4" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
+      <polygon points="15.5,3.5 17.5,3.5 21.5,9 17.5,9" fill="#000000" fillOpacity="0.25" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.6" />
+      
+      <polygon points="6.5,9 17.5,9 12,21" fill={`url(#${gradId})`} fillOpacity="0.9" stroke="#ffffff" strokeWidth="0.5" strokeOpacity="0.7" />
+      <polygon points="2.5,9 6.5,9 12,21" fill="#ffffff" fillOpacity="0.3" stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.5" />
+      <polygon points="21.5,9 17.5,9 12,21" fill="#000000" fillOpacity="0.3" stroke="#ffffff" strokeWidth="0.4" strokeOpacity="0.5" />
+      
+      {/* Diamond Sparkle Flare */}
+      <circle cx="10" cy="5.5" r="0.9" fill="#ffffff" fillOpacity="0.95" />
+      <circle cx="14" cy="12" r="0.7" fill="#ffffff" fillOpacity="0.8" />
+    </svg>
+  );
+};
+
+// ----- Animated Custom Select Component -----
+const AnimatedCustomSelect: React.FC<{
+  label: string;
+  value: string;
+  options: Array<{ value: string; label: string }>;
+  onChange: (val: string) => void;
+  className?: string;
+}> = ({ label, value, options, onChange, className = '' }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const selectedOption = options.find(o => o.value === value) || options[0];
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <div className={`relative ${className}`} ref={containerRef}>
+      <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">{label}</label>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`w-full px-4 py-2.5 rounded-xl border bg-white font-bold text-sm text-slate-900 flex items-center justify-between transition-all duration-200 cursor-pointer shadow-xs ${
+          isOpen
+            ? 'border-blue-600 ring-2 ring-blue-600/30 shadow-md scale-[1.01]'
+            : 'border-slate-300 hover:border-blue-400 hover:shadow-xs'
+        }`}
+      >
+        <span className="truncate">{selectedOption?.label || value}</span>
+        <ChevronDown 
+          size={18} 
+          className={`text-slate-500 transition-transform duration-300 ease-out flex-shrink-0 ml-2 ${
+            isOpen ? 'transform rotate-180 text-blue-600' : ''
+          }`} 
+        />
+      </button>
+
+      {/* Animated Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute left-0 right-0 top-full mt-1.5 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-slate-200 z-50 py-1.5 overflow-hidden animate-scale-in origin-top">
+          <div className="max-h-56 overflow-y-auto space-y-0.5 px-1.5">
+            {options.map((opt) => {
+              const isSelected = opt.value === value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(opt.value);
+                    setIsOpen(false);
+                  }}
+                  className={`w-full px-3.5 py-2.5 rounded-xl text-left text-xs sm:text-sm font-semibold transition-all duration-150 flex items-center justify-between cursor-pointer ${
+                    isSelected
+                      ? 'bg-blue-600 text-white font-bold shadow-xs'
+                      : 'text-slate-700 hover:bg-blue-50 hover:text-blue-700'
+                  }`}
+                >
+                  <span className="truncate">{opt.label}</span>
+                  {isSelected && <Check size={16} className="text-white flex-shrink-0 ml-2" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ----- Birthstones & Pricelist Data -----
+const BIRTHSTONES = [
+  { month: 'January', stone: 'Garnet', color: '#991b1b', bg: '#fef2f2', border: '#fca5a5' },
+  { month: 'February', stone: 'Amethyst', color: '#7e22ce', bg: '#faf5ff', border: '#d8b4fe' },
+  { month: 'March', stone: 'Aquamarine', color: '#0284c7', bg: '#f0f9ff', border: '#7dd3fc' },
+  { month: 'April', stone: 'Diamond', color: '#2563eb', bg: '#f8fafc', border: '#cbd5e1' },
+  { month: 'May', stone: 'Emerald', color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
+  { month: 'June', stone: 'Alexandrite', color: '#9333ea', bg: '#faf5ff', border: '#e9d5ff' },
+  { month: 'July', stone: 'Ruby', color: '#dc2626', bg: '#fef2f2', border: '#fca5a5' },
+  { month: 'August', stone: 'Peridot', color: '#65a30d', bg: '#f7fee7', border: '#bef264' },
+  { month: 'September', stone: 'Sapphire', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
+  { month: 'October', stone: 'Tourmaline', color: '#db2777', bg: '#fdf2f8', border: '#f9a8d4' },
+  { month: 'November', stone: 'Citrine', color: '#d97706', bg: '#fffbeb', border: '#fde047' },
+  { month: 'December', stone: 'Blue Topaz', color: '#0891b2', bg: '#ecfeff', border: '#67e8f9' },
+];
+
+const RING_MODELS = [
+  { name: 'Small', desc: 'Petite / Ladies classic fit' },
+  { name: 'Medium', desc: 'Standard cadet fit' },
+  { name: 'Large', desc: 'Bold / Heavy cadet fit' },
+  { name: 'Unisex', desc: 'Universal classic fit' },
+  { name: 'Medium Bull', desc: 'Aggressive medium crest' },
+  { name: 'Large Bull', desc: 'Aggressive large crest' },
+  { name: 'Standard Bull', desc: 'Full premium bull crest' },
+  { name: 'Super Bull', desc: 'Heavyweight super bull crest' },
+  { name: 'Mega Bull', desc: 'Ultra mega bull crest' },
+];
+
+const RING_MATERIALS = [
+  { name: 'Stainless Steel & German Brass', tag: 'Standard Non-Gold' },
+  { name: 'White Stainless Steel', tag: 'Durable White Finish' },
+  { name: 'Silver (750)', tag: '75% Pure Silver' },
+  { name: 'Silver (925)', tag: '92.5% Sterling Silver' },
+  { name: 'Gold (Quotation Request)', tag: '6K - 18K Real Gold' },
+];
+
+const getClassRingPrice = (model: string, material: string): number => {
+  if (material.includes('Gold')) return 0;
+
+  if (model === 'Small') {
+    if (material.includes('750')) return 3900;
+    if (material.includes('925')) return 4700;
+    return 2000;
+  }
+  if (model === 'Medium' || model === 'Medium Bull') {
+    if (material.includes('750')) return 4900;
+    if (material.includes('925')) return 6100;
+    return 2400;
+  }
+  if (model === 'Large' || model === 'Large Bull') {
+    if (material.includes('750')) return 6500;
+    if (material.includes('925')) return 8300;
+    return 2700;
+  }
+  if (model === 'Unisex') {
+    if (material.includes('750')) return 6000;
+    if (material.includes('925')) return 7400;
+    return 2500;
+  }
+  if (model === 'Standard Bull') {
+    if (material.includes('750')) return 14500;
+    if (material.includes('925')) return 19400;
+    return 3500;
+  }
+  if (model === 'Super Bull') {
+    if (material.includes('750')) return 19900;
+    if (material.includes('925')) return 25600;
+    return 4600;
+  }
+  if (model === 'Mega Bull') {
+    if (material.includes('750')) return 25600;
+    if (material.includes('925')) return 33200;
+    return 5700;
+  }
+  return 2500;
+};
+
+const STATIC_CLASS_RING_PRODUCT: Product = {
+  id: 'prod-class-ring',
+  name: 'Class Ring',
+  category: 'accessory',
+  price: 2400,
+  stock: 999,
+  sku: 'RING-001',
+  image: '/class_ring.jpg',
+  available: true,
+  madeToOrder: true,
+  allowPreorder: true,
+  note: 'Royal Gem Official Maritime Class Ring',
+  createdAt: new Date().toISOString(),
+};
+
+// ----- Class Ring Customizer Modal Component -----
+const ClassRingOrderModal: React.FC<{
+  product: Product;
+  onClose: () => void;
+  onAddToCart: (item: any) => void;
+  user: any;
+}> = ({ product, onClose, onAddToCart, user }) => {
+  const [selectedStone, setSelectedStone] = useState(BIRTHSTONES[8]); // September Sapphire default
+  const [selectedModel, setSelectedModel] = useState('Medium');
+  const [selectedMaterial, setSelectedMaterial] = useState('Stainless Steel & German Brass');
+  const [selectedFinish, setSelectedFinish] = useState('Yellow Color / Natural Gold');
+  const [ringSize, setRingSize] = useState('8');
+  const [engraving, setEngraving] = useState('');
+  const [contactNumber, setContactNumber] = useState(user?.contact_number || user?.contactNumber || user?.phone || '');
+  const [address, setAddress] = useState(user?.address || '');
+  const [schoolOrg, setSchoolOrg] = useState(user?.organization || 'UC METC (University of Cebu METC)');
+  const [program, setProgram] = useState(user?.course || 'BSMT');
+  const [gradYear, setGradYear] = useState('2026');
+  const [termsAgreed, setTermsAgreed] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  const calculatedPrice = getClassRingPrice(selectedModel, selectedMaterial);
+  const isGoldQuote = selectedMaterial.includes('Gold');
+
+  const handleAddToCartClick = () => {
+    if (!engraving.trim()) {
+      const msg = 'Please enter your Inside Ring Engraving before proceeding.';
+      useUIStore.getState().showNotification(msg, 'error');
+      return;
+    }
+    if (!contactNumber.trim()) {
+      const msg = 'Please enter your Contact Number before proceeding.';
+      setErrorMsg(msg);
+      useUIStore.getState().showNotification(msg, 'error');
+      return;
+    }
+    if (!schoolOrg.trim()) {
+      const msg = 'Please enter your School / Organization before proceeding.';
+      setErrorMsg(msg);
+      useUIStore.getState().showNotification(msg, 'error');
+      return;
+    }
+    if (!address.trim()) {
+      const msg = 'Please enter your Contact Address before proceeding.';
+      setErrorMsg(msg);
+      useUIStore.getState().showNotification(msg, 'error');
+      return;
+    }
+    if (!termsAgreed) {
+      const msg = 'Please confirm the Terms & Conditions acknowledgement before proceeding.';
+      setErrorMsg(msg);
+      useUIStore.getState().showNotification(msg, 'error');
+      return;
+    }
+
+    setErrorMsg('');
+
+    const selectedOptionsMap: Record<string, string> = {
+      'Contact Number': contactNumber.trim() || 'Not Provided',
+      'Contact Address': address.trim() || 'Not Provided',
+      'School/Organization': schoolOrg.trim() || 'UC METC',
+      'Degree/Program': program,
+      'Graduation Year': gradYear,
+      'Model': selectedModel,
+      'Material': selectedMaterial,
+      'Finish': selectedFinish,
+      'Birthstone': `${selectedStone.month} (${selectedStone.stone})`,
+      'Ring Size': `Size ${ringSize}`,
+      'Inside Engraving': engraving.trim() || 'None',
+    };
+
+    const cartItem = {
+      id: `ring-${Date.now()}`,
+      product: {
+        ...product,
+        name: 'Class Ring',
+        price: isGoldQuote ? 0 : calculatedPrice,
+        image: '/class_ring.jpg',
+      },
+      name: 'Class Ring',
+      price: isGoldQuote ? 0 : calculatedPrice,
+      image: '/class_ring.jpg',
+      quantity: 1,
+      selectedOptions: selectedOptionsMap,
+      paymentType: 'full' as const,
+      orderType: 'regular' as const,
+    };
+
+    onAddToCart(cartItem);
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/65 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-backdrop-fade"
+      onClick={onClose}
+      style={{ zIndex: Z_INDEX.GENERAL_MODAL }}
+    >
+      <div 
+        className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[92vh] flex flex-col relative overflow-hidden border border-purple-200 animate-modal-pop"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header Bar */}
+        <div className="bg-gradient-to-r from-blue-900 via-indigo-900 to-purple-900 text-white p-5 sm:p-6 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center">
+              <Sparkles className="w-6 h-6 text-amber-300 animate-pulse" />
+            </div>
+            <div>
+              <h2 className="text-xl sm:text-2xl font-black tracking-wide text-white">OFFICIAL CLASS RING CUSTOMIZER</h2>
+              <p className="text-xs sm:text-sm text-blue-200 font-medium">Digital Order Form & Specification · Royal Gem / UC METC Cooperative</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 flex items-center justify-center transition-all cursor-pointer text-white"
+          >
+            <X size={20} />
+          </button>
+        </div>
+
+        {/* Modal Body */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 bg-slate-50/50">
+          
+          {/* Availability Warning Banner if Disabled by Management */}
+          {localStorage.getItem('silms_class_ring_available') === 'false' && (
+            <div className="p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-3 text-amber-900 shadow-sm">
+              <span className="text-xl flex-shrink-0">⚠️</span>
+              <div>
+                <h4 className="font-extrabold text-xs sm:text-sm text-amber-950 uppercase tracking-wide">Class Ring Ordering Unavailable</h4>
+                <p className="text-xs text-amber-800 mt-0.5 font-medium leading-relaxed">
+                  Class Ring customizer ordering has been temporarily paused by UC METC Cooperative Management. Please check back later or proceed to the Coop Office.
+                </p>
+              </div>
+            </div>
+          )}
+          
+          {/* Top Banner & Preview Card */}
+          <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-xs border border-slate-200 flex flex-col md:flex-row gap-6 items-center">
+            <img 
+              src="/class_ring.jpg" 
+              alt="Class Ring Preview" 
+              className="w-44 h-44 object-contain rounded-2xl bg-slate-100 p-2 shadow-inner border border-slate-200 flex-shrink-0"
+            />
+            <div className="flex-1 space-y-2 text-center md:text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-100 text-amber-900 text-xs font-bold rounded-full border border-amber-300">
+                <Award size={14} className="text-amber-700" />
+                <span>Royal Gem Official Maritime Class Ring</span>
+              </div>
+              <h3 className="text-2xl font-black text-slate-900">Customized Graduation Class Ring</h3>
+              <p className="text-sm text-slate-600 leading-relaxed">
+                Configure your official class ring details online. All specifications entered here replace paper order forms and will be directly transmitted to the Coop office and Royal Gem jewelers upon checkout.
+              </p>
+
+              {/* Price Tag */}
+              <div className="pt-2 flex items-center justify-center md:justify-start gap-3">
+                <span className="text-slate-500 font-bold text-sm">Calculated Price:</span>
+                {isGoldQuote ? (
+                  <span className="text-lg font-extrabold text-purple-700 bg-purple-50 px-3 py-1 rounded-lg border border-purple-200">
+                    Quote Upon Request (Gold Karat)
+                  </span>
+                ) : (
+                  <span className="text-3xl font-black text-blue-700">
+                    ₱{calculatedPrice.toLocaleString()}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 1: Birthstone Selection */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200">
+            <h4 className="text-base font-bold text-slate-900 mb-1 flex items-center gap-2">
+              <Gem size={18} className="text-blue-600" />
+              <span>1. Select Birthstone</span>
+            </h4>
+            <p className="text-xs text-slate-500 mb-4">Choose your birth month or preferred stone accent</p>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5">
+              {BIRTHSTONES.map((stone) => {
+                const isSelected = selectedStone.month === stone.month;
+                return (
+                  <button
+                    key={stone.month}
+                    type="button"
+                    onClick={() => setSelectedStone(stone)}
+                    className={`p-3 rounded-xl text-left transition-all duration-200 border cursor-pointer flex items-center space-x-3 ${
+                      isSelected
+                        ? 'ring-2 ring-blue-600 border-blue-600 bg-blue-50/60 shadow-xs scale-[1.02]'
+                        : 'border-slate-200 bg-white hover:border-slate-300'
+                    }`}
+                  >
+                    <FacetedGemIcon color={stone.color} border={stone.border} className="w-7 h-7 flex-shrink-0 drop-shadow-xs" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-900 truncate">{stone.month}</p>
+                      <p className="text-[11px] font-semibold text-slate-500 truncate">{stone.stone}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* SECTION 2: Model & Size Selection */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-6">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <Award size={18} className="text-blue-600" />
+              <span>2. Select Model & Ring Size</span>
+            </h4>
+
+            {/* Model Selector */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Ring Model</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {RING_MODELS.map((model) => {
+                  const isSelected = selectedModel === model.name;
+                  return (
+                    <button
+                      key={model.name}
+                      type="button"
+                      onClick={() => setSelectedModel(model.name)}
+                      className={`p-3.5 rounded-xl text-left border transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300'
+                          : 'bg-white text-slate-900 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="font-bold text-sm">{model.name}</p>
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>{model.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Ring Size Dropdown */}
+            <AnimatedCustomSelect
+              label="Ring Size"
+              value={ringSize}
+              options={['4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14'].map((size) => ({
+                value: size,
+                label: `Size ${size}`
+              }))}
+              onChange={setRingSize}
+              className="w-full sm:w-1/2 md:w-1/3"
+            />
+          </div>
+
+          {/* SECTION 3: Material & Finish Selection */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-6">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <ShieldCheck size={18} className="text-blue-600" />
+              <span>3. Material & Metal Finish</span>
+            </h4>
+
+            {/* Material */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Material</label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {RING_MATERIALS.map((mat) => {
+                  const isSelected = selectedMaterial === mat.name;
+                  return (
+                    <button
+                      key={mat.name}
+                      type="button"
+                      onClick={() => setSelectedMaterial(mat.name)}
+                      className={`p-3.5 rounded-xl text-left border transition-all duration-200 cursor-pointer ${
+                        isSelected
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-md ring-2 ring-blue-300'
+                          : 'bg-white text-slate-900 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      <p className="font-bold text-sm">{mat.name}</p>
+                      <p className={`text-xs mt-0.5 ${isSelected ? 'text-blue-100' : 'text-slate-500'}`}>{mat.tag}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Finish */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">Finish Color / Tone</label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {['Yellow Color / Natural Gold', 'White Color / Silver Finish', 'White Stainless Steel', 'Oxidized / Antique'].map((finish) => {
+                  const isSelected = selectedFinish === finish;
+                  return (
+                    <button
+                      key={finish}
+                      type="button"
+                      onClick={() => setSelectedFinish(finish)}
+                      className={`p-3 rounded-xl text-center border font-bold text-xs transition-all cursor-pointer ${
+                        isSelected
+                          ? 'bg-slate-900 text-white border-slate-900 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:border-slate-300'
+                      }`}
+                    >
+                      {finish}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* SECTION 4: Inside Ring Engraving */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-4">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <FileText size={18} className="text-blue-600" />
+              <span>4. Inside Ring Engraving</span>
+            </h4>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+                Inside Ring Engraving (Name / Initials / Date)
+              </label>
+              <input
+                type="text"
+                maxLength={28}
+                value={engraving}
+                onChange={(e) => setEngraving(e.target.value)}
+                placeholder={`e.g. ${(() => {
+                  if (!user) return 'CADET H. SANTOYA';
+                  const fname = (user.first_name || user.firstName || '').trim();
+                  const lname = (user.last_name || user.lastName || '').trim();
+                  if (fname && lname) return `CADET ${fname.charAt(0).toUpperCase()}. ${lname.toUpperCase()}`;
+                  if (lname) return `CADET ${lname.toUpperCase()}`;
+                  if (fname) return `CADET ${fname.toUpperCase()}`;
+                  const combined = (user.name || user.full_name || user.fullName || '').trim();
+                  if (combined) {
+                    const parts = combined.split(' ');
+                    if (parts.length > 1) return `CADET ${parts[0].charAt(0).toUpperCase()}. ${parts[parts.length - 1].toUpperCase()}`;
+                    return `CADET ${combined.toUpperCase()}`;
+                  }
+                  return 'CADET H. SANTOYA';
+                })()} (Max 25 chars)`}
+                className="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm font-semibold focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+              <p className="text-[11px] text-slate-500 mt-1">Recommended length: 10-25 characters. Standard engraving is included.</p>
+            </div>
+          </div>
+
+          {/* SECTION 5: Customer & Academic Contact Details */}
+          <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs border border-slate-200 space-y-4">
+            <h4 className="text-base font-bold text-slate-900 flex items-center gap-2">
+              <UserCheck size={18} className="text-blue-600" />
+              <span>5. Customer & Academic Contact Details</span>
+            </h4>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  Contact Number
+                </label>
+                <input
+                  type="text"
+                  value={contactNumber}
+                  onChange={(e) => setContactNumber(e.target.value)}
+                  placeholder="e.g. 0917 123 4567"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-semibold text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                  School / Organization
+                </label>
+                <input
+                  type="text"
+                  value={schoolOrg}
+                  onChange={(e) => setSchoolOrg(e.target.value)}
+                  placeholder="e.g. UC METC / UC METC Cooperative"
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-semibold text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                Contact Address
+              </label>
+              <input
+                type="text"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                placeholder="e.g. Street, Brgy. Mambaling, Cebu City"
+                className="w-full px-4 py-2.5 rounded-xl border border-slate-300 font-semibold text-sm text-slate-900 focus:ring-2 focus:ring-blue-600 focus:outline-none"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+              <AnimatedCustomSelect
+                label="Degree / Program"
+                value={program}
+                options={[
+                  { value: 'BSMT', label: 'BSMT (Marine Transportation)' },
+                  { value: 'BSMARE', label: 'BSMARE (Marine Engineering)' }
+                ]}
+                onChange={setProgram}
+              />
+
+              <AnimatedCustomSelect
+                label="Graduation Year"
+                value={gradYear}
+                options={['2024', '2025', '2026', '2027', '2028'].map((yr) => ({
+                  value: yr,
+                  label: yr
+                }))}
+                onChange={setGradYear}
+              />
+            </div>
+
+            {/* Terms and Conditions Checkbox */}
+            <div className="pt-3 border-t border-slate-200">
+              <label className="flex items-start gap-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={termsAgreed}
+                  onChange={(e) => {
+                    setTermsAgreed(e.target.checked);
+                    if (e.target.checked) setErrorMsg('');
+                  }}
+                  className="mt-1 w-5 h-5 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-xs sm:text-sm text-slate-700 font-semibold leading-relaxed group-hover:text-slate-900">
+                  I confirm that all information provided in this ring order form is correct and final. I have verified my ring size and specifications.
+                </span>
+              </label>
+            </div>
+          </div>
+
+        </div>
+
+        {errorMsg && (
+          <div className="mx-4 sm:mx-6 mt-3 p-3 bg-red-50 text-red-700 text-xs font-bold rounded-xl border border-red-200">
+            {errorMsg}
+          </div>
+        )}
+
+        {/* Footer Bar / Add to Cart Button */}
+        <div className="bg-white border-t border-slate-200 p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0 shadow-lg">
+          <div>
+            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Total Customization Price</p>
+            <p className="text-2xl sm:text-3xl font-black text-blue-700">
+              {isGoldQuote ? 'Quote Upon Request' : `₱${calculatedPrice.toLocaleString()}`}
+            </p>
+          </div>
+
+          <div className="flex items-center space-x-3 w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 sm:flex-none px-5 py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-sm transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={localStorage.getItem('silms_class_ring_available') === 'false'}
+              onClick={handleAddToCartClick}
+              className={`flex-1 sm:flex-none px-3.5 sm:px-7 py-3 sm:py-3.5 rounded-xl font-extrabold text-xs sm:text-sm shadow-lg transition-all flex items-center justify-center gap-1.5 sm:gap-2 min-w-0 ${
+                localStorage.getItem('silms_class_ring_available') === 'false'
+                  ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
+                  : 'bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-blue-600/30 hover:scale-[1.02] active:scale-95 cursor-pointer'
+              }`}
+            >
+              <ShoppingCart size={16} className="shrink-0 sm:w-4.5 sm:h-4.5" />
+              <span className="sm:hidden whitespace-nowrap">
+                {localStorage.getItem('silms_class_ring_available') === 'false' ? 'Ordering Closed' : 'Add to Cart'}
+              </span>
+              <span className="hidden sm:inline whitespace-nowrap">
+                {localStorage.getItem('silms_class_ring_available') === 'false' ? 'Ordering Closed' : 'Add Custom Ring to Cart'}
+              </span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
 export const MerchandisePage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -104,6 +813,13 @@ export const MerchandisePage: React.FC = () => {
   const cartButtonRef = useRef<HTMLButtonElement>(null);
   const { products, addToCart } = useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
+
+  // Check if current user is registered under BSMT or BSMARE course
+  const isEligibleForClassRing = useMemo(() => {
+    if (!user) return false;
+    const courseStr = (user.course || (user as any).department || (user as any).program || '').toUpperCase();
+    return courseStr.includes('BSMT') || courseStr.includes('BSMARE') || courseStr.includes('MARINE TRANSPORTATION') || courseStr.includes('MARINE ENGINEERING');
+  }, [user]);
 
   // Dynamically normalize products' options when the database prices are edited
   const normalizedProducts = useMemo(() => {
@@ -189,6 +905,16 @@ export const MerchandisePage: React.FC = () => {
     });
   }, [products]);
 
+
+
+
+
+  // Keep a ref of selectedProduct for polling checks
+  const selectedProductRef = useRef(selectedProduct);
+  useEffect(() => {
+    selectedProductRef.current = selectedProduct;
+  }, [selectedProduct]);
+
   // Check for product from navigation state (from GlobalSearch)
   useEffect(() => {
     if (location.state?.selectedProduct) {
@@ -199,7 +925,7 @@ export const MerchandisePage: React.FC = () => {
       // Clear the state so it doesn't reopen on refresh
       navigate(location.pathname, { replace: true, state: {} });
     }
-  }, [location.state, normalizedProducts]);
+  }, [location.state]);
 
   // Reset custom fields when product changes
   useEffect(() => {
@@ -213,9 +939,11 @@ export const MerchandisePage: React.FC = () => {
     // Load products from API
     AppDataSync.loadProductsFromAPI();
     
-    // Set up polling to reload products every 10 seconds for real-time stock updates
+    // Set up polling to reload products every 10 seconds for real-time stock updates (skip if modal is active)
     const interval = setInterval(() => {
-      AppDataSync.loadProductsFromAPI();
+      if (!selectedProductRef.current) {
+        AppDataSync.loadProductsFromAPI();
+      }
     }, 10000);
     
     // Cleanup function to close modal when component unmounts
@@ -244,7 +972,15 @@ export const MerchandisePage: React.FC = () => {
   ];
 
   const filteredProducts = normalizedProducts.filter(p => {
-    const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory || (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
+    // Exclude Class Ring from merchandise cards grid
+    const isRing = p.name.toLowerCase().includes('class ring') || (p.name.toLowerCase().includes('ring') && !p.name.toLowerCase().includes('pershing'));
+    if (isRing) return false;
+
+    const matchesCategory = 
+      selectedCategory === 'all' || 
+      p.category === selectedCategory || 
+      ((selectedCategory === 'equipment' || selectedCategory === 'ppe') && (p.category === 'equipment' || p.category === 'ppe')) ||
+      (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          p.sku.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesCategory && matchesSearch;
@@ -504,6 +1240,7 @@ export const MerchandisePage: React.FC = () => {
     }
     
     // Products with single static images
+    if (product.name === 'Class Ring') return '/class_ring.jpg';
     if (product.name === 'BSNAME Uniform') return bsnameImage
     if (product.name === 'ID Case') return PRODUCT_IMAGES['ID Case'];
     if (product.name === 'Handbag') return PRODUCT_IMAGES['Handbag'];
@@ -741,51 +1478,89 @@ export const MerchandisePage: React.FC = () => {
               <h1 className="text-4xl font-bold text-slate-900">MERCHANDISE</h1>
               <p className="text-slate-600 mt-1">Discover UC Coop's exclusive products</p>
             </div>
-            <div className="flex items-center space-x-3">
+            <div className="flex items-center space-x-2.5">
+              {/* Class Ring Action Button - Only visible for BSMT / BSMARE cadets */}
+              {isEligibleForClassRing && (
+                <button
+                  onClick={() => {
+                    setSelectedOptions({});
+                    setPaymentType('full');
+                    setOrderType('regular');
+                    setSelectedProduct(STATIC_CLASS_RING_PRODUCT);
+                  }}
+                  className="h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all duration-200 flex items-center gap-2 cursor-pointer border border-blue-500"
+                >
+                  <Sparkles size={17} className="text-blue-200 animate-pulse" />
+                  <span>Class Ring</span>
+                  <span className="px-1.5 py-0.5 bg-blue-500/40 text-white font-black text-[10px] uppercase rounded-md border border-blue-300/40 tracking-wider shadow-2xs">
+                    NEW
+                  </span>
+                </button>
+              )}
               <button
                 ref={cartButtonRef}
                 onClick={() => {
                   setSelectedProduct(null); // Close any open product modal
                   navigate('/cart');
                 }}
-                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:shadow-lg hover:shadow-green-500/50 hover:scale-110 transition-all duration-300 ${
-                  cartAnimating ? 'cart-animate' : ''
-                }`}
-              >
-                <ShoppingCart size={24} />
-              </button>
-            </div>
-          </div>
-
-          {/* Mobile Header */}
-          <div className="lg:hidden">
-            <div className="flex items-center justify-between gap-3 mb-2">
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={() => setSidebarOpen(true)}
-                  className="w-10 h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-sm hover:bg-purple-50 hover:shadow-md transition-all duration-200 active:scale-95"
-                  aria-label="Open menu"
-                >
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
-                </button>
-                <h1 className="text-xl font-bold text-slate-900 tracking-wide leading-none">MERCHANDISE</h1>
-              </div>
-              <button
-                ref={cartButtonRef}
-                onClick={() => {
-                  setSelectedProduct(null);
-                  navigate('/cart');
-                }}
-                className={`relative p-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-lg hover:shadow-green-500/50 active:scale-95 transition-all duration-200 ${
+                className={`h-11 w-11 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-200 ${
                   cartAnimating ? 'cart-animate' : ''
                 }`}
               >
                 <ShoppingCart size={20} />
               </button>
             </div>
-            <p className="text-slate-600 text-sm mb-3">Discover UC Coop's exclusive products</p>
+          </div>
+
+          {/* Mobile Header */}
+          <div className="lg:hidden mb-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <button 
+                  onClick={() => setSidebarOpen(true)}
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center bg-white border border-purple-100 rounded-xl shadow-xs hover:bg-purple-50 transition-all duration-200 active:scale-95 shrink-0"
+                  aria-label="Open menu"
+                >
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </button>
+                <h1 className="text-base sm:text-xl font-bold text-slate-900 tracking-tight leading-none truncate">MERCHANDISE</h1>
+              </div>
+
+              <div className="flex items-center gap-1.5 shrink-0">
+                {isEligibleForClassRing && (
+                  <button
+                    onClick={() => {
+                      setSelectedOptions({});
+                      setPaymentType('full');
+                      setOrderType('regular');
+                      setSelectedProduct(STATIC_CLASS_RING_PRODUCT);
+                    }}
+                    className="h-9 sm:h-10 px-2.5 sm:px-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-all duration-200 flex items-center gap-1 border border-blue-500 whitespace-nowrap shrink-0"
+                  >
+                    <Sparkles size={14} className="text-blue-200 animate-pulse shrink-0" />
+                    <span>Class Ring</span>
+                    <span className="px-1 py-0.2 bg-blue-500/40 text-white font-black text-[9px] uppercase rounded border border-blue-300/40 tracking-wider hidden sm:inline-block">
+                      NEW
+                    </span>
+                  </button>
+                )}
+                <button
+                  ref={cartButtonRef}
+                  onClick={() => {
+                    setSelectedProduct(null);
+                    navigate('/cart');
+                  }}
+                  className={`h-9 w-9 sm:h-10 sm:w-10 flex items-center justify-center bg-gradient-to-r from-green-500 to-green-600 text-white rounded-xl hover:shadow-md active:scale-95 transition-all duration-200 shrink-0 ${
+                    cartAnimating ? 'cart-animate' : ''
+                  }`}
+                >
+                  <ShoppingCart size={18} />
+                </button>
+              </div>
+            </div>
+            <p className="text-xs text-slate-600 mt-1">Discover UC Coop's exclusive products</p>
           </div>
         </div>
 
@@ -857,7 +1632,7 @@ export const MerchandisePage: React.FC = () => {
         </div>
 
         {/* Products Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 items-start content-start">
           {filteredProducts.map((product) => (
             <div
               key={product.id}
@@ -1199,8 +1974,31 @@ export const MerchandisePage: React.FC = () => {
 
       {/* Modal Portal - Renders outside Layout to be truly fixed */}
       {selectedProduct && createPortal(
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
+        (selectedProduct.name === 'Class Ring' || selectedProduct.name === 'Official Class Ring' || selectedProduct.sku === 'RING-001') ? (
+          <ClassRingOrderModal
+            product={selectedProduct}
+            onClose={() => setSelectedProduct(null)}
+            onAddToCart={async (customizedItem) => {
+              addToCart(customizedItem);
+              if (user?.id) {
+                await AppDataSync.addCartItemToAPI({
+                  productId: customizedItem.product?.id || 'prod-class-ring',
+                  productName: 'Class Ring',
+                  price: customizedItem.price,
+                  quantity: 1,
+                  selectedOptions: customizedItem.selectedOptions,
+                  paymentType: 'full',
+                  orderType: 'regular',
+                }, user.id);
+              }
+              showNotification('Class Ring added to cart!', 'success');
+              setSelectedProduct(null);
+            }}
+            user={user}
+          />
+        ) : (
+          <div 
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4"
           onClick={() => setSelectedProduct(null)}
           style={{ 
             zIndex: Z_INDEX.GENERAL_MODAL
@@ -1665,7 +2463,7 @@ export const MerchandisePage: React.FC = () => {
               </div>
             </div>
           </div>
-        </div>,
+        </div>),
         document.body
       )}
     </div>

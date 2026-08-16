@@ -146,7 +146,7 @@ export function getProductImageByName(productName: string, selectedOpts: Record<
   if (name === 'CWTS Shirt') return PRODUCT_IMAGES['CWTS Shirt'];
   if (name === 'White Shoes') return PRODUCT_IMAGES['White Shoes '];
   if (name === 'Safety Goggles') return PRODUCT_IMAGES['Goggles'];
-  if (name === 'Rope') return PRODUCT_IMAGES['Rope'];
+  if (name.toLowerCase().includes('class ring') || name.toLowerCase().includes('official class ring')) return '/class_ring.jpg';
 
   return '';
 }

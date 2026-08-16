@@ -42,9 +42,9 @@ export const Toast: React.FC<ToastProps> = ({ message, type, onClose }) => {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: -20, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: -20, scale: 0.95 }}
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.95 }}
       transition={{ duration: 0.3 }}
       className={`fixed top-4 left-4 right-4 sm:top-6 sm:left-6 sm:right-auto sm:max-w-md flex items-center space-x-3 ${styles.bgColor} text-white px-4 py-3 sm:px-6 sm:py-4 rounded-lg shadow-2xl cursor-pointer hover:opacity-90 transition-all duration-200`}
       style={{ zIndex: Z_INDEX.TOAST }}

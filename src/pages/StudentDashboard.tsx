@@ -286,7 +286,7 @@ export const StudentDashboard: React.FC = () => {
       date: ringhopActivity?.date || 'June 30, 2026',
       time: ringhopActivity?.time || '3:00 PM - 6:00 PM',
       cta: 'Learn More',
-      image: 'https://res.cloudinary.com/doas4qcdo/image/upload/v1786039310/uc_coop/announcements/rkwg9fx9tdnvrpp8tztc.png',
+      image: ringhopImage,
       action: () => {
         const activitiesSection = document.getElementById(window.innerWidth < 768 ? 'recent-activities-mobile' : 'recent-activities');
         if (activitiesSection) {

@@ -13,7 +13,22 @@ export function formatProductName(
   selectedOptions?: Record<string, string>,
   unitPrice?: number
 ): string {
+  if (!productName || typeof productName !== 'string') {
+    return 'Item';
+  }
   const nameLower = productName.toLowerCase().trim();
+  if (nameLower.includes('class ring') || nameLower.includes('official class ring')) {
+    const model = selectedOptions?.['Model'] || selectedOptions?.['model'];
+    const ringSize = selectedOptions?.['Ring Size'] || selectedOptions?.['ringSize'] || selectedOptions?.['size'];
+    if (model && ringSize) {
+      return `Class Ring - ${model} (${ringSize.startsWith('Size') ? ringSize : 'Size ' + ringSize})`;
+    }
+    if (model) {
+      return `Class Ring - ${model}`;
+    }
+    return 'Class Ring';
+  }
+
   if (nameLower.includes('hard bound') || nameLower.includes('hardbound')) {
     return 'Hard Bound';
   }
@@ -103,7 +118,14 @@ export function formatProductName(
  * Returns: "Gala - Bundle A (BSMT)" if regular price was used
  */
 export function parseAndFormatLegacyProductName(fullProductName: string, unitPrice?: number): string {
+  if (!fullProductName || typeof fullProductName !== 'string') {
+    return 'Item';
+  }
   const nameLower = fullProductName.toLowerCase().trim();
+  if (nameLower.includes('class ring') || nameLower.includes('official class ring')) {
+    return 'Class Ring';
+  }
+
   if (nameLower.includes('hard bound') || nameLower.includes('hardbound')) {
     return 'Hard Bound';
   }

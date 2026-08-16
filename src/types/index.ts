@@ -61,6 +61,8 @@ export const ITEM_INVENTORY = [
   'CWTS Shirt',
   'White Shoes',
   'Rope',
+  'Class Ring',
+  'Official Class Ring',
 ] as const;
 
 export type ItemType = typeof ITEM_INVENTORY[number];

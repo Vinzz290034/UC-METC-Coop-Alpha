@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 
 interface FloatingSelectProps {
-  label: string;
+  label?: string;
   value: string;
   onChange: (e: { target: { value: string } }) => void;
   options: string[];
@@ -13,7 +13,7 @@ interface FloatingSelectProps {
 }
 
 export const FloatingSelect = React.memo(({
-  label,
+  label = '',
   value,
   onChange,
   options,
@@ -23,7 +23,26 @@ export const FloatingSelect = React.memo(({
   focusColor = 'purple',
 }: FloatingSelectProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const hasOptions = options.length > 0;
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+    };
+  }, [isOpen]);
 
   const activeFocusClasses = focusColor === 'green'
     ? 'border-green-500 ring-4 ring-green-100'
@@ -34,7 +53,7 @@ export const FloatingSelect = React.memo(({
 
   if (floating) {
     return (
-      <div className="relative">
+      <div ref={containerRef} className="relative">
         <button
           type="button"
           disabled={!hasOptions}
@@ -55,44 +74,40 @@ export const FloatingSelect = React.memo(({
         </button>
 
         {isOpen && hasOptions && (
-          <>
-            {/* Backdrop overlay */}
-            <div className="fixed inset-0 z-20" onClick={() => setIsOpen(false)} />
-            
-            {/* Scale-in Dropdown Menu */}
-            <div className="absolute left-0 right-0 mt-1.5 bg-white border-2 border-slate-200 rounded-lg shadow-xl z-30 py-1 max-h-56 overflow-y-auto animate-scale-in">
-              {options.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => {
-                    onChange({ target: { value: opt } });
-                    setIsOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors duration-150 flex items-center justify-between ${
-                    value === opt
-                      ? activeOptionClass
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <span className="truncate">{opt}</span>
-                  {value === opt && (
-                    <Check size={16} className={focusColor === 'green' ? 'text-green-600' : 'text-purple-600'} />
-                  )}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className="absolute left-0 right-0 mt-1.5 bg-white border-2 border-slate-200 rounded-lg shadow-xl z-30 py-1 max-h-56 overflow-y-auto animate-scale-in">
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  onChange({ target: { value: opt } });
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left px-4 py-2.5 text-sm transition-colors duration-150 flex items-center justify-between ${
+                  value === opt
+                    ? activeOptionClass
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                <span className="truncate">{opt}</span>
+                {value === opt && (
+                  <Check size={16} className={focusColor === 'green' ? 'text-green-600' : 'text-purple-600'} />
+                )}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     );
   }
 
   return (
-    <div className="relative">
-      <label className={`block font-semibold text-slate-700 mb-1 ${thick ? 'text-sm' : 'text-xs'}`}>
-        {label}
-      </label>
+    <div ref={containerRef} className="relative">
+      {label ? (
+        <label className={`block font-semibold text-slate-700 mb-1 ${thick ? 'text-sm' : 'text-xs'}`}>
+          {label}
+        </label>
+      ) : null}
       <div>
         <button
           type="button"
@@ -107,41 +122,37 @@ export const FloatingSelect = React.memo(({
           }`}
         >
           <span className={value ? 'text-slate-900 font-bold' : 'text-slate-400 font-medium'}>
-            {!hasOptions ? 'Select course first' : (value || 'Select an option')}
+            {!hasOptions ? 'Select option' : (value || placeholder || 'Select an option')}
           </span>
-          <ChevronDown size={thick ? 20 : 16} className={`text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown size={thick ? 20 : 16} className={`text-slate-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-purple-600' : ''}`} />
         </button>
 
         {isOpen && hasOptions && (
-          <>
-            {/* Overlay to close the dropdown */}
-            <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-            <div className={`absolute left-0 right-0 mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-xl z-20 py-1 overflow-y-auto animate-scale-in ${
-              thick ? 'max-h-64' : 'max-h-48'
-            }`}>
-              {options.map((opt) => (
-                <button
-                  key={opt}
-                  type="button"
-                  onClick={() => {
-                    onChange({ target: { value: opt } });
-                    setIsOpen(false);
-                  }}
-                  className={`w-full text-left transition-colors duration-150 ${
-                    thick 
-                      ? 'px-6 py-3 text-base' 
-                      : 'px-3 py-1.5 text-sm'
-                  } ${
-                    value === opt
-                      ? 'bg-purple-50 text-purple-700 font-bold'
-                      : 'text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  {opt}
-                </button>
-              ))}
-            </div>
-          </>
+          <div className={`absolute left-0 right-0 mt-1 bg-white border-2 border-slate-200 rounded-lg shadow-xl z-30 py-1 overflow-y-auto animate-scale-in ${
+            thick ? 'max-h-64' : 'max-h-48'
+          }`}>
+            {options.map((opt) => (
+              <button
+                key={opt}
+                type="button"
+                onClick={() => {
+                  onChange({ target: { value: opt } });
+                  setIsOpen(false);
+                }}
+                className={`w-full text-left transition-colors duration-150 ${
+                  thick 
+                    ? 'px-6 py-3 text-base' 
+                    : 'px-3 py-1.5 text-sm'
+                } ${
+                  value === opt
+                    ? 'bg-purple-50 text-purple-700 font-bold'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {opt}
+              </button>
+            ))}
+          </div>
         )}
       </div>
     </div>

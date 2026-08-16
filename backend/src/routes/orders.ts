@@ -496,7 +496,7 @@ router.put('/:id/status', authMiddleware, async (req: Request, res: Response) =>
         });
       }
 
-      // Send receipt email for walk-in kiosk orders when marked as completed
+      // Send automatic receipt email to designated email address when any pending order is paid / completed on the sales page
       if (
         (status === 'completed' || status === 'released') &&
         previousStatus === 'pending'
@@ -505,6 +505,8 @@ router.put('/:id/status', authMiddleware, async (req: Request, res: Response) =>
           const receiptResult = await pool.query(
             `SELECT o.receipt_no, o.total_amount, o.payment_method, o.completed_at,
                     o.is_walk_in, o.walk_in_name, o.walk_in_contact_number,
+                    COALESCE(NULLIF(TRIM(u.email), ''), NULLIF(TRIM(o.walk_in_contact_number), '')) as target_email,
+                    COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), NULLIF(TRIM(o.walk_in_name), ''), 'Valued Customer') as customer_name,
                     json_agg(json_build_object(
                       'productName', oi.product_name,
                       'quantity', oi.quantity,
@@ -513,30 +515,27 @@ router.put('/:id/status', authMiddleware, async (req: Request, res: Response) =>
                     )) as items
              FROM orders o
              LEFT JOIN order_items oi ON o.id = oi.order_id
+             LEFT JOIN users u ON o.user_id = u.id
              WHERE o.id = $1
-             GROUP BY o.id`,
+             GROUP BY o.id, u.id`,
             [id]
           );
 
           const order = receiptResult.rows[0];
 
-          if (
-            order &&
-            order.is_walk_in &&
-            order.walk_in_contact_number &&
-            order.walk_in_contact_number.includes('@')
-          ) {
-            // Fire-and-forget — don't block the response on email delivery
+          const recipientEmail = (order?.target_email || '').trim();
+          if (recipientEmail && recipientEmail.includes('@') && recipientEmail.includes('.')) {
+            // Fire-and-forget — don't block the API response on email delivery
             emailService.sendWalkInReceiptEmail({
-              email: order.walk_in_contact_number,
-              customerName: order.walk_in_name || 'Customer',
+              email: recipientEmail,
+              customerName: order.customer_name || 'Customer',
               receiptNo: order.receipt_no,
               totalAmount: order.total_amount,
-              items: order.items,
-              paymentMethod: order.payment_method,
-              completedAt: new Date(order.completed_at),
+              items: order.items || [],
+              paymentMethod: order.payment_method || 'cash',
+              completedAt: new Date(order.completed_at || Date.now()),
             }).catch((err: unknown) => {
-              console.error('[orders] Failed to send walk-in receipt email:', err);
+              console.error('[orders] Failed to send payment confirmation receipt email:', err);
             });
           }
         } catch (emailErr) {

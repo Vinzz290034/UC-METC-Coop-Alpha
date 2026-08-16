@@ -199,9 +199,9 @@
     font-size: 16px !important;
   }
   
-  /* Better touch targets */
-  button,
-  a {
+  /* Better touch targets (exclude compact controls like toggle switches) */
+  button:not(.no-min-target),
+  a:not(.no-min-target) {
     min-height: 44px;
     min-width: 44px;
   }
@@ -637,4 +637,56 @@
   animation: dropdownBounce 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   transform-origin: top center;
 }
+
+/* ── Modal Entrance Animations ── */
+@keyframes modalPopup {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(24px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-modal-pop {
+  animation: modalPopup 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes backdropFadeIn {
+  from {
+    opacity: 0;
+    backdrop-filter: blur(0px);
+  }
+  to {
+    opacity: 1;
+    backdrop-filter: blur(4px);
+  }
+}
+
+.animate-backdrop-fade {
+  animation: backdropFadeIn 0.3s ease-out forwards;
+}
+
+/* ── Locker Agreement Confirmation Card Entrance ── */
+@keyframes confirmPopEntrance {
+  0% {
+    opacity: 0;
+    transform: scale(0.92) translateY(24px);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.01) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.animate-confirm-pop {
+  animation: confirmPopEntrance 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 

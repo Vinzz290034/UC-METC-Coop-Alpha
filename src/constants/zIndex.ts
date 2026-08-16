@@ -36,7 +36,7 @@ export const Z_INDEX = {
   LOGOUT_MODAL: 65,         // Logout confirmation modal
   
   // Notifications (highest priority)
-  TOAST: 70,                // Toast notifications
+  TOAST: 10000,              // Toast notifications
   
   // Emergency/System modals
   SYSTEM_MODAL: 80,         // System-wide modals (if needed)

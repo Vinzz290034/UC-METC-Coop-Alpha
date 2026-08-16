@@ -337,10 +337,10 @@ class EmailService {
       .map(
         (item) => `
         <tr>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6;">${item.productName}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: center;">${item.quantity}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: right;">₱${Number(item.unitPrice).toFixed(2)}</td>
-          <td style="padding: 10px 12px; border-bottom: 1px solid #f3f4f6; text-align: right;">₱${Number(item.subtotal).toFixed(2)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 13px; font-weight: 500; color: #1e293b;">${item.productName}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: center; font-size: 13px; font-weight: 700; color: #1e293b;">${item.quantity}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 13px; font-weight: 500; color: #475569;">₱${Number(item.unitPrice).toFixed(2)}</td>
+          <td style="padding: 10px 8px; border-bottom: 1px solid #f1f5f9; text-align: right; font-size: 13px; font-weight: 700; color: #0f172a;">₱${Number(item.subtotal).toFixed(2)}</td>
         </tr>`
       )
       .join('');
@@ -350,51 +350,57 @@ class EmailService {
       <html>
       <head>
         <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; background: #f9fafb; }
-          .card { background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
-          .header { background: linear-gradient(135deg, #7c3aed 0%, #a855f7 100%); color: white; padding: 32px 30px; text-align: center; }
-          .header h1 { margin: 0 0 4px 0; font-size: 22px; }
-          .header p { margin: 0; opacity: 0.85; font-size: 14px; }
-          .body { padding: 28px 30px; }
-          .receipt-no { background: #f5f3ff; border: 2px dashed #7c3aed; border-radius: 8px; padding: 14px; text-align: center; margin-bottom: 24px; }
-          .receipt-no span { display: block; font-size: 11px; color: #7c3aed; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 4px; }
-          .receipt-no strong { font-size: 20px; color: #5b21b6; font-family: 'Courier New', monospace; letter-spacing: 2px; }
-          table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px; }
-          thead th { background: #f5f3ff; color: #7c3aed; padding: 10px 12px; text-align: left; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
-          thead th:last-child, thead th:nth-child(3), thead th:nth-child(2) { text-align: right; }
-          thead th:nth-child(2) { text-align: center; }
-          .total-row { background: #f5f3ff; }
-          .total-row td { padding: 12px; font-weight: 700; font-size: 15px; color: #5b21b6; }
-          .meta { display: flex; gap: 16px; margin-top: 20px; }
-          .meta-item { flex: 1; background: #f9fafb; border-radius: 8px; padding: 12px; }
-          .meta-item span { display: block; font-size: 10px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 3px; }
-          .meta-item strong { font-size: 13px; color: #374151; text-transform: capitalize; }
-          .footer { text-align: center; color: #9ca3af; font-size: 12px; padding: 20px 30px; border-top: 1px solid #f3f4f6; }
+          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.5; color: #1e293b; background-color: #ffffff; margin: 0; padding: 24px 12px; }
+          .wrapper { max-width: 520px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 16px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.03); }
+          .content { padding: 32px 28px; }
+          .brand-title { font-size: 20px; font-weight: 800; color: #6d28d9; margin: 0 0 2px 0; letter-spacing: -0.3px; }
+          .brand-sub { font-size: 11px; font-weight: 800; color: #7c3aed; margin: 0 0 24px 0; text-transform: uppercase; letter-spacing: 0.8px; }
+          .greeting { font-size: 14px; color: #334155; margin-bottom: 22px; line-height: 1.5; }
+          .receipt-header { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 10px; padding: 14px 18px; margin-bottom: 24px; }
+          .receipt-header table { width: 100%; border-collapse: collapse; }
+          .receipt-header td { font-size: 12px; color: #64748b; font-weight: 700; padding: 4px 0; }
+          .receipt-header td.val { color: #0f172a; font-weight: 800; text-align: right; font-family: monospace, sans-serif; font-size: 13px; }
+          .items-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+          .items-table th { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 8px; border-bottom: 2px solid #e2e8f0; }
+          .items-table td { font-size: 13px; color: #1e293b; padding: 10px 8px; border-bottom: 1px solid #f1f5f9; }
+          .total-row td { font-size: 14px; font-weight: 900; color: #0f172a; border-top: 2px solid #e2e8f0; border-bottom: none; padding-top: 14px; }
+          .footer { border-top: 1px solid #f1f5f9; padding: 20px 28px; background: #ffffff; text-align: center; font-size: 11px; color: #94a3b8; }
         </style>
       </head>
       <body>
-        <div class="card">
-          <div class="header">
-            <h1>✅ Order Completed!</h1>
-            <p>UC METC Cooperative · Official Receipt</p>
-          </div>
-          <div class="body">
-            <p>Hello <strong>${customerName}</strong>,</p>
-            <p>Your order has been successfully completed and paid. Here is your official receipt for your records.</p>
+        <div class="wrapper">
+          <div class="content">
+            <h1 class="brand-title">UC METC Multipurpose Cooperative</h1>
+            <p class="brand-sub">OFFICIAL PURCHASE RECEIPT</p>
 
-            <div class="receipt-no">
-              <span>Receipt Reference No.</span>
-              <strong>${receiptNo}</strong>
+            <p class="greeting">Hello <strong>${customerName}</strong>, thank you for your purchase! Here is your official e-receipt for your records:</p>
+
+            <div class="receipt-header">
+              <table>
+                <tr>
+                  <td>Receipt Reference No.</td>
+                  <td class="val">${receiptNo}</td>
+                </tr>
+                <tr>
+                  <td>Date Completed</td>
+                  <td class="val">${formattedDate}</td>
+                </tr>
+                <tr>
+                  <td>Payment Method</td>
+                  <td class="val" style="text-transform: capitalize;">${paymentMethod}</td>
+                </tr>
+              </table>
             </div>
 
-            <table>
+            <table class="items-table">
               <thead>
                 <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Unit Price</th>
-                  <th>Subtotal</th>
+                  <th style="text-align: left; width: 45%;">ITEM DESCRIPTION</th>
+                  <th style="text-align: center; width: 15%;">QTY</th>
+                  <th style="text-align: right; width: 20%;">PRICE</th>
+                  <th style="text-align: right; width: 20%;">SUBTOTAL</th>
                 </tr>
               </thead>
               <tbody>
@@ -402,30 +408,20 @@ class EmailService {
               </tbody>
               <tfoot>
                 <tr class="total-row">
-                  <td colspan="3" style="padding: 12px; text-align: right; font-weight: 700; color: #5b21b6;">TOTAL</td>
-                  <td style="padding: 12px; text-align: right; font-weight: 700; color: #5b21b6;">₱${Number(totalAmount).toFixed(2)}</td>
+                  <td colspan="3" style="text-align: right; padding-right: 8px;">TOTAL PAID</td>
+                  <td style="text-align: right;">₱${Number(totalAmount).toFixed(2)}</td>
                 </tr>
               </tfoot>
             </table>
 
-            <div class="meta">
-              <div class="meta-item">
-                <span>Payment Method</span>
-                <strong>${paymentMethod}</strong>
-              </div>
-              <div class="meta-item">
-                <span>Date Completed</span>
-                <strong>${formattedDate}</strong>
-              </div>
-            </div>
-
-            <p style="margin-top: 24px; font-size: 13px; color: #6b7280;">
-              Thank you for your purchase! If you have any concerns, please visit the UC METC Cooperative counter.
+            <p style="font-size: 12px; color: #64748b; margin: 0; text-align: center;">
+              If you have any questions regarding this receipt, please visit the UC METC Cooperative counter.
             </p>
           </div>
+
           <div class="footer">
-            <p>This is an automated receipt from UC METC Sales, Inventory, Locker, and Management System.</p>
-            <p>&copy; ${new Date().getFullYear()} UC METC SILMS. All rights reserved.</p>
+            <p style="margin: 0 0 4px 0;">UC METC Sales, Inventory, Locker, and Management System (SILMS)</p>
+            <p style="margin: 0;">&copy; ${new Date().getFullYear()} UC METC SILMS. All rights reserved.</p>
           </div>
         </div>
       </body>

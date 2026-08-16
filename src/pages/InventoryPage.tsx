@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical, ChevronLeft, ChevronRight, CheckCircle, Calendar, Filter, Eye, ChevronDown, Check, Copy, Printer, Paperclip, FileText } from 'lucide-react';
+import { Plus, Edit2, Trash2, X, AlertTriangle, TrendingDown, TrendingUp, Search, Package, Download, GripVertical, ChevronLeft, ChevronRight, CheckCircle, Calendar, Filter, Eye, ChevronDown, Check, Copy, Printer, Paperclip, FileText, ShieldCheck, Save, RefreshCw, Layers, DollarSign, CheckCircle2, RotateCcw, FileSpreadsheet } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
@@ -256,6 +256,56 @@ const formatProductNameWithVariants = (item: any): string => {
   return parseAndFormatLegacyProductName(fullName, unitPrice);
 };
 
+interface ReceiveStockVariantFieldProps {
+  productId: string;
+  selectedVariantIndex: string;
+  products: Product[];
+  onVariantChange: (vIdx: string, unitPrice: number) => void;
+}
+
+const ReceiveStockVariantField: React.FC<ReceiveStockVariantFieldProps> = ({
+  productId,
+  selectedVariantIndex,
+  products,
+  onVariantChange,
+}) => {
+  const targetP = products.find((p) => p.id === productId);
+  if (!targetP) return null;
+  const vList = getProductVariantsList(targetP);
+  if (!vList || vList.length === 0) return null;
+
+  const selectedV =
+    selectedVariantIndex !== '' && !isNaN(parseInt(selectedVariantIndex, 10))
+      ? vList[parseInt(selectedVariantIndex, 10)]
+      : null;
+
+  return (
+    <div className="bg-purple-50/60 p-3.5 rounded-2xl border border-purple-200/80 space-y-2">
+      <AnimatedSelect
+        label="Select Variant *"
+        value={selectedVariantIndex}
+        placeholder="-- Select Variant (e.g. Size, Course) --"
+        options={vList.map((v, idx) => ({
+          value: String(idx),
+          label: `${v.variantStr} (Current Stock: ${v.stock} Pcs) - ₱${v.price.toFixed(2)}`,
+        }))}
+        onChange={(vIdx) => {
+          const vItem = vIdx !== '' ? vList[parseInt(vIdx, 10)] : null;
+          onVariantChange(vIdx, vItem ? vItem.price : (parseFloat(targetP.price) || 0));
+        }}
+      />
+      {selectedV && (
+        <p className="text-[11px] text-purple-800 font-semibold flex items-center gap-1.5 pt-1">
+          <Package size={13} />
+          <span>
+            Current Variant Inventory Stock: <strong>{selectedV.stock} Pcs</strong>
+          </span>
+        </p>
+      )}
+    </div>
+  );
+};
+
 export const InventoryPage: React.FC = () => {
   // Scroll to top when component mounts
   useEffect(() => {
@@ -276,7 +326,85 @@ export const InventoryPage: React.FC = () => {
     useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake' | 'monthly' | 'summary'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake' | 'stock-receiving' | 'monthly' | 'summary'>('inventory');
+
+  // Stock Receiving (Incoming Stock Arrival with Auto Inventory Update) states
+  interface StockReceivingRecord {
+    id: string;
+    dateReceived: string;
+    referenceNo: string;
+    productId: string;
+    productName: string;
+    variantKey?: string;
+    variantLabel?: string;
+    quantity: number;
+    unitCost: number;
+    totalValue: number;
+    supplier: string;
+    receivedBy: string;
+    notes: string;
+    createdAt: string;
+  }
+
+  const [stockReceivingRecords, setStockReceivingRecords] = useState<StockReceivingRecord[]>(() => {
+    const saved = localStorage.getItem('silms_stock_receiving_records');
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch (e) {
+        console.error('Failed to parse stock receiving records:', e);
+      }
+    }
+    return [
+      {
+        id: 'rcv-1001',
+        dateReceived: '2026-08-10',
+        referenceNo: 'DR-2026-8801',
+        productId: 'prod-001',
+        productName: 'Rice',
+        quantity: 50,
+        unitCost: 250,
+        totalValue: 12500,
+        supplier: 'Grains Supplier Co.',
+        receivedBy: 'Office Staff',
+        notes: 'Delivered 50 sacks via delivery truck',
+        createdAt: '2026-08-10T08:30:00Z',
+      },
+      {
+        id: 'rcv-1002',
+        dateReceived: '2026-08-08',
+        referenceNo: 'DR-2026-8790',
+        productId: 'prod-002',
+        productName: 'Lanyard',
+        variantLabel: 'HM',
+        quantity: 100,
+        unitCost: 45,
+        totalValue: 4500,
+        supplier: 'Accents & Badges Inc.',
+        receivedBy: 'Office Staff',
+        notes: '100 pcs HM Lanyards packed in 2 boxes',
+        createdAt: '2026-08-08T10:15:00Z',
+      },
+    ];
+  });
+
+  const [showReceiveStockModal, setShowReceiveStockModal] = useState<boolean>(false);
+  const [deleteReceivingConfirmModal, setDeleteReceivingConfirmModal] = useState<{ show: boolean; record: StockReceivingRecord | null }>({ show: false, record: null });
+  const [receiveStockSearchQuery, setReceiveStockSearchQuery] = useState<string>('');
+  const [receiveStockCurrentPage, setReceiveStockCurrentPage] = useState<number>(1);
+  const receiveStockItemsPerPage = 10;
+
+  const [receiveStockFormData, setReceiveStockFormData] = useState({
+    productId: '',
+    selectedVariantIndex: '',
+    quantity: 1,
+    unitCost: 0,
+    supplier: '',
+    referenceNo: '',
+    dateReceived: new Date().toISOString().split('T')[0],
+    receivedBy: 'Office Staff',
+    notes: '',
+  });
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [monthlyData, setMonthlyData] = useState<any>(null);
   const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
@@ -313,89 +441,756 @@ export const InventoryPage: React.FC = () => {
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
   const [showJournalModal, setShowJournalModal] = useState(false);
 
-  // Inventory Summary states
-  const [summaryRecords, setSummaryRecords] = useState<any[]>([]);
+  // Month-End Physical Inventory Stock Summary states
+  const summaryMonthOptions = React.useMemo(() => {
+    const options: Array<{ label: string; value: string }> = [];
+    const currentDate = new Date();
+    // Generate current month and preceding 11 months dynamically
+    for (let i = 0; i < 12; i++) {
+      const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+      const monthName = d.toLocaleString('en-US', { month: 'long' });
+      const year = d.getFullYear();
+      const val = `${monthName} ${year}`;
+      options.push({
+        value: val,
+        label: i === 0 ? `${val} (Current)` : val,
+      });
+    }
+    return options;
+  }, []);
+
+  const [selectedSummaryMonth, setSelectedSummaryMonth] = useState<string>(() => {
+    const d = new Date();
+    return `${d.toLocaleString('en-US', { month: 'long' })} ${d.getFullYear()}`;
+  });
+  const [physicalCounts, setPhysicalCounts] = useState<Record<string, number>>({});
+  const [summaryCategoryFilter, setSummaryCategoryFilter] = useState<string>('all');
+  const [summaryStockStatusFilter, setSummaryStockStatusFilter] = useState<'all' | 'instock' | 'lowstock' | 'out-of-stock' | 'discrepancy'>('all');
   const [summarySearchQuery, setSummarySearchQuery] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(false);
-  const [summaryFilter, setSummaryFilter] = useState<'all' | 'addition' | 'deduction'>('all');
+  const [isAuditSaved, setIsAuditSaved] = useState<boolean>(false);
+  const [showPrintAuditSheetModal, setShowPrintAuditSheetModal] = useState<boolean>(false);
   const [summaryCurrentPage, setSummaryCurrentPage] = useState(1);
   const [summaryRowsPerPage, setSummaryRowsPerPage] = useState(15);
 
+  // Month-End Physical Audit Form Modal states
+  const [showPhysicalAuditModal, setShowPhysicalAuditModal] = useState<boolean>(false);
+  const [tempPhysicalCounts, setTempPhysicalCounts] = useState<Record<string, number>>({});
+  const [auditModalCategory, setAuditModalCategory] = useState<string>('all');
+  const [auditModalSearch, setAuditModalSearch] = useState<string>('');
 
-  const SAMPLE_SUMMARY_RECORDS = [
-    {
-      id: 'tx-1',
-      transaction_date: '2026-07-27T08:30:00.000Z',
-      product_name: 'Safety Goggles',
-      variant: '{"Size":"Medium"}',
-      action: 'deduction',
-      quantity: 2,
-      unit_value: 100.00,
-      total_value: 200.00,
-      reference: 'Order #2035'
-    },
-    {
-      id: 'tx-2',
-      transaction_date: '2026-07-26T14:15:00.000Z',
-      product_name: 'Rope',
-      variant: '',
-      action: 'addition',
-      quantity: 50,
-      unit_value: 35.00,
-      total_value: 1750.00,
-      reference: 'Purchase (Gan Go Trading Corporation)'
-    },
-    {
-      id: 'tx-3',
-      transaction_date: '2026-07-25T11:00:00.000Z',
-      product_name: 'Type A & B Uniform',
-      variant: '{"Size":"Large","Gender":"Male"}',
-      action: 'deduction',
-      quantity: 1,
-      unit_value: 2700.00,
-      total_value: 2700.00,
-      reference: 'Order #2031'
-    },
-    {
-      id: 'tx-4',
-      transaction_date: '2026-07-24T09:00:00.000Z',
-      product_name: 'Lanyard',
-      variant: '{"Course":"BSMT"}',
-      action: 'addition',
-      quantity: 500,
-      unit_value: 15.00,
-      total_value: 7500.00,
-      reference: 'Purchase (Nelson D. Felicidario Jr.)'
+  // Helper function to extract variants array cleanly whether stored as object or array
+  const getProductVariantsList = (p: any): Array<{ itemKeySuffix: string; variantKey?: string; variantStr: string; sku: string; price: number; stock: number; [key: string]: any }> => {
+    if (!p || !p.variants) return [];
+    
+    let rawVariants: any[] = [];
+    if (Array.isArray(p.variants)) {
+      rawVariants = p.variants.map((v: any, idx: number) => ({ _vKey: `v_${idx}`, ...v }));
+    } else if (typeof p.variants === 'object' && p.variants !== null) {
+      rawVariants = Object.entries(p.variants).map(([vKey, vVal]: [string, any]) => {
+        const vObj = typeof vVal === 'object' && vVal !== null ? vVal : { stock: Number(vVal) || 0 };
+        return { _vKey: vKey, ...vObj };
+      });
     }
+
+    const parsedProductPrice = parseFloat(p.price) || 0;
+
+    return rawVariants.map((v: any, idx: number) => {
+      const itemKeySuffix = `v_${idx}`;
+      let variantStr = '';
+      if (v.options && typeof v.options === 'object' && Object.keys(v.options).length > 0) {
+        variantStr = Object.entries(v.options)
+          .map(([k, val]) => {
+            if (k.toLowerCase().startsWith('option-') || k.toLowerCase().startsWith('opt_') || !isNaN(Number(k))) {
+              return `${val}`;
+            }
+            return `${k}: ${val}`;
+          })
+          .join(', ');
+      } else if (v._vKey) {
+        variantStr = v._vKey.replace(/-/g, ' ').replace(/_/g, ' ');
+      } else {
+        variantStr = Object.entries(v)
+          .filter(([k]) => k !== 'stock' && k !== 'price' && k !== 'sku' && k !== '_vKey')
+          .map(([k, val]) => `${k}: ${val}`)
+          .join(', ');
+      }
+
+      const parsedVPrice = parseFloat(v.price);
+      const vPrice = !isNaN(parsedVPrice) && parsedVPrice > 0 ? parsedVPrice : parsedProductPrice;
+      const sysStock = typeof v.stock === 'number' ? v.stock : (parseInt(v.stock, 10) || 0);
+
+      return {
+        itemKeySuffix,
+        variantKey: v._vKey,
+        variantStr,
+        sku: v.sku || `${p.sku || 'SKU'}-${idx + 1}`,
+        price: vPrice,
+        stock: sysStock,
+        options: v.options || {},
+      };
+    });
+  };
+
+  const getInventoryProductDisplayTitle = (name: string, variantLabel?: string) => {
+    const baseName = (name || '').trim();
+    const rawVariant = (variantLabel || '').trim();
+
+    if (!rawVariant) {
+      return { title: baseName, subtitle: '' };
+    }
+
+    // Clean up variant string
+    let cleanVariant = rawVariant
+      .replace(/\b(course|option):\s*/gi, '')
+      .trim();
+
+    // If cleanVariant already contains baseName (e.g. "UC Patch" for baseName "Patch")
+    if (cleanVariant.toLowerCase().includes(baseName.toLowerCase())) {
+      return { title: cleanVariant, subtitle: '' };
+    }
+
+    // If baseName contains cleanVariant
+    if (baseName.toLowerCase().includes(cleanVariant.toLowerCase())) {
+      return { title: baseName, subtitle: '' };
+    }
+
+    // For short course/program codes like "HM", "SHS", "BSMT", "BSMARE", "TOURISM"
+    // Combine into single clean title: e.g. "HM Lanyard", "SHS Lanyard", "BSMT Lanyard"
+    if (/^[A-Za-z0-9\s&-]{1,15}$/.test(cleanVariant) && !cleanVariant.includes(',')) {
+      return { title: `${cleanVariant} ${baseName}`, subtitle: '' };
+    }
+
+    // For multi-attribute variants like "size: 4 (₱350), course: BSMT" -> "Pershing Cap (4 (₱350), BSMT)"
+    let formattedVariant = rawVariant
+      .replace(/\b(course|size|option):\s*/gi, '')
+      .trim();
+
+    return { title: `${baseName} (${formattedVariant})`, subtitle: '' };
+  };
+
+  const isMadeToOrderProduct = (p: any) => {
+    if (!p) return false;
+    const nameLower = (p.name || '').toLowerCase().trim();
+
+    if (p.madeToOrder === true) return true;
+
+    const madeToOrderNames = [
+      'type a & b uniform',
+      'type a & b',
+      'bsname uniform',
+      'bsname',
+      'gala',
+      'gala uniform',
+      'hardbound',
+      'hard bound',
+    ];
+
+    if (madeToOrderNames.some((target) => nameLower.includes(target))) {
+      return true;
+    }
+
+    if (nameLower.includes('made to order') || nameLower.includes('preorder') || nameLower.includes('pre-order')) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Category filter options matching the exact master categories from the Inventory catalog tab
+  const summaryCategoryOptions = [
+    { key: 'all', label: 'All Categories' },
+    { key: 'uniform', label: 'Uniform' },
+    { key: 'accessory', label: 'Accessory' },
+    { key: 'equipment', label: 'PPE (Personal Protective Equipment)' },
+    { key: 'service', label: 'Service' },
+    { key: 'essentials', label: 'Essentials' },
   ];
 
-  const loadSummaryRecords = async () => {
-    try {
-      setSummaryLoading(true);
-      const res = await apiClient.getInventorySummary();
-      if (res && res.transactions && res.transactions.length > 0) {
-        setSummaryRecords(res.transactions);
-      } else {
-        setSummaryRecords(SAMPLE_SUMMARY_RECORDS);
+  const matchesSummaryCategory = (itemCategory: string, filterKey: string) => {
+    if (!filterKey || filterKey === 'all') return true;
+    const cat = (itemCategory || '').toLowerCase().trim();
+    const filter = filterKey.toLowerCase().trim();
+
+    if (filter === 'uniform') {
+      return cat === 'uniform' || cat === 'uniforms';
+    }
+    if (filter === 'accessory') {
+      return cat === 'accessory' || cat === 'accessories';
+    }
+    if (filter === 'equipment' || filter === 'ppe') {
+      return cat === 'equipment' || cat === 'ppe' || cat.includes('personal protective') || cat.includes('safety');
+    }
+    if (filter === 'service') {
+      return cat === 'service' || cat === 'services';
+    }
+    if (filter === 'essentials') {
+      return cat === 'essentials' || cat === 'essential' || cat === 'grocery' || cat === 'groceries';
+    }
+
+    return cat === filter;
+  };
+
+  // Handler to receive new incoming stock and automatically update Inventory Catalog stock
+  const handleSaveStockReceiving = async () => {
+    const { productId, selectedVariantIndex, quantity, unitCost, supplier, referenceNo, dateReceived, receivedBy, notes } = receiveStockFormData;
+    
+    const qtyNum = parseInt(String(quantity), 10);
+    if (!productId) {
+      showNotification('Please select a merchandise product to receive.', 'error');
+      return;
+    }
+    if (isNaN(qtyNum) || qtyNum <= 0) {
+      showNotification('Please enter a valid received quantity greater than 0.', 'error');
+      return;
+    }
+
+    const targetProduct = products.find(p => p.id === productId);
+    if (!targetProduct) {
+      showNotification('Selected product not found.', 'error');
+      return;
+    }
+
+    const costNum = parseFloat(String(unitCost)) || parseFloat(targetProduct.price) || 0;
+    const vList = getProductVariantsList(targetProduct);
+    let variantLabel = '';
+    let variantKey = '';
+    let updatedProduct: any = { ...targetProduct };
+
+    if (vList.length > 0) {
+      // Product has variants
+      const vIndex = parseInt(String(selectedVariantIndex), 10);
+      if (isNaN(vIndex) || vIndex < 0 || vIndex >= vList.length) {
+        showNotification('Please select a specific product variant to receive.', 'error');
+        return;
       }
-    } catch (error) {
-      console.error('Failed to load inventory summary records:', error);
-      setSummaryRecords(SAMPLE_SUMMARY_RECORDS);
-    } finally {
-      setSummaryLoading(false);
+      const targetVariant = vList[vIndex];
+      variantLabel = targetVariant.variantStr;
+      variantKey = targetVariant.variantKey || `v_${vIndex}`;
+
+      if (Array.isArray(targetProduct.variants)) {
+        let updatedVariants = targetProduct.variants.map((v: any, idx: number) => {
+          if (idx === vIndex) {
+            const currentStock = typeof v.stock === 'number' ? v.stock : (parseInt(v.stock, 10) || 0);
+            return { ...v, stock: currentStock + qtyNum };
+          }
+          return v;
+        });
+        const newTotalStock = updatedVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+        updatedProduct = { ...targetProduct, variants: updatedVariants, stock: newTotalStock };
+      } else if (typeof targetProduct.variants === 'object' && targetProduct.variants !== null) {
+        let updatedVariants = { ...targetProduct.variants };
+        const vKeyTarget = targetVariant.variantKey || Object.keys(targetProduct.variants)[vIndex];
+        if (vKeyTarget && updatedVariants[vKeyTarget]) {
+          const currentStock = typeof updatedVariants[vKeyTarget].stock === 'number' ? updatedVariants[vKeyTarget].stock : (parseInt(updatedVariants[vKeyTarget].stock, 10) || 0);
+          updatedVariants[vKeyTarget] = {
+            ...updatedVariants[vKeyTarget],
+            stock: currentStock + qtyNum,
+          };
+          const newTotalStock = Object.values(updatedVariants).reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0);
+          updatedProduct = { ...targetProduct, variants: updatedVariants, stock: newTotalStock };
+        }
+      }
+    } else {
+      // Simple product without variants
+      const currentStock = typeof targetProduct.stock === 'number' ? targetProduct.stock : (parseInt(targetProduct.stock, 10) || 0);
+      updatedProduct = { ...targetProduct, stock: currentStock + qtyNum };
+    }
+
+    try {
+      // 1. Update product stock on Inventory tab via Zustand store
+      updateProduct(targetProduct.id, updatedProduct);
+
+      // 2. Persist updated product to backend API
+      try {
+        await AppDataSync.syncProductToAPI(updatedProduct);
+      } catch (apiErr) {
+        console.error('Failed to sync updated product stock to API:', apiErr);
+      }
+
+      // 3. Save Stock Receiving Log
+      const refCode = referenceNo || `RCV-${Math.floor(1000 + Math.random() * 9000)}`;
+      const newReceivingRecord: StockReceivingRecord = {
+        id: `rcv-${Date.now()}`,
+        dateReceived: dateReceived || new Date().toISOString().split('T')[0],
+        referenceNo: refCode,
+        productId: targetProduct.id,
+        productName: targetProduct.name,
+        variantKey,
+        variantLabel,
+        quantity: qtyNum,
+        unitCost: costNum,
+        totalValue: qtyNum * costNum,
+        supplier: supplier || 'General Supplier',
+        receivedBy: receivedBy || 'Office Staff',
+        notes: notes || '',
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedRecords = [newReceivingRecord, ...stockReceivingRecords];
+      setStockReceivingRecords(updatedRecords);
+      try {
+        localStorage.setItem('silms_stock_receiving_records', JSON.stringify(updatedRecords));
+      } catch (err) {
+        console.error('Failed to save receiving records to localStorage:', err);
+      }
+
+      const itemDisplayName = variantLabel ? `${targetProduct.name} (${variantLabel})` : targetProduct.name;
+      showNotification(`Successfully received ${qtyNum} pcs of ${itemDisplayName}! Inventory stock level updated.`, 'success');
+      setShowReceiveStockModal(false);
+    } catch (err) {
+      console.error('Failed to record stock receiving:', err);
+      showNotification('Failed to process stock receiving record.', 'error');
     }
   };
 
-  useEffect(() => {
-    if (activeTab === 'summary') {
-      loadSummaryRecords();
+  const handleDeleteStockReceivingRecord = (record: StockReceivingRecord) => {
+    setDeleteReceivingConfirmModal({ show: true, record });
+  };
+
+  const confirmDeleteReceivingRecord = async () => {
+    const record = deleteReceivingConfirmModal.record;
+    if (!record) return;
+
+    try {
+      const targetProduct = products.find(p => p.id === record.productId);
+      if (targetProduct) {
+        let updatedProduct: any = { ...targetProduct };
+        const vList = getProductVariantsList(targetProduct);
+
+        if (vList.length > 0 && record.variantLabel) {
+          const vIndex = vList.findIndex(v => v.variantStr === record.variantLabel || v.variantKey === record.variantKey);
+          if (vIndex !== -1) {
+            if (Array.isArray(targetProduct.variants)) {
+              let updatedVariants = targetProduct.variants.map((v: any, idx: number) => {
+                if (idx === vIndex) {
+                  const currentStock = typeof v.stock === 'number' ? v.stock : (parseInt(v.stock, 10) || 0);
+                  return { ...v, stock: Math.max(0, currentStock - record.quantity) };
+                }
+                return v;
+              });
+              const newTotalStock = updatedVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+              updatedProduct = { ...targetProduct, variants: updatedVariants, stock: newTotalStock };
+            } else if (typeof targetProduct.variants === 'object' && targetProduct.variants !== null) {
+              let updatedVariants = { ...targetProduct.variants };
+              const vKeyTarget = record.variantKey || Object.keys(targetProduct.variants)[vIndex];
+              if (vKeyTarget && updatedVariants[vKeyTarget]) {
+                const currentStock = typeof updatedVariants[vKeyTarget].stock === 'number' ? updatedVariants[vKeyTarget].stock : (parseInt(updatedVariants[vKeyTarget].stock, 10) || 0);
+                updatedVariants[vKeyTarget] = {
+                  ...updatedVariants[vKeyTarget],
+                  stock: Math.max(0, currentStock - record.quantity),
+                };
+                const newTotalStock = Object.values(updatedVariants).reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0);
+                updatedProduct = { ...targetProduct, variants: updatedVariants, stock: newTotalStock };
+              }
+            }
+          }
+        } else {
+          const currentStock = typeof targetProduct.stock === 'number' ? targetProduct.stock : (parseInt(targetProduct.stock, 10) || 0);
+          updatedProduct = { ...targetProduct, stock: Math.max(0, currentStock - record.quantity) };
+        }
+
+        updateProduct(targetProduct.id, updatedProduct);
+        try {
+          await AppDataSync.syncProductToAPI(updatedProduct);
+        } catch (apiErr) {
+          console.error('Failed to sync deducted stock to API:', apiErr);
+        }
+      }
+
+      const updatedRecords = stockReceivingRecords.filter(r => r.id !== record.id);
+      setStockReceivingRecords(updatedRecords);
+      localStorage.setItem('silms_stock_receiving_records', JSON.stringify(updatedRecords));
+      showNotification(`Removed receiving entry ${record.referenceNo} and reverted inventory stock.`, 'success');
+      setDeleteReceivingConfirmModal({ show: false, record: null });
+    } catch (err) {
+      console.error('Failed to delete stock receiving record:', err);
+      showNotification('Failed to remove stock receiving record.', 'error');
     }
-  }, [activeTab]);
+  };
+
+  // Load and sync physical stock counts from localStorage whenever selected month or products change
+  useEffect(() => {
+    const savedKey = `coop_monthly_inventory_physical_${selectedSummaryMonth.replace(/\s+/g, '_')}`;
+    const saved = localStorage.getItem(savedKey);
+    if (saved) {
+      try {
+        setPhysicalCounts(JSON.parse(saved));
+        setIsAuditSaved(true);
+        return;
+      } catch (e) {
+        console.error('Failed to parse physical counts:', e);
+      }
+    }
+    // Default physical counts to current system stock
+    const initial: Record<string, number> = {};
+    products.forEach((p) => {
+      if (isMadeToOrderProduct(p)) return;
+      const vList = getProductVariantsList(p);
+      if (vList.length > 0) {
+        vList.forEach((v, idx) => {
+          initial[`${p.id}_v_${idx}`] = v.stock;
+        });
+      } else {
+        initial[p.id] = typeof p.stock === 'number' ? p.stock : (parseInt(p.stock, 10) || 0);
+      }
+    });
+    setPhysicalCounts(initial);
+    setIsAuditSaved(false);
+  }, [selectedSummaryMonth, products]);
+
+  const handleOpenPhysicalAuditModal = (filterSearchText?: string) => {
+    const initial: Record<string, number> = { ...physicalCounts };
+    products.forEach((p) => {
+      if (isMadeToOrderProduct(p)) return;
+      const vList = getProductVariantsList(p);
+      if (vList.length > 0) {
+        vList.forEach((v, idx) => {
+          const key = `${p.id}_v_${idx}`;
+          if (!(key in initial)) {
+            initial[key] = v.stock;
+          }
+        });
+      } else {
+        if (!(p.id in initial)) {
+          initial[p.id] = typeof p.stock === 'number' ? p.stock : (parseInt(p.stock, 10) || 0);
+        }
+      }
+    });
+    setTempPhysicalCounts(initial);
+    setAuditModalSearch(filterSearchText || '');
+    setAuditModalCategory('all');
+    setShowPhysicalAuditModal(true);
+  };
+
+  const handleSavePhysicalAuditModal = () => {
+    setPhysicalCounts(tempPhysicalCounts);
+    const savedKey = `coop_monthly_inventory_physical_${selectedSummaryMonth.replace(/\s+/g, '_')}`;
+    localStorage.setItem(savedKey, JSON.stringify(tempPhysicalCounts));
+    setIsAuditSaved(true);
+    setShowPhysicalAuditModal(false);
+    showNotification(`Month-end physical count audit for ${selectedSummaryMonth} submitted and saved successfully!`, 'success');
+  };
+
+  const handleAutoFillFromSystemStock = () => {
+    const initial: Record<string, number> = {};
+    products.forEach((p) => {
+      if (isMadeToOrderProduct(p)) return;
+      const vList = getProductVariantsList(p);
+      if (vList.length > 0) {
+        vList.forEach((v, idx) => {
+          initial[`${p.id}_v_${idx}`] = v.stock;
+        });
+      } else {
+        initial[p.id] = typeof p.stock === 'number' ? p.stock : (parseInt(p.stock, 10) || 0);
+      }
+    });
+    setTempPhysicalCounts(initial);
+    showNotification('Pre-filled physical count form with current System Stock values!', 'success');
+  };
+
+  const handleTempPhysicalCountChange = (itemKey: string, valStr: string) => {
+    const parsed = parseInt(valStr, 10);
+    const num = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    setTempPhysicalCounts(prev => ({
+      ...prev,
+      [itemKey]: num
+    }));
+  };
+
+  // Flatten products & variants for physical stock inventory summary
+  const inventorySummaryItems = React.useMemo(() => {
+    const items: Array<{
+      itemKey: string;
+      productId: string;
+      name: string;
+      sku: string;
+      category: string;
+      variantLabel: string;
+      unitPrice: number;
+      systemStock: number;
+      physicalStock: number;
+      variance: number;
+      totalValue: number;
+      image: string;
+    }> = [];
+
+    products.forEach((p) => {
+      if (isMadeToOrderProduct(p)) return;
+      const category = p.category || 'General';
+      const image = p.image || '';
+      const parsedProductPrice = parseFloat(p.price) || 0;
+      const sysStockMain = typeof p.stock === 'number' ? p.stock : (parseInt(p.stock, 10) || 0);
+      const vList = getProductVariantsList(p);
+
+      if (vList.length > 0) {
+        vList.forEach((v, idx) => {
+          const itemKey = `${p.id}_v_${idx}`;
+          const physStock = itemKey in physicalCounts ? (Number(physicalCounts[itemKey]) || 0) : v.stock;
+
+          items.push({
+            itemKey,
+            productId: p.id,
+            name: p.name,
+            sku: v.sku,
+            category,
+            variantLabel: v.variantStr,
+            unitPrice: v.price,
+            systemStock: v.stock,
+            physicalStock: physStock,
+            variance: physStock - v.stock,
+            totalValue: physStock * v.price,
+            image,
+          });
+        });
+      } else {
+        const itemKey = p.id;
+        const sysStock = sysStockMain;
+        const physStock = itemKey in physicalCounts ? (Number(physicalCounts[itemKey]) || 0) : sysStock;
+
+        items.push({
+          itemKey,
+          productId: p.id,
+          name: p.name,
+          sku: p.sku || 'SKU-00',
+          category,
+          variantLabel: '',
+          unitPrice: parsedProductPrice,
+          systemStock: sysStock,
+          physicalStock: physStock,
+          variance: physStock - sysStock,
+          totalValue: physStock * parsedProductPrice,
+          image,
+        });
+      }
+    });
+
+    return items;
+  }, [products, physicalCounts]);
+
+  const filteredSummaryItems = React.useMemo(() => {
+    return inventorySummaryItems.filter((item) => {
+      const query = summarySearchQuery.toLowerCase().trim();
+      const matchesSearch =
+        !query ||
+        item.name.toLowerCase().includes(query) ||
+        item.sku.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query) ||
+        item.variantLabel.toLowerCase().includes(query);
+
+      const matchesCategory = matchesSummaryCategory(item.category, summaryCategoryFilter);
+
+      let matchesStatus = true;
+      if (summaryStockStatusFilter === 'instock') {
+        matchesStatus = item.systemStock > 5;
+      } else if (summaryStockStatusFilter === 'lowstock') {
+        matchesStatus = item.systemStock > 0 && item.systemStock <= 5;
+      } else if (summaryStockStatusFilter === 'out-of-stock') {
+        matchesStatus = item.systemStock === 0;
+      } else if (summaryStockStatusFilter === 'discrepancy') {
+        matchesStatus = item.variance !== 0;
+      }
+
+      return matchesSearch && matchesCategory && matchesStatus;
+    });
+  }, [inventorySummaryItems, summarySearchQuery, summaryCategoryFilter, summaryStockStatusFilter]);
+
+  const summaryMetrics = React.useMemo(() => {
+    const totalItems = inventorySummaryItems.length;
+    const totalSystemUnits = inventorySummaryItems.reduce((acc, i) => acc + i.systemStock, 0);
+    const totalPhysicalUnits = inventorySummaryItems.reduce((acc, i) => acc + i.physicalStock, 0);
+    const totalStockValuation = inventorySummaryItems.reduce((acc, i) => acc + (i.physicalStock * i.unitPrice), 0);
+    const discrepanciesCount = inventorySummaryItems.filter(i => i.variance !== 0).length;
+    const lowStockCount = inventorySummaryItems.filter(i => i.systemStock <= 5).length;
+
+    return {
+      totalItems,
+      totalSystemUnits,
+      totalPhysicalUnits,
+      totalStockValuation,
+      discrepanciesCount,
+      lowStockCount,
+    };
+  }, [inventorySummaryItems]);
+
+  const handlePhysicalCountChange = (itemKey: string, valStr: string) => {
+    const parsed = parseInt(valStr, 10);
+    const num = isNaN(parsed) ? 0 : Math.max(0, parsed);
+    setPhysicalCounts(prev => ({
+      ...prev,
+      [itemKey]: num
+    }));
+    setIsAuditSaved(false);
+  };
+
+  const handleSavePhysicalAudit = () => {
+    const savedKey = `coop_monthly_inventory_physical_${selectedSummaryMonth.replace(/\s+/g, '_')}`;
+    localStorage.setItem(savedKey, JSON.stringify(physicalCounts));
+    setIsAuditSaved(true);
+    showNotification(`Month-end physical count audit for ${selectedSummaryMonth} saved successfully!`, 'success');
+  };
+
+  const handleApplyPhysicalCountsToSystem = async () => {
+    if (!confirm(`Are you sure you want to update system stock levels to match the month-end physical count for ${selectedSummaryMonth}?`)) {
+      return;
+    }
+    try {
+      for (const p of products) {
+        let updatedProduct: any = { ...p };
+        let hasChange = false;
+        const vList = getProductVariantsList(p);
+        if (vList.length > 0) {
+          if (Array.isArray(p.variants)) {
+            let updatedVariants = p.variants.map((v: any, idx: number) => {
+              const countKey = `${p.id}_v_${idx}`;
+              if (countKey in physicalCounts && physicalCounts[countKey] !== v.stock) {
+                hasChange = true;
+                return { ...v, stock: physicalCounts[countKey] };
+              }
+              return v;
+            });
+            if (hasChange) {
+              const newTotalStock = updatedVariants.reduce((sum: number, v: any) => sum + (v.stock || 0), 0);
+              updatedProduct = { ...p, variants: updatedVariants, stock: newTotalStock };
+            }
+          } else if (typeof p.variants === 'object' && p.variants !== null) {
+            let updatedVariants = { ...p.variants };
+            let variantKeys = Object.keys(p.variants);
+            variantKeys.forEach((vKey: string, idx: number) => {
+              const countKey = `${p.id}_v_${idx}`;
+              if (countKey in physicalCounts && physicalCounts[countKey] !== (p.variants[vKey]?.stock || 0)) {
+                hasChange = true;
+                updatedVariants[vKey] = {
+                  ...p.variants[vKey],
+                  stock: physicalCounts[countKey],
+                };
+              }
+            });
+            if (hasChange) {
+              const newTotalStock = Object.values(updatedVariants).reduce((sum: number, v: any) => sum + (Number(v.stock) || 0), 0);
+              updatedProduct = { ...p, variants: updatedVariants, stock: newTotalStock };
+            }
+          }
+        } else {
+          if (p.id in physicalCounts && physicalCounts[p.id] !== p.stock) {
+            hasChange = true;
+            updatedProduct = { ...p, stock: physicalCounts[p.id] };
+          }
+        }
+        if (hasChange) {
+          updateProduct(p.id, updatedProduct);
+          try {
+            await AppDataSync.syncProductToAPI(updatedProduct);
+          } catch (apiErr) {
+            console.error(`Failed to sync product ${p.id} to API:`, apiErr);
+          }
+        }
+      }
+      handleSavePhysicalAudit();
+      showNotification(`System stock levels successfully reconciled to match ${selectedSummaryMonth} physical count!`, 'success');
+    } catch (err) {
+      console.error('Error applying physical stock counts:', err);
+      showNotification('Failed to update system stock levels.', 'error');
+    }
+  };
+
+  const handleExportSummaryExcel = () => {
+    try {
+      const XLSX = (window as any).XLSX;
+      if (!XLSX) {
+        showNotification('Excel library unavailable', 'error');
+        return;
+      }
+
+      const listToExport = filteredSummaryItems;
+
+      const totalSystemPcs = listToExport.reduce((sum, item) => sum + item.systemStock, 0);
+      const totalPhysicalPcs = listToExport.reduce((sum, item) => sum + item.physicalStock, 0);
+      const totalVariance = listToExport.reduce((sum, item) => sum + item.variance, 0);
+      const totalValuation = listToExport.reduce((sum, item) => sum + (item.physicalStock * item.unitPrice), 0);
+
+      const sheetData: any[] = [
+        ['UNIVERSITY OF CEBU - METC COOPERATIVE'],
+        ['MONTH-END PHYSICAL INVENTORY & STOCK SUMMARY REPORT'],
+        [`Audit Month: ${selectedSummaryMonth}`, '', '', '', `Export Date: ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`],
+        [''],
+        [
+          '#',
+          'SKU',
+          'Merchandise Item',
+          'Category',
+          'Unit Price (₱)',
+          'System Stock (Pcs)',
+          'Physical Count (Pcs)',
+          'Stock Variance',
+          'Audit Status',
+          'Physical Valuation (₱)',
+        ],
+      ];
+
+      listToExport.forEach((item, idx) => {
+        const displayInfo = getInventoryProductDisplayTitle(item.name, item.variantLabel);
+        const itemTitle = displayInfo.subtitle ? `${displayInfo.title} (${displayInfo.subtitle})` : displayInfo.title;
+        const statusText = item.variance === 0 ? 'Verified Match' : (item.variance < 0 ? `Shortage (${item.variance} Pcs)` : `Surplus (+${item.variance} Pcs)`);
+        const itemValuation = item.physicalStock * item.unitPrice;
+
+        sheetData.push([
+          idx + 1,
+          item.sku || 'N/A',
+          itemTitle,
+          item.category,
+          Number((item.unitPrice || 0).toFixed(2)),
+          item.systemStock,
+          item.physicalStock,
+          item.variance,
+          statusText,
+          Number(itemValuation.toFixed(2)),
+        ]);
+      });
+
+      sheetData.push(['']);
+      sheetData.push([
+        'TOTALS',
+        '',
+        `Total Items: ${listToExport.length}`,
+        '',
+        '',
+        totalSystemPcs,
+        totalPhysicalPcs,
+        totalVariance,
+        totalVariance === 0 ? 'Fully Reconciled' : `${Math.abs(totalVariance)} Unit Variance`,
+        Number(totalValuation.toFixed(2)),
+      ]);
+
+      const ws = XLSX.utils.aoa_to_sheet(sheetData);
+
+      ws['!cols'] = [
+        { wch: 6 },  // #
+        { wch: 16 }, // SKU
+        { wch: 38 }, // Merchandise Item
+        { wch: 22 }, // Category
+        { wch: 15 }, // Unit Price
+        { wch: 18 }, // System Stock
+        { wch: 20 }, // Physical Count
+        { wch: 16 }, // Stock Variance
+        { wch: 20 }, // Audit Status
+        { wch: 22 }, // Physical Valuation
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'Inventory Summary');
+      const fileName = `UC_METC_Monthly_Inventory_Summary_${selectedSummaryMonth.replace(/\s+/g, '_')}.xlsx`;
+      XLSX.writeFile(wb, fileName);
+      showNotification('Downloaded Monthly Inventory Summary Excel file!', 'success');
+    } catch (e) {
+      console.error('Export error:', e);
+      showNotification('Failed to export summary Excel.', 'error');
+    }
+  };
 
   // Reset pagination on summary search or filter change
   useEffect(() => {
     setSummaryCurrentPage(1);
-  }, [summarySearchQuery, summaryFilter]);
+  }, [summarySearchQuery, summaryCategoryFilter, summaryStockStatusFilter]);
 
 
   const handleDownloadPdf = async (elementId: string, filename: string) => {
@@ -731,7 +1526,6 @@ interface StockIntakeItem {
       }
 
       refreshAvailableSuppliers();
-      await AppDataSync.loadProductsFromAPI();
       resetStockIntakeFormData();
     } catch (error) {
       console.error('Failed to save purchase invoice:', error);
@@ -2043,6 +2837,29 @@ interface StockIntakeItem {
                 <span>New Purchase Invoice</span>
               </button>
             )}
+
+            {activeTab === 'stock-receiving' && (
+              <button
+                onClick={() => {
+                  setReceiveStockFormData({
+                    productId: '',
+                    selectedVariantIndex: '',
+                    quantity: 1,
+                    unitCost: 0,
+                    supplier: '',
+                    referenceNo: `DR-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                    dateReceived: new Date().toISOString().split('T')[0],
+                    receivedBy: 'Office Staff',
+                    notes: '',
+                  });
+                  setShowReceiveStockModal(true);
+                }}
+                className="flex items-center space-x-2 bg-emerald-600 text-white px-6 py-3 rounded-lg hover:bg-emerald-700 hover:shadow-lg transition-all font-semibold cursor-pointer shadow-md"
+              >
+                <Plus size={20} />
+                <span>Receive Incoming Stock</span>
+              </button>
+            )}
             {activeTab === 'monthly' && (
               <button
                 onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined)}
@@ -2054,6 +2871,18 @@ interface StockIntakeItem {
                     ? `Export Selected (${selectedMonthlyExportProducts.length})` 
                     : 'Export Report'}
                 </span>
+              </button>
+            )}
+            {activeTab === 'summary' && (
+              <button
+                type="button"
+                onClick={() => handleOpenPhysicalAuditModal()}
+                className={`flex items-center space-x-2 text-white px-5 py-3 rounded-lg shadow-md transition-all font-bold text-sm cursor-pointer ${
+                  isAuditSaved ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-purple-600 hover:bg-purple-700'
+                }`}
+              >
+                <ShieldCheck size={18} />
+                <span>{isAuditSaved ? 'Edit Physical Audit' : 'Conduct Physical Audit'}</span>
               </button>
             )}
           </div>
@@ -2090,6 +2919,42 @@ interface StockIntakeItem {
                     <span>Add</span>
                   </button>
                 </>
+              )}
+
+              {activeTab === 'stock-receiving' && (
+                <button
+                  onClick={() => {
+                    setReceiveStockFormData({
+                      productId: '',
+                      selectedVariantIndex: '',
+                      quantity: 1,
+                      unitCost: 0,
+                      supplier: '',
+                      referenceNo: `DR-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+                      dateReceived: new Date().toISOString().split('T')[0],
+                      receivedBy: 'Office Staff',
+                      notes: '',
+                    });
+                    setShowReceiveStockModal(true);
+                  }}
+                  className="flex items-center space-x-1 sm:space-x-2 bg-emerald-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-emerald-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
+                >
+                  <Plus size={16} className="sm:w-5 sm:h-5" />
+                  <span>Receive Incoming Stock</span>
+                </button>
+              )}
+
+              {activeTab === 'summary' && (
+                <button
+                  type="button"
+                  onClick={() => handleOpenPhysicalAuditModal()}
+                  className={`flex items-center space-x-1 text-white px-3 py-2 rounded-lg transition-all text-xs font-bold shadow-sm ${
+                    isAuditSaved ? 'bg-emerald-600' : 'bg-purple-600'
+                  }`}
+                >
+                  <ShieldCheck size={15} />
+                  <span>{isAuditSaved ? 'Audit Saved ✓' : 'Audit Form'}</span>
+                </button>
               )}
               {activeTab === 'stock-intake' && (
                 <button
@@ -2133,7 +2998,7 @@ interface StockIntakeItem {
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center mb-6 border-b border-slate-200">
+        <div className="flex items-center mb-6 border-b border-slate-200 overflow-x-auto">
           <div className="flex space-x-4">
             <button
               onClick={() => setActiveTab('inventory')}
@@ -2154,6 +3019,16 @@ interface StockIntakeItem {
               }`}
             >
               Purchase Invoices
+            </button>
+            <button
+              onClick={() => setActiveTab('stock-receiving')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'stock-receiving'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Stock Receiving
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
@@ -4270,6 +5145,234 @@ interface StockIntakeItem {
         </div>
       )}
 
+      {/* Stock Receiving Tab (Auto-Syncs with Inventory Catalog) */}
+      {activeTab === 'stock-receiving' && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Header Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            {/* Card 1: Total Units Received */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Units Received</span>
+                <span className="p-2 bg-emerald-50 text-emerald-700 rounded-xl">
+                  <Package size={18} />
+                </span>
+              </div>
+              <div className="mt-3">
+                <h4 className="text-2xl font-extrabold text-slate-900">
+                  {stockReceivingRecords.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0)} Pcs
+                </h4>
+                <p className="text-[11px] font-medium text-emerald-600 mt-1 flex items-center gap-1">
+                  <CheckCircle2 size={12} />
+                  <span>Synced directly to Inventory Tab</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Card 2: Total Receiving Batches */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Receiving Deliveries</span>
+                <span className="p-2 bg-purple-50 text-purple-700 rounded-xl">
+                  <Layers size={18} />
+                </span>
+              </div>
+              <div className="mt-3">
+                <h4 className="text-2xl font-extrabold text-slate-900">
+                  {stockReceivingRecords.length} Deliveries
+                </h4>
+                <p className="text-[11px] font-medium text-slate-500 mt-1">
+                  Recorded in Receiving Ledger
+                </p>
+              </div>
+            </div>
+
+            {/* Card 3: Total Receiving Valuation */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Inflow Cost</span>
+                <span className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+                  <DollarSign size={18} />
+                </span>
+              </div>
+              <div className="mt-3">
+                <h4 className="text-2xl font-extrabold text-slate-900">
+                  ₱{stockReceivingRecords.reduce((sum, r) => sum + (Number(r.totalValue) || 0), 0).toFixed(2)}
+                </h4>
+                <p className="text-[11px] font-medium text-slate-500 mt-1">
+                  Value of incoming merchandise
+                </p>
+              </div>
+            </div>
+
+            {/* Card 4: Recent Stock Arrival */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Latest Arrival</span>
+                <span className="p-2 bg-amber-50 text-amber-700 rounded-xl">
+                  <RotateCcw size={18} />
+                </span>
+              </div>
+              <div className="mt-3">
+                <h4 className="text-sm font-extrabold text-slate-900 truncate">
+                  {stockReceivingRecords[0] ? (stockReceivingRecords[0].variantLabel ? `${stockReceivingRecords[0].productName} (${stockReceivingRecords[0].variantLabel})` : stockReceivingRecords[0].productName) : 'No Deliveries Yet'}
+                </h4>
+                <p className="text-[11px] font-medium text-slate-500 mt-1">
+                  {stockReceivingRecords[0] ? `+${stockReceivingRecords[0].quantity} Pcs on ${stockReceivingRecords[0].dateReceived}` : 'Waiting for incoming stock'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Search & Action Bar */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="relative w-full sm:w-80">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search product, SKU, DR #, supplier..."
+                value={receiveStockSearchQuery}
+                onChange={(e) => {
+                  setReceiveStockSearchQuery(e.target.value);
+                  setReceiveStockCurrentPage(1);
+                }}
+                className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              {receiveStockSearchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setReceiveStockSearchQuery('')}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Stock Receiving Log Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold uppercase text-slate-500 tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5 text-left">Date Received</th>
+                    <th className="px-5 py-3.5 text-left">DR / PO Ref #</th>
+                    <th className="px-5 py-3.5 text-left">Merchandise Item</th>
+                    <th className="px-5 py-3.5 text-center">Qty Received</th>
+                    <th className="px-5 py-3.5 text-right">Unit Cost</th>
+                    <th className="px-5 py-3.5 text-left">Supplier</th>
+                    <th className="px-5 py-3.5 text-center">Inventory Impact</th>
+                    <th className="px-5 py-3.5 text-center">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {(() => {
+                    const filteredRecords = stockReceivingRecords.filter((rec) => {
+                      const query = receiveStockSearchQuery.toLowerCase().trim();
+                      if (!query) return true;
+                      const itemTitle = rec.variantLabel ? `${rec.productName} (${rec.variantLabel})` : rec.productName;
+                      return (
+                        itemTitle.toLowerCase().includes(query) ||
+                        (rec.referenceNo && rec.referenceNo.toLowerCase().includes(query)) ||
+                        (rec.supplier && rec.supplier.toLowerCase().includes(query)) ||
+                        (rec.notes && rec.notes.toLowerCase().includes(query))
+                      );
+                    });
+
+                    if (filteredRecords.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={8} className="px-6 py-12 text-center text-slate-500 font-medium">
+                            No stock receiving logs found. Click "+ Receive Incoming Stock" to record incoming stock arrivals!
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const totalPages = Math.ceil(filteredRecords.length / receiveStockItemsPerPage);
+                    const currentPageValid = Math.min(receiveStockCurrentPage, totalPages || 1);
+                    const startIndex = (currentPageValid - 1) * receiveStockItemsPerPage;
+                    const paginated = filteredRecords.slice(startIndex, startIndex + receiveStockItemsPerPage);
+
+                    return (
+                      <>
+                        {paginated.map((rec) => {
+                          const displayInfo = getInventoryProductDisplayTitle(rec.productName, rec.variantLabel);
+
+                          return (
+                            <tr key={rec.id} className="hover:bg-slate-50/80 transition-colors">
+                              {/* Date Received */}
+                              <td className="px-5 py-4 whitespace-nowrap font-bold text-slate-700">
+                                {rec.dateReceived}
+                              </td>
+
+                              {/* DR / PO Ref # */}
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <span className="font-mono text-xs font-extrabold text-purple-900 bg-purple-50 px-2.5 py-1 rounded-md border border-purple-200">
+                                  {rec.referenceNo || 'N/A'}
+                                </span>
+                              </td>
+
+                              {/* Merchandise Item */}
+                              <td className="px-5 py-4">
+                                <div>
+                                  <p className="font-bold text-slate-900 leading-snug">{displayInfo.title}</p>
+                                  {displayInfo.subtitle && (
+                                    <p className="text-[11px] font-bold text-purple-700 mt-0.5">{displayInfo.subtitle}</p>
+                                  )}
+                                </div>
+                              </td>
+
+                              {/* Qty Received */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                <span className="px-3 py-1 bg-emerald-100 text-emerald-900 font-extrabold text-xs rounded-full border border-emerald-300">
+                                  +{rec.quantity} Pcs
+                                </span>
+                              </td>
+
+                              {/* Unit Cost */}
+                              <td className="px-5 py-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                ₱{(Number(rec.unitCost) || 0).toFixed(2)}
+                              </td>
+
+                              {/* Supplier */}
+                              <td className="px-5 py-4 text-slate-700 font-semibold whitespace-nowrap">
+                                {rec.supplier || 'General Supplier'}
+                              </td>
+
+                              {/* Inventory Impact */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-purple-50 text-purple-800 rounded-full text-[11px] font-bold border border-purple-200">
+                                  <CheckCircle2 size={12} className="text-purple-600" />
+                                  <span>Synced to Inventory</span>
+                                </span>
+                              </td>
+
+                              {/* Actions */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteStockReceivingRecord(rec)}
+                                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                                  title="Delete receiving record and revert inventory stock"
+                                >
+                                  <Trash2 size={15} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </>
+                    );
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Monthly Sales Tab */}
       {activeTab === 'monthly' && monthlyData && (
         <div className="space-y-6 animate-fade-in">
@@ -4493,111 +5596,143 @@ interface StockIntakeItem {
         </div>
       )}
 
-      {/* Inventory Summary Tab */}
+      {/* Inventory Summary Tab: Month-End Physical Stock Audit & Merchandise Summary */}
       {activeTab === 'summary' && (
         <div className="space-y-6 animate-fade-in">
-          {/* Summary Stats Row */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-slate-500">Stock Additions</span>
-                <span className="p-2 bg-green-50 text-green-700 rounded-lg font-bold text-xs">+ Stock</span>
+
+          {/* Month Selector, Title & Primary Action Controls Header */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-purple-100 text-purple-700 rounded-xl font-bold">
+                  <ShieldCheck size={22} />
+                </span>
+                <div>
+                  <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                    Month-End Inventory & Stock Summary
+                  </h2>
+                  <p className="text-xs text-slate-500 font-medium mt-0.5">
+                    Staff physical stock count, remaining inventory audit & stock valuation log
+                  </p>
+                </div>
               </div>
-              <p className="text-3xl font-black text-slate-900 mt-1">
-                {summaryRecords.filter(r => r.action === 'addition').length} <span className="text-sm text-slate-500 font-medium">records</span>
-              </p>
-              <p className="text-xs text-green-600 font-semibold mt-2">
-                Total Value: ₱{summaryRecords
-                  .filter(r => r.action === 'addition')
-                  .reduce((sum, r) => sum + parseFloat(r.total_value || 0), 0)
-                  .toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </p>
             </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-slate-500">Stock Deductions</span>
-                <span className="p-2 bg-purple-50 text-purple-700 rounded-lg font-bold text-xs">- Sales</span>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Month Selector */}
+              <div className="flex items-center gap-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
+                <Calendar size={16} className="text-purple-600 ml-2" />
+                <select
+                  value={selectedSummaryMonth}
+                  onChange={(e) => setSelectedSummaryMonth(e.target.value)}
+                  className="bg-transparent text-slate-900 font-extrabold text-xs sm:text-sm focus:outline-none cursor-pointer pr-2"
+                >
+                  {summaryMonthOptions.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-              <p className="text-3xl font-black text-slate-900 mt-1">
-                {summaryRecords.filter(r => r.action === 'deduction').length} <span className="text-sm text-slate-500 font-medium">records</span>
-              </p>
-              <p className="text-xs text-purple-600 font-semibold mt-2">
-                Total Value: ₱{summaryRecords
-                  .filter(r => r.action === 'deduction')
-                  .reduce((sum, r) => sum + parseFloat(r.total_value || 0), 0)
-                  .toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </p>
-            </div>
 
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-slate-500">Total Transactions</span>
-                <span className="p-2 bg-slate-50 text-slate-700 rounded-lg font-bold text-xs">All Activity</span>
-              </div>
-              <p className="text-3xl font-black text-slate-900 mt-1">
-                {summaryRecords.length} <span className="text-sm text-slate-500 font-medium">total logs</span>
-              </p>
-              <p className="text-xs text-slate-500 font-semibold mt-2">
-                Tracking all intakes and sales
-              </p>
+              {/* Action Buttons */}
+              <button
+                type="button"
+                onClick={handleExportSummaryExcel}
+                className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-xs"
+              >
+                <FileSpreadsheet size={15} className="text-emerald-600" />
+                <span>Export Excel</span>
+              </button>
             </div>
           </div>
 
-          {/* Filters & Search Row */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              {/* Type Filters */}
-              <div className="flex bg-slate-100 p-1 rounded-lg w-fit">
-                <button
-                  type="button"
-                  onClick={() => setSummaryFilter('all')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                    summaryFilter === 'all'
-                      ? 'bg-white text-purple-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  All Activity
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSummaryFilter('addition')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                    summaryFilter === 'addition'
-                      ? 'bg-white text-green-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Additions (+)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setSummaryFilter('deduction')}
-                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
-                    summaryFilter === 'deduction'
-                      ? 'bg-white text-purple-700 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  Deductions (-)
-                </button>
+          {/* Metric Dashboard Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* Card 1: Total Merchandise Items */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Items</span>
+                <span className="p-2 bg-purple-50 text-purple-700 rounded-xl">
+                  <Package size={18} />
+                </span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-2">
+                {summaryMetrics.totalItems} <span className="text-xs text-slate-400 font-bold">Items/Variants</span>
+              </p>
+              <div className="flex items-center justify-between mt-3 text-xs text-slate-500 font-semibold border-t border-slate-100 pt-2.5">
+                <span>Active Merchandise Catalog</span>
+                <span className="text-purple-700 font-extrabold">{products.length} Products</span>
+              </div>
+            </div>
+
+            {/* Card 2: Remaining System Stock */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-blue-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">System Remaining Stock</span>
+                <span className="p-2 bg-blue-50 text-blue-700 rounded-xl">
+                  <Layers size={18} />
+                </span>
+              </div>
+              <p className="text-2xl sm:text-3xl font-black text-blue-950 mt-2">
+                {summaryMetrics.totalSystemUnits.toLocaleString()} <span className="text-xs text-slate-400 font-bold">Pcs</span>
+              </p>
+              <div className="flex items-center justify-between mt-3 text-xs text-slate-500 font-semibold border-t border-slate-100 pt-2.5">
+                <span>Physical Count Total:</span>
+                <span className="text-blue-800 font-extrabold">{summaryMetrics.totalPhysicalUnits.toLocaleString()} Pcs</span>
+              </div>
+            </div>
+
+            {/* Card 3: Audit Discrepancies / Status */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 relative overflow-hidden group hover:border-purple-300 transition-all">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Month Audit Status</span>
+                <span className={`p-2 rounded-xl ${summaryMetrics.discrepanciesCount === 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-600'}`}>
+                  {summaryMetrics.discrepanciesCount === 0 ? <CheckCircle2 size={18} /> : <AlertTriangle size={18} />}
+                </span>
+              </div>
+              <p className={`text-2xl sm:text-3xl font-black mt-2 ${summaryMetrics.discrepanciesCount === 0 ? 'text-emerald-700' : 'text-red-700'}`}>
+                {summaryMetrics.discrepanciesCount === 0 ? 'Verified' : `${summaryMetrics.discrepanciesCount} Discrepant`}
+              </p>
+              <div className="flex items-center justify-between mt-3 text-xs text-slate-500 font-semibold border-t border-slate-100 pt-2.5">
+                <span>Low Stock Warning (≤5):</span>
+                <span className="text-amber-700 font-extrabold">{summaryMetrics.lowStockCount} Items</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Filters & Controls Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Category Filter Pills */}
+              <div className="flex flex-wrap gap-1.5 bg-slate-100 p-1 rounded-xl">
+                {summaryCategoryOptions.map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setSummaryCategoryFilter(cat.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      summaryCategoryFilter === cat.key
+                        ? 'bg-white text-purple-700 shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
               </div>
 
-              {/* Search Summary */}
-              <div className="relative w-full sm:w-80">
+              {/* Search Bar */}
+              <div className="relative w-full lg:w-80">
                 <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
                   <Search size={16} />
                 </span>
                 <input
                   type="text"
-                  placeholder="Search summary by product name..."
+                  placeholder="Search item, SKU, category..."
                   value={summarySearchQuery}
-                  onChange={(e) => {
-                    setSummarySearchQuery(e.target.value);
-                    setSummaryCurrentPage(1);
-                  }}
-                  className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                  onChange={(e) => setSummarySearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:bg-white transition-all"
                 />
                 {summarySearchQuery && (
                   <button
@@ -4610,205 +5745,381 @@ interface StockIntakeItem {
               </div>
             </div>
 
-            {/* Summary Logs Table */}
-            <div className="mt-6 border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-              {summaryLoading ? (
-                <div className="text-center py-12">
-                  <span className="animate-spin inline-block w-6 h-6 border-2 border-purple-600 border-t-transparent rounded-full mx-auto mb-2"></span>
-                  <p className="text-slate-500 text-sm">Loading activity logs...</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-200">
-                      <tr>
-                        <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Date & Time</th>
-                        <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Product Name</th>
-                        <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Action</th>
-                        <th className="px-6 py-3.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Qty</th>
-                        <th className="px-6 py-3.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Value</th>
-                        <th className="px-6 py-3.5 text-right text-xs font-bold text-slate-500 uppercase tracking-wider">Total</th>
-                        <th className="px-6 py-3.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">Reference / Supplier</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 bg-white">
-                      {(() => {
-                        const filtered = summaryRecords.filter((record) => {
-                          const productName = record.product_name || record.productName || '';
-                          const matchesSearch = productName.toLowerCase().includes((summarySearchQuery || '').toLowerCase());
-                          const matchesFilter = summaryFilter === 'all' || record.action === summaryFilter;
-                          return matchesSearch && matchesFilter;
-                        });
+            {/* Stock Status Secondary Filters & Audit Modal Launcher */}
+            <div className="flex flex-wrap items-center justify-between border-t border-slate-100 pt-3 gap-2">
+              <div className="flex items-center gap-2 text-xs font-semibold text-slate-500">
+                <Filter size={14} className="text-purple-600" />
+                <span>Stock Filter:</span>
+                {[
+                  { key: 'all', label: 'All Items' },
+                  { key: 'instock', label: 'Healthy Stock' },
+                  { key: 'lowstock', label: 'Low Stock (≤5)' },
+                  { key: 'out-of-stock', label: 'Out of Stock (0)' },
+                  { key: 'discrepancy', label: 'Variance Discrepancies' },
+                ].map((st) => (
+                  <button
+                    key={st.key}
+                    type="button"
+                    onClick={() => setSummaryStockStatusFilter(st.key as any)}
+                    className={`px-2.5 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
+                      summaryStockStatusFilter === st.key
+                        ? 'bg-purple-100 text-purple-900 border border-purple-300'
+                        : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {st.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
 
-                        if (filtered.length === 0) {
+          {/* Month-End Physical Inventory Summary Table */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-xs font-extrabold uppercase text-slate-500 tracking-wider">
+                  <tr>
+                    <th className="px-5 py-3.5 text-left">SKU</th>
+                    <th className="px-5 py-3.5 text-left">Merchandise Item</th>
+                    <th className="px-5 py-3.5 text-left">Category</th>
+                    <th className="px-5 py-3.5 text-right">Unit Price</th>
+                    <th className="px-5 py-3.5 text-center">System Stock</th>
+                    <th className="px-5 py-3.5 text-center bg-purple-50/50 text-purple-950 border-x border-purple-100">
+                      Physical Count ({selectedSummaryMonth.split(' ')[0]})
+                    </th>
+                    <th className="px-5 py-3.5 text-center">Variance</th>
+                    <th className="px-5 py-3.5 text-right">Stock Valuation</th>
+                    <th className="px-5 py-3.5 text-center">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {(() => {
+                    if (filteredSummaryItems.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={9} className="px-6 py-12 text-center text-slate-500 font-medium">
+                            No merchandise items found matching your filters.
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    const totalPages = Math.ceil(filteredSummaryItems.length / summaryRowsPerPage);
+                    const currentPageValid = Math.min(summaryCurrentPage, totalPages || 1);
+                    const startIndex = (currentPageValid - 1) * summaryRowsPerPage;
+                    const paginatedItems = filteredSummaryItems.slice(startIndex, startIndex + summaryRowsPerPage);
+
+                    return (
+                      <>
+                        {paginatedItems.map((item) => {
+                          const isDiscrepancy = item.variance !== 0;
+                          const isLowStock = item.systemStock <= 5;
+                          const isOutOfStock = item.systemStock === 0;
+
                           return (
-                            <tr>
-                              <td colSpan={7} className="px-6 py-12 text-center text-slate-500 font-medium">
-                                No inventory transaction records found matching your selection.
+                            <tr
+                              key={item.itemKey}
+                              className={`hover:bg-slate-50/80 transition-colors ${
+                                isDiscrepancy ? 'bg-amber-50/30' : ''
+                              }`}
+                            >
+                              {/* SKU */}
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <span className="font-mono text-xs font-extrabold text-slate-700 bg-slate-100 px-2 py-1 rounded-md border border-slate-200">
+                                  {item.sku}
+                                </span>
+                              </td>
+
+                              {/* Merchandise Item */}
+                              <td className="px-5 py-4">
+                                {(() => {
+                                  const display = getInventoryProductDisplayTitle(item.name, item.variantLabel);
+                                  return (
+                                    <div>
+                                      <p className="font-bold text-slate-900 leading-snug">{display.title}</p>
+                                      {display.subtitle && (
+                                        <p className="text-[11px] font-bold text-purple-700 mt-0.5">
+                                          {display.subtitle}
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </td>
+
+                              {/* Category */}
+                              <td className="px-5 py-4 whitespace-nowrap">
+                                <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg uppercase tracking-wider">
+                                  {item.category}
+                                </span>
+                              </td>
+
+                              {/* Unit Price */}
+                              <td className="px-5 py-4 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                ₱{(Number(item.unitPrice) || 0).toFixed(2)}
+                              </td>
+
+                              {/* System Stock */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                <span className={`font-black text-sm ${isOutOfStock ? 'text-red-600' : isLowStock ? 'text-amber-700' : 'text-slate-900'}`}>
+                                  {item.systemStock}
+                                </span>
+                              </td>
+
+                              {/* Physical Count Badge Button */}
+                              <td className="px-5 py-4 text-center bg-purple-50/30 border-x border-purple-100 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenPhysicalAuditModal(item.name)}
+                                  className="font-extrabold text-sm text-purple-950 bg-purple-100 hover:bg-purple-200 px-3 py-1 rounded-lg border border-purple-300 inline-flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:scale-105 active:scale-95"
+                                  title="Click to open physical audit form modal for this item"
+                                >
+                                  <span>{item.physicalStock}</span>
+                                  <span className="text-[10px] text-purple-700 font-extrabold uppercase">Pcs</span>
+                                  <Edit2 size={12} className="text-purple-600 ml-0.5" />
+                                </button>
+                              </td>
+
+                              {/* Variance */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                {item.variance === 0 ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                    0 (Match)
+                                  </span>
+                                ) : item.variance < 0 ? (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                                    {item.variance} (Shortage)
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-0.5 rounded-full text-xs font-black uppercase bg-blue-100 text-blue-800 border border-blue-300">
+                                    +{item.variance} (Overage)
+                                  </span>
+                                )}
+                              </td>
+
+                              {/* Stock Valuation */}
+                              <td className="px-5 py-4 text-right font-mono font-bold text-slate-900 whitespace-nowrap">
+                                ₱{(Number(item.totalValue) || 0).toFixed(2)}
+                              </td>
+
+                              {/* Status */}
+                              <td className="px-5 py-4 text-center whitespace-nowrap">
+                                {isOutOfStock ? (
+                                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                                    Out of Stock
+                                  </span>
+                                ) : isLowStock ? (
+                                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-amber-100 text-amber-900 border border-amber-300">
+                                    Low Stock
+                                  </span>
+                                ) : (
+                                  <span className="px-2.5 py-1 rounded-full text-[11px] font-black uppercase bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                    Healthy Stock
+                                  </span>
+                                )}
                               </td>
                             </tr>
                           );
-                        }
-
-                        const totalPages = Math.ceil(filtered.length / summaryRowsPerPage);
-                        const currentPageValid = Math.min(summaryCurrentPage, totalPages || 1);
-                        const startIndex = (currentPageValid - 1) * summaryRowsPerPage;
-                        const paginatedRecords = filtered.slice(startIndex, startIndex + summaryRowsPerPage);
-
-                        return (
-                          <>
-                            {paginatedRecords.map((record) => {
-                              let variantStr = '';
-                              if (record.variant) {
-                                try {
-                                  const parsed = typeof record.variant === 'string' ? JSON.parse(record.variant) : record.variant;
-                                  if (parsed && typeof parsed === 'object') {
-                                    variantStr = Object.entries(parsed)
-                                      .map(([k, v]) => `${k}: ${v}`)
-                                      .join(', ');
-                                  }
-                                } catch (e) {
-                                  variantStr = record.variant;
-                                }
-                              }
-
-                              return (
-                                <tr key={record.id} className="hover:bg-slate-50 transition-colors border-b border-slate-100">
-                                  <td className="px-6 py-4 text-slate-600 whitespace-nowrap text-xs">
-                                    {new Date(record.transaction_date).toLocaleString('en-US', {
-                                      month: 'short',
-                                      day: 'numeric',
-                                      year: 'numeric',
-                                      hour: '2-digit',
-                                      minute: '2-digit'
-                                    })}
-                                  </td>
-                                  <td className="px-6 py-4">
-                                    <p className="font-bold text-slate-900">{record.product_name || record.productName || 'Unknown Item'}</p>
-                                    {variantStr && (
-                                      <p className="text-[10px] text-purple-600 font-semibold mt-0.5">{variantStr}</p>
-                                    )}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
-                                    <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-bold uppercase ${
-                                      record.action === 'addition'
-                                        ? 'bg-green-50 text-green-700'
-                                        : 'bg-purple-50 text-purple-700'
-                                    }`}>
-                                      <span className={`w-1.5 h-1.5 rounded-full ${record.action === 'addition' ? 'bg-green-500' : 'bg-purple-500'}`}></span>
-                                      {record.action === 'addition' ? 'Stock Added' : 'Stock Sold'}
-                                    </span>
-                                  </td>
-                                  <td className={`px-6 py-4 text-right font-black whitespace-nowrap ${
-                                    record.action === 'addition' ? 'text-green-600' : 'text-purple-600'
-                                  }`}>
-                                    {record.action === 'addition' ? `+${record.quantity}` : `-${record.quantity}`}
-                                  </td>
-                                  <td className="px-6 py-4 text-right font-mono text-slate-600 whitespace-nowrap">
-                                    ₱{parseFloat(record.unit_value || 0).toFixed(2)}
-                                  </td>
-                                  <td className="px-6 py-4 text-right font-bold text-slate-900 font-mono whitespace-nowrap">
-                                    ₱{parseFloat(record.total_value || 0).toFixed(2)}
-                                  </td>
-                                  <td className="px-6 py-4 text-slate-600 font-medium">
-                                    {record.reference}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </>
-                        );
-                      })()}
-                    </tbody>
-                  </table>
-
-                  {/* Pagination Footer */}
-                  {(() => {
-                    const filtered = summaryRecords.filter((record) => {
-                      const productName = record.product_name || record.productName || '';
-                      const matchesSearch = productName.toLowerCase().includes((summarySearchQuery || '').toLowerCase());
-                      const matchesFilter = summaryFilter === 'all' || record.action === summaryFilter;
-                      return matchesSearch && matchesFilter;
-                    });
-
-                    if (filtered.length === 0) return null;
-
-                    const totalPages = Math.ceil(filtered.length / summaryRowsPerPage);
-                    const currentPageValid = Math.min(summaryCurrentPage, totalPages || 1);
-                    const startCount = (currentPageValid - 1) * summaryRowsPerPage + 1;
-                    const endCount = Math.min(currentPageValid * summaryRowsPerPage, filtered.length);
-
-                    return (
-                      <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs font-semibold text-slate-500">Rows per page:</span>
-                          <select
-                            value={summaryRowsPerPage}
-                            onChange={(e) => {
-                              setSummaryRowsPerPage(Number(e.target.value));
-                              setSummaryCurrentPage(1);
-                            }}
-                            className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer shadow-xs"
-                          >
-                            <option value={10}>10</option>
-                            <option value={15}>15</option>
-                            <option value={25}>25</option>
-                            <option value={50}>50</option>
-                            <option value={100}>100</option>
-                          </select>
-                          <span className="text-xs text-slate-500 font-medium">
-                            Showing <span className="font-bold text-slate-800">{startCount}</span> to{' '}
-                            <span className="font-bold text-slate-800">{endCount}</span> of{' '}
-                            <span className="font-bold text-slate-800">{filtered.length.toLocaleString()}</span> records
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <button
-                            type="button"
-                            onClick={() => setSummaryCurrentPage(1)}
-                            disabled={currentPageValid === 1}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-                          >
-                            First
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSummaryCurrentPage(prev => Math.max(prev - 1, 1))}
-                            disabled={currentPageValid === 1}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-                          >
-                            Previous
-                          </button>
-                          
-                          <span className="text-xs font-bold text-purple-700 px-3 py-1.5 bg-purple-50 rounded-lg border border-purple-200">
-                            Page {currentPageValid} of {totalPages || 1}
-                          </span>
-
-                          <button
-                            type="button"
-                            onClick={() => setSummaryCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                            disabled={currentPageValid >= totalPages || totalPages === 0}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-                          >
-                            Next
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSummaryCurrentPage(totalPages)}
-                            disabled={currentPageValid >= totalPages || totalPages === 0}
-                            className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
-                          >
-                            Last
-                          </button>
-                        </div>
-                      </div>
+                        })}
+                      </>
                     );
                   })()}
+                </tbody>
+              </table>
+
+              {/* Table Footer with Pagination & Summary Totals */}
+              {filteredSummaryItems.length > 0 && (
+                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs font-semibold text-slate-500">Rows per page:</span>
+                    <select
+                      value={summaryRowsPerPage}
+                      onChange={(e) => {
+                        setSummaryRowsPerPage(Number(e.target.value));
+                        setSummaryCurrentPage(1);
+                      }}
+                      className="px-2.5 py-1 text-xs border border-slate-300 rounded-lg bg-white text-slate-700 font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer shadow-xs"
+                    >
+                      <option value={10}>10</option>
+                      <option value={15}>15</option>
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                    </select>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Showing <span className="font-bold text-slate-800">
+                        {Math.min((summaryCurrentPage - 1) * summaryRowsPerPage + 1, filteredSummaryItems.length)}
+                      </span> to{' '}
+                      <span className="font-bold text-slate-800">
+                        {Math.min(summaryCurrentPage * summaryRowsPerPage, filteredSummaryItems.length)}
+                      </span> of{' '}
+                      <span className="font-bold text-slate-800">{filteredSummaryItems.length}</span> merchandise items
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSummaryCurrentPage(1)}
+                      disabled={summaryCurrentPage === 1}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      First
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSummaryCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={summaryCurrentPage === 1}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      Previous
+                    </button>
+
+                    <span className="text-xs font-bold text-purple-700 px-3 py-1.5 bg-purple-50 rounded-lg border border-purple-200">
+                      Page {summaryCurrentPage} of {Math.ceil(filteredSummaryItems.length / summaryRowsPerPage) || 1}
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setSummaryCurrentPage(prev => Math.min(prev + 1, Math.ceil(filteredSummaryItems.length / summaryRowsPerPage)))}
+                      disabled={summaryCurrentPage >= Math.ceil(filteredSummaryItems.length / summaryRowsPerPage)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      Next
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSummaryCurrentPage(Math.ceil(filteredSummaryItems.length / summaryRowsPerPage))}
+                      disabled={summaryCurrentPage >= Math.ceil(filteredSummaryItems.length / summaryRowsPerPage)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-xs"
+                    >
+                      Last
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Printable Physical Audit Sheet Modal */}
+          {showPrintAuditSheetModal && createPortal(
+            <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[9999] overflow-y-auto flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-4xl w-full p-8 shadow-2xl border border-slate-200 relative my-6">
+                <button
+                  type="button"
+                  onClick={() => setShowPrintAuditSheetModal(false)}
+                  className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-colors no-print"
+                >
+                  <X size={20} />
+                </button>
+
+                <div className="no-print mb-6 flex justify-end gap-3 border-b pb-4">
+                  <button
+                    type="button"
+                    onClick={() => window.print()}
+                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold text-xs shadow-md transition-all cursor-pointer flex items-center gap-2"
+                  >
+                    <Printer size={16} />
+                    <span>Print Audit Sheet Now</span>
+                  </button>
+                </div>
+
+                <div id="printable-audit-sheet" className="printable-document-card space-y-6">
+                  {/* Header */}
+                  <div className="text-center border-b pb-4">
+                    <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">
+                      UNIVERSITY OF CEBU-METC MULTIPURPOSE COOPERATIVE
+                    </h2>
+                    <p className="text-xs text-slate-600 font-bold mt-0.5">
+                      Coop Store & Merchandise Operations | UCMETC Campus, Mambaling, Cebu City
+                    </p>
+                    <div className="mt-3 py-1.5 bg-purple-50 rounded-lg border border-purple-200 inline-block px-6">
+                      <p className="text-sm font-black text-purple-950 uppercase tracking-wider">
+                        MONTH-END PHYSICAL INVENTORY COUNT & STOCK AUDIT SHEET
+                      </p>
+                      <p className="text-xs font-bold text-purple-800">
+                        Month: {selectedSummaryMonth} &nbsp;|&nbsp; Location: Coop Main Store
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Audit Info Metadata */}
+                  <div className="grid grid-cols-3 gap-4 text-xs bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div>
+                      <span className="text-slate-400 block font-semibold">Audit Date:</span>
+                      <strong className="text-slate-900">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-semibold">Audited By (Staff):</span>
+                      <strong className="text-slate-900">Coop Inventory Staff</strong>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 block font-semibold">Total Merchandise Items:</span>
+                      <strong className="text-purple-900">{inventorySummaryItems.length} Items</strong>
+                    </div>
+                  </div>
+
+                  {/* Table */}
+                  <table className="w-full text-xs border border-slate-300 border-collapse">
+                    <thead>
+                      <tr className="bg-slate-100 text-slate-900 font-black border-b border-slate-300 uppercase">
+                        <th className="p-2 border border-slate-300 text-center w-10">#</th>
+                        <th className="p-2 border border-slate-300 text-left">SKU</th>
+                        <th className="p-2 border border-slate-300 text-left">Merchandise Item</th>
+                        <th className="p-2 border border-slate-300 text-left">Category</th>
+                        <th className="p-2 border border-slate-300 text-right">Selling Price</th>
+                        <th className="p-2 border border-slate-300 text-center w-24">System Stock</th>
+                        <th className="p-2 border border-slate-300 text-center w-32">Physical Count</th>
+                        <th className="p-2 border border-slate-300 text-center w-24">Variance</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {inventorySummaryItems.map((item, idx) => (
+                        <tr key={item.itemKey} className="border-b border-slate-200">
+                          <td className="p-2 border border-slate-300 text-center font-bold text-slate-500">{idx + 1}</td>
+                          <td className="p-2 border border-slate-300 font-mono font-bold">{item.sku}</td>
+                          <td className="p-2 border border-slate-300 font-bold text-slate-900">
+                            {(() => {
+                              const display = getInventoryProductDisplayTitle(item.name, item.variantLabel);
+                              return display.subtitle ? `${display.title} (${display.subtitle})` : display.title;
+                            })()}
+                          </td>
+                          <td className="p-2 border border-slate-300">{item.category}</td>
+                          <td className="p-2 border border-slate-300 text-right font-mono font-bold">₱{(Number(item.unitPrice) || 0).toFixed(2)}</td>
+                          <td className="p-2 border border-slate-300 text-center font-bold text-slate-900">{item.systemStock}</td>
+                          <td className="p-2 border border-slate-300 text-center font-mono font-bold text-purple-900">
+                            {item.physicalStock}
+                          </td>
+                          <td className="p-2 border border-slate-300 text-center font-bold">
+                            {item.variance === 0 ? '0' : item.variance}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+
+                  {/* Signatures */}
+                  <div className="grid grid-cols-3 gap-8 pt-8 text-center text-xs border-t border-slate-200">
+                    <div>
+                      <div className="border-b border-slate-400 pb-1 mb-1 font-bold text-slate-900">__________________________</div>
+                      <span className="text-slate-500 font-semibold">Prepared By (Inventory Staff)</span>
+                    </div>
+                    <div>
+                      <div className="border-b border-slate-400 pb-1 mb-1 font-bold text-slate-900">__________________________</div>
+                      <span className="text-slate-500 font-semibold">Verified By (Auditor)</span>
+                    </div>
+                    <div>
+                      <div className="border-b border-slate-400 pb-1 mb-1 font-bold text-slate-900">__________________________</div>
+                      <span className="text-slate-500 font-semibold">Approved By (Coop Manager)</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
+
         </div>
       )}
       </div>
@@ -6466,6 +7777,543 @@ interface StockIntakeItem {
                   </div>
                 );
               })()}
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Month-End Physical Stock Audit Form Modal */}
+      {showPhysicalAuditModal && createPortal(
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md z-[9999] overflow-y-auto flex items-center justify-center p-3 sm:p-6">
+          <div className="bg-white rounded-3xl max-w-5xl w-full shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[92vh] my-auto animate-fade-in">
+            
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-5 sm:p-6 flex items-center justify-between border-b border-slate-800 flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <span className="p-2.5 bg-purple-600/30 text-purple-300 rounded-2xl border border-purple-500/30">
+                  <ShieldCheck size={26} />
+                </span>
+                <div>
+                  <h3 className="text-lg sm:text-xl font-black tracking-tight text-white flex flex-wrap items-center gap-2">
+                    Month-End Physical Stock Count Audit Form
+                    <span className="text-xs bg-purple-500/20 text-purple-300 font-bold px-2.5 py-0.5 rounded-full border border-purple-500/30">
+                      {selectedSummaryMonth}
+                    </span>
+                  </h3>
+                  <p className="text-xs text-slate-400 font-medium mt-0.5">
+                    Fill up staff physical counts for each merchandise item and variant. Click Submit when completed.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAutoFillFromSystemStock}
+                  className="px-3 py-1.5 bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700/50 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  title="Pre-fill physical count inputs with current system stock"
+                >
+                  <RotateCcw size={14} />
+                  <span className="hidden sm:inline">Copy System Stock to All</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setShowPhysicalAuditModal(false)}
+                  className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Filter & Search Toolbar */}
+            <div className="bg-slate-50 border-b border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
+              <div className="flex flex-wrap gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs w-full sm:w-auto">
+                {summaryCategoryOptions.map((cat) => (
+                  <button
+                    key={cat.key}
+                    type="button"
+                    onClick={() => setAuditModalCategory(cat.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      auditModalCategory === cat.key
+                        ? 'bg-purple-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative w-full sm:w-72">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search item, SKU, category..."
+                  value={auditModalSearch}
+                  onChange={(e) => setAuditModalSearch(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-2xs"
+                />
+                {auditModalSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setAuditModalSearch('')}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Scrollable Audit Form List */}
+            <div className="p-4 sm:p-6 overflow-y-auto space-y-4 flex-1 bg-slate-50/50">
+              {(() => {
+                const modalItems = products.flatMap((p) => {
+                  if (isMadeToOrderProduct(p)) return [];
+                  const category = p.category || 'General';
+                  const image = p.image || '';
+                  const parsedProductPrice = parseFloat(p.price) || 0;
+                  const sysStockMain = typeof p.stock === 'number' ? p.stock : (parseInt(p.stock, 10) || 0);
+                  const vList = getProductVariantsList(p);
+
+                  if (vList.length > 0) {
+                    return vList.map((v, idx) => {
+                      const itemKey = `${p.id}_v_${idx}`;
+                      const physStock = itemKey in tempPhysicalCounts ? (Number(tempPhysicalCounts[itemKey]) || 0) : v.stock;
+
+                      return {
+                        itemKey,
+                        productId: p.id,
+                        name: p.name,
+                        sku: v.sku,
+                        category,
+                        variantLabel: v.variantStr,
+                        unitPrice: v.price,
+                        systemStock: v.stock,
+                        physicalStock: physStock,
+                        variance: physStock - v.stock,
+                        image,
+                      };
+                    });
+                  } else {
+                    const itemKey = p.id;
+                    const sysStock = sysStockMain;
+                    const physStock = itemKey in tempPhysicalCounts ? (Number(tempPhysicalCounts[itemKey]) || 0) : sysStock;
+
+                    return [{
+                      itemKey,
+                      productId: p.id,
+                      name: p.name,
+                      sku: p.sku || 'SKU-00',
+                      category,
+                      variantLabel: '',
+                      unitPrice: parsedProductPrice,
+                      systemStock: sysStock,
+                      physicalStock: physStock,
+                      variance: physStock - sysStock,
+                      image,
+                    }];
+                  }
+                });
+
+                const filteredItems = modalItems.filter((item) => {
+                  const query = auditModalSearch.toLowerCase().trim();
+                  const matchesSearch =
+                    !query ||
+                    item.name.toLowerCase().includes(query) ||
+                    item.sku.toLowerCase().includes(query) ||
+                    item.category.toLowerCase().includes(query) ||
+                    item.variantLabel.toLowerCase().includes(query);
+
+                  const matchesCategory = matchesSummaryCategory(item.category, auditModalCategory);
+
+                  return matchesSearch && matchesCategory;
+                });
+
+                if (filteredItems.length === 0) {
+                  return (
+                    <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
+                      <p className="text-slate-500 font-semibold text-sm">No merchandise items match your search filter.</p>
+                    </div>
+                  );
+                }
+
+                const totalPhysUnits = filteredItems.reduce((acc, i) => acc + i.physicalStock, 0);
+                const totalValuation = filteredItems.reduce((acc, i) => acc + (i.physicalStock * i.unitPrice), 0);
+                const discrepancyCount = filteredItems.filter(i => i.variance !== 0).length;
+
+                return (
+                  <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-xs sm:text-sm">
+                        <thead className="bg-slate-100 border-b border-slate-200 text-slate-600 font-extrabold uppercase tracking-wider text-[11px]">
+                          <tr>
+                            <th className="px-4 py-3.5 text-left">Merchandise Item</th>
+                            <th className="px-4 py-3.5 text-left">Category</th>
+                            <th className="px-4 py-3.5 text-right">Unit Price</th>
+                            <th className="px-4 py-3.5 text-center">System Stock</th>
+                            <th className="px-4 py-3.5 text-center bg-purple-100/60 text-purple-950 border-x border-purple-200">
+                              Staff Physical Count
+                            </th>
+                            <th className="px-4 py-3.5 text-center">Stock Variance</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 bg-white">
+                          {filteredItems.map((item) => {
+                            const isDiscrepancy = item.variance !== 0;
+
+                            return (
+                              <tr key={item.itemKey} className={`hover:bg-purple-50/20 transition-colors ${isDiscrepancy ? 'bg-amber-50/20' : ''}`}>
+                                {/* Merchandise Item */}
+                                <td className="px-4 py-3.5">
+                                  {(() => {
+                                    const display = getInventoryProductDisplayTitle(item.name, item.variantLabel);
+                                    return (
+                                      <div>
+                                        <p className="font-bold text-slate-900 leading-snug">{display.title}</p>
+                                        <div className="flex items-center gap-2 mt-0.5">
+                                          <span className="font-mono text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 font-bold">
+                                            {item.sku}
+                                          </span>
+                                          {display.subtitle && (
+                                            <span className="text-[11px] font-bold text-purple-700">
+                                              {display.subtitle}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </td>
+
+                                {/* Category */}
+                                <td className="px-4 py-3.5 whitespace-nowrap">
+                                  <span className="px-2.5 py-1 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg uppercase tracking-wider">
+                                    {item.category}
+                                  </span>
+                                </td>
+
+                                {/* Unit Price */}
+                                <td className="px-4 py-3.5 text-right font-mono font-bold text-slate-800 whitespace-nowrap">
+                                  ₱{item.unitPrice.toFixed(2)}
+                                </td>
+
+                                {/* System Stock */}
+                                <td className="px-4 py-3.5 text-center font-black text-slate-700 whitespace-nowrap">
+                                  {item.systemStock} Pcs
+                                </td>
+
+                                {/* Physical Count Input Stepper */}
+                                <td className="px-4 py-2.5 text-center bg-purple-50/40 border-x border-purple-100 whitespace-nowrap">
+                                  <div className="inline-flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTempPhysicalCountChange(item.itemKey, (item.physicalStock - 1).toString())}
+                                      className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg flex items-center justify-center text-slate-700 font-extrabold text-sm cursor-pointer shadow-2xs active:scale-95 transition-all"
+                                    >
+                                      -
+                                    </button>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.physicalStock}
+                                      onChange={(e) => handleTempPhysicalCountChange(item.itemKey, e.target.value)}
+                                      className="w-16 py-1 text-center font-black text-slate-900 bg-white border-2 border-purple-400 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-600 shadow-2xs"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleTempPhysicalCountChange(item.itemKey, (item.physicalStock + 1).toString())}
+                                      className="w-7 h-7 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg flex items-center justify-center text-slate-700 font-extrabold text-sm cursor-pointer shadow-2xs active:scale-95 transition-all"
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </td>
+
+                                {/* Live Variance */}
+                                <td className="px-4 py-3.5 text-center whitespace-nowrap">
+                                  {item.variance === 0 ? (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                      0 (Match)
+                                    </span>
+                                  ) : item.variance < 0 ? (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-red-100 text-red-800 border border-red-300">
+                                      {item.variance} (Shortage)
+                                    </span>
+                                  ) : (
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black uppercase bg-blue-100 text-blue-800 border border-blue-300">
+                                      +{item.variance} (Overage)
+                                    </span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Modal Internal Footer Summary */}
+                    <div className="bg-slate-50 border-t border-slate-200 p-3.5 px-5 flex flex-wrap items-center justify-between gap-3 text-xs font-semibold text-slate-600">
+                      <div className="flex items-center gap-4">
+                        <span>Items Listed: <strong className="text-slate-900">{filteredItems.length}</strong></span>
+                        <span>Physical Units: <strong className="text-purple-700">{totalPhysUnits.toLocaleString()} Pcs</strong></span>
+                        <span>Valuation: <strong className="text-emerald-700 font-mono">₱{totalValuation.toLocaleString('en-US', { minimumFractionDigits: 2 })}</strong></span>
+                      </div>
+                      {discrepancyCount > 0 && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-300">
+                          {discrepancyCount} Discrepancies
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="bg-white border-t border-slate-200 p-4 px-6 flex flex-col sm:flex-row items-center justify-between gap-4 flex-shrink-0 shadow-lg">
+              <div className="text-xs text-slate-500 font-medium">
+                Note: Submitting will establish the physical count for <span className="font-bold text-slate-900">{selectedSummaryMonth}</span>.
+              </div>
+
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowPhysicalAuditModal(false)}
+                  className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSavePhysicalAuditModal}
+                  className="px-6 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 active:scale-95"
+                >
+                  <Save size={16} />
+                  <span>Submit & Save Month-End Audit</span>
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Receive Incoming Stock Modal Form Portal */}
+      {showReceiveStockModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-2xl sm:max-w-3xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh] transition-all">
+            {/* Modal Header */}
+            <div className="bg-slate-900 text-white p-5 flex items-center justify-between flex-shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-xl flex items-center justify-center font-bold">
+                  <Package size={20} />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-base leading-snug">Receive Incoming Stock</h3>
+                  <p className="text-xs text-slate-400 font-medium">Log stock arrivals to update Inventory catalog levels</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowReceiveStockModal(false)}
+                className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-full transition-colors cursor-pointer"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 bg-slate-50/50">
+              {/* Product Selection */}
+              <div>
+                <AnimatedSelect
+                  label="Select Merchandise Product *"
+                  value={receiveStockFormData.productId}
+                  placeholder="-- Choose Product --"
+                  options={products.map((p) => ({
+                    value: p.id,
+                    label: `${p.sku ? `[${p.sku}] ` : ''}${p.name} (${p.category || 'General'})`,
+                  }))}
+                  onChange={(selectedId) => {
+                    const p = products.find(prod => prod.id === selectedId);
+                    setReceiveStockFormData(prev => ({
+                      ...prev,
+                      productId: selectedId,
+                      selectedVariantIndex: '',
+                      unitCost: p ? (parseFloat(p.price) || 0) : 0,
+                    }));
+                  }}
+                />
+              </div>
+
+              {/* Variant Selection if Product Has Variants */}
+              <ReceiveStockVariantField
+                productId={receiveStockFormData.productId}
+                selectedVariantIndex={receiveStockFormData.selectedVariantIndex}
+                products={products}
+                onVariantChange={(vIdx, unitPrice) => {
+                  setReceiveStockFormData((prev) => ({
+                    ...prev,
+                    selectedVariantIndex: vIdx,
+                    unitCost: unitPrice,
+                  }));
+                }}
+              />
+
+              {/* Quantity Received & Unit Cost */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                    Quantity Received <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={receiveStockFormData.quantity}
+                    onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, quantity: Math.max(1, parseInt(e.target.value, 10) || 1) }))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-sm font-black text-emerald-950 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                    Unit Cost (₱)
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={receiveStockFormData.unitCost}
+                    onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, unitCost: parseFloat(e.target.value) || 0 }))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-800 focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Supplier, DR Ref & Date Received */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                    DR / PO Reference #
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. DR-2026-8801"
+                    value={receiveStockFormData.referenceNo}
+                    onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, referenceNo: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                    Date Received
+                  </label>
+                  <input
+                    type="date"
+                    value={receiveStockFormData.dateReceived}
+                    onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, dateReceived: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                    Supplier Name
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Accents & Badges Inc."
+                    value={receiveStockFormData.supplier}
+                    onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, supplier: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {/* Notes */}
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-600 mb-1.5">
+                  Delivery Notes / Remarks
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Optional delivery details or condition..."
+                  value={receiveStockFormData.notes}
+                  onChange={(e) => setReceiveStockFormData(prev => ({ ...prev, notes: e.target.value }))}
+                  className="w-full px-3.5 py-2 bg-white border border-slate-300 rounded-xl text-xs font-semibold focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                />
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-100 border-t border-slate-200 flex items-center justify-end gap-3 flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowReceiveStockModal(false)}
+                className="px-4 py-2 text-slate-600 hover:text-slate-900 font-bold text-xs rounded-xl cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveStockReceiving}
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-all cursor-pointer shadow-md flex items-center gap-2 hover:scale-105 active:scale-95"
+              >
+                <CheckCircle2 size={16} />
+                <span>Confirm & Update Inventory Stock</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Stock Receiving Confirm Modal Portal */}
+      {deleteReceivingConfirmModal.show && deleteReceivingConfirmModal.record && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-fade-in" onClick={() => setDeleteReceivingConfirmModal({ show: false, record: null })}>
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 p-6 animate-scale-in space-y-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 text-red-600 flex items-center justify-center font-bold flex-shrink-0">
+                <AlertTriangle size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-extrabold text-slate-900 leading-snug">Confirm Stock Reversion</h3>
+                <p className="text-xs text-slate-500 font-medium">Remove receiving record & update inventory</p>
+              </div>
+            </div>
+
+            <div className="bg-red-50/70 border border-red-200/80 p-4 rounded-2xl text-xs space-y-2 text-red-950 font-medium">
+              <p className="font-bold text-red-900 text-sm">
+                Deduct {deleteReceivingConfirmModal.record.quantity} pcs of {deleteReceivingConfirmModal.record.variantLabel ? `${deleteReceivingConfirmModal.record.productName} (${deleteReceivingConfirmModal.record.variantLabel})` : deleteReceivingConfirmModal.record.productName} from Inventory and remove receiving record {deleteReceivingConfirmModal.record.referenceNo}?
+              </p>
+              <p className="text-[11px] text-red-700">
+                This action will decrease current system stock in the Inventory tab by {deleteReceivingConfirmModal.record.quantity} pcs.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteReceivingConfirmModal({ show: false, record: null })}
+                className="px-5 py-2.5 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs transition-all cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteReceivingRecord}
+                className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-extrabold text-xs shadow-md hover:shadow-lg transition-all cursor-pointer flex items-center gap-2 active:scale-95"
+              >
+                <Trash2 size={16} />
+                <span>Delete & Revert Stock</span>
+              </button>
             </div>
           </div>
         </div>,

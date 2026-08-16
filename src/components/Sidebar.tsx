@@ -299,34 +299,60 @@ export const Sidebar: React.FC = () => {
           )}
 
           {/* Navigation items */}
-          <nav className="flex-1 p-3.5 space-y-1.5 overflow-y-auto">
-            {filteredItems.map((item, idx) => {
-              const isActive = location.pathname === `/${item.id}` || (location.pathname === '/' && item.id === 'dashboard');
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => handleNavigation(item.id)}
-                  className={`group relative w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer text-sm font-semibold border border-transparent ${
-                    isActive
-                      ? 'nav-active-animated text-white'
-                      : 'nav-hover-animated text-purple-100 hover:text-white'
-                  }`}
-                  style={{ animationDelay: `${0.05 + idx * 0.03}s` }}
-                >
-                  <span className={`transition-all duration-300 ${
-                    isActive 
-                      ? 'text-white scale-110' 
-                      : 'text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 group-hover:rotate-6'
-                  }`}>
-                    {item.icon}
-                  </span>
-                  <span className="relative z-10 transition-colors duration-200">{item.label}</span>
-                  {isActive && (
-                    <span className="ml-auto w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_#ffffff]" />
-                  )}
-                </button>
-              );
-            })}
+          <nav className="flex-1 p-3.5 flex flex-col justify-between overflow-y-auto">
+            <div className="space-y-1.5">
+              {filteredItems.map((item, idx) => {
+                const isActive = location.pathname === `/${item.id}` || (location.pathname === '/' && item.id === 'dashboard');
+                return (
+                  <button
+                    key={item.id}
+                    onClick={() => handleNavigation(item.id)}
+                    className={`group relative w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer text-sm font-semibold border border-transparent ${
+                      isActive
+                        ? 'nav-active-animated text-white'
+                        : 'nav-hover-animated text-purple-100 hover:text-white'
+                    }`}
+                    style={{ animationDelay: `${0.05 + idx * 0.03}s` }}
+                  >
+                    <span className={`transition-all duration-300 ${
+                      isActive 
+                        ? 'text-white scale-110' 
+                        : 'text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 group-hover:rotate-6'
+                    }`}>
+                      {item.icon}
+                    </span>
+                    <span className="relative z-10 transition-colors duration-200">{item.label}</span>
+                    {isActive && (
+                      <span className="ml-auto w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_#ffffff]" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Bottom-anchored Settings Navigation Item */}
+            <div className="pt-2">
+              <button
+                onClick={() => handleNavigation('settings')}
+                className={`group relative w-full flex items-center space-x-3 px-3.5 py-2.5 rounded-xl transition-all duration-300 cursor-pointer text-sm font-semibold border border-transparent ${
+                  location.pathname === '/settings'
+                    ? 'nav-active-animated text-white'
+                    : 'nav-hover-animated text-purple-100 hover:text-white'
+                }`}
+              >
+                <span className={`transition-all duration-300 ${
+                  location.pathname === '/settings'
+                    ? 'text-white scale-110' 
+                    : 'text-emerald-400 group-hover:text-emerald-300 group-hover:scale-110 group-hover:rotate-6'
+                }`}>
+                  <Settings size={20} />
+                </span>
+                <span className="relative z-10 transition-colors duration-200">Settings</span>
+                {location.pathname === '/settings' && (
+                  <span className="ml-auto w-2 h-2 rounded-full bg-white animate-pulse shadow-[0_0_8px_#ffffff]" />
+                )}
+              </button>
+            </div>
           </nav>
 
           {/* Logout button */}

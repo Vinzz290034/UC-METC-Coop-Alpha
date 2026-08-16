@@ -19,6 +19,7 @@ import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
 import { formatNamePart, formatFullName } from '../utils/nameFormatter';
+import { FloatingSelect } from '../components/FloatingSelect';
 
 interface User {
   id: string;
@@ -719,16 +720,13 @@ export const UserManagementPage: React.FC = () => {
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-2">Role</label>
                   {isEditing ? (
-                    <select
-                      value={editRole}
-                      onChange={(e) => setEditRole(e.target.value as any)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none bg-white"
-                    >
-                      <option value="user">User</option>
-                      <option value="member">Member</option>
-                      <option value="staff">Staff</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    <FloatingSelect
+                      label=""
+                      value={editRole ? editRole.charAt(0).toUpperCase() + editRole.slice(1) : 'User'}
+                      onChange={(e) => setEditRole(e.target.value.toLowerCase() as any)}
+                      options={['User', 'Member', 'Staff', 'Admin']}
+                      placeholder="Select Role"
+                    />
                   ) : (
                     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getRoleColor(getDisplayRole(selectedUser))}`}>
                       {getDisplayRole(selectedUser).charAt(0).toUpperCase() + getDisplayRole(selectedUser).slice(1)}
@@ -740,19 +738,20 @@ export const UserManagementPage: React.FC = () => {
                   <label className="block text-sm font-medium text-slate-700 mb-2">Course & Year</label>
                   {isEditing ? (
                     <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
+                      <FloatingSelect
+                        label=""
                         value={editCourse}
                         onChange={(e) => setEditCourse(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        placeholder="Course (e.g. HM, BSIT)"
+                        options={['BSMT', 'BSMARE', 'BSNAME', 'HM', 'TOURISM', 'SHS', 'JHS']}
+                        placeholder="Course"
                       />
-                      <input
-                        type="text"
+
+                      <FloatingSelect
+                        label=""
                         value={editYear}
                         onChange={(e) => setEditYear(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:outline-none"
-                        placeholder="Year (e.g. 1st, 2nd)"
+                        options={['1st', '2nd', '3rd', '4th', 'Grade 11', 'Grade 12']}
+                        placeholder="Year"
                       />
                     </div>
                   ) : (

@@ -61,6 +61,7 @@ export const PRODUCT_IMAGES = {
   'Gala Bundle G': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411914/Gala_Bundle_G_fvp4r0.png',
   'Gala Bundle H': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411915/Gala_Bundle_H_lu1als.png',
   'Gala Bundle I': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779411916/Gala_Bundle_I_mys1ti.png',
+  'Class Ring': 'https://res.cloudinary.com/doas4qcdo/image/upload/v1779412428/class_ring.jpg',
   'GCash': GCASH_URL,
   'I-CARD': I_CARD_URL,
 } as const;

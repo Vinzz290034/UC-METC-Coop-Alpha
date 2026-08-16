@@ -14,7 +14,6 @@ import {
   Phone,
   Facebook,
   X,
-  Sparkles,
   LogIn,
   LayoutDashboard,
   Info,

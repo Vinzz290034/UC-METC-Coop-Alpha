@@ -257,7 +257,7 @@ export const FeedbackPage: React.FC = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 animate-fade-in">
+    <div className="min-h-screen bg-slate-50 p-4 sm:p-6 lg:p-8 animate-slide-in-right">
       <div className="max-w-7xl mx-auto space-y-8">
 
         {/* Mobile Header with Hamburger */}
@@ -319,19 +319,7 @@ export const FeedbackPage: React.FC = () => {
                   </span>
                 </div>
               </div>
-            ) : (
-              <div className="flex items-center gap-4 bg-white/10 backdrop-blur-md border border-white/20 p-5 rounded-2xl max-w-md">
-                <div className="w-14 h-14 rounded-2xl bg-amber-400 text-purple-950 flex items-center justify-center flex-shrink-0 font-black shadow-lg">
-                  <MessageSquare size={28} />
-                </div>
-                <div>
-                  <h4 className="text-base font-extrabold text-white">We Value Your Voice</h4>
-                  <p className="text-xs text-purple-200 mt-0.5 leading-relaxed font-medium">
-                    Every feedback is reviewed directly by UC METC SILMS management to continuously enhance campus services.
-                  </p>
-                </div>
-              </div>
-            )}
+            ) : null}
           </div>
 
           {/* Nav Tabs for Students */}

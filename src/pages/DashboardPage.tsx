@@ -27,9 +27,24 @@ export const DashboardPage: React.FC = () => {
   // Fetch data directly from database
   const [sales, setSales] = useState<any[]>([]);
   const [approvedMembers, setApprovedMembers] = useState<any[]>([]);
+  const [totalLockersCount, setTotalLockersCount] = useState<number>(0);
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  // Fetch lockers count
+  useEffect(() => {
+    const fetchLockers = async () => {
+      try {
+        const res = await apiClient.getLockers().catch(() => ({ lockers: [] })) as any;
+        const lList = Array.isArray(res?.lockers) ? res.lockers : (Array.isArray(res) ? res : []);
+        setTotalLockersCount(lList.length);
+      } catch (e) {
+        setTotalLockersCount(0);
+      }
+    };
+    fetchLockers();
   }, []);
 
   // Fetch orders directly from API on mount and set up polling
@@ -371,16 +386,7 @@ export const DashboardPage: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="text-sm text-slate-600">Total Lockers</span>
                 <span className="font-semibold text-slate-900">
-                  {lockers.length}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-600">
-                  Maintenance Needed
-                </span>
-                <span className="font-semibold text-orange-600">
-                  {lockers.filter((l) => l.status === 'under_maintenance')
-                    .length}
+                  {totalLockersCount}
                 </span>
               </div>
             </div>

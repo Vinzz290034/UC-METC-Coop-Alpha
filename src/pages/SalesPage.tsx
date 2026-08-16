@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -10,6 +10,20 @@ import { formatFullName } from '../utils/nameFormatter';
 import * as XLSX from 'xlsx';
 
 
+
+// Helper function to check if an order contains a Class Ring
+const isClassRingOrder = (order: any): boolean => {
+  if (!order) return false;
+  if (order.order_type === 'class_ring') return true;
+  if (order.items && Array.isArray(order.items)) {
+    return order.items.some((item: any) => {
+      const name = (item.product_name || item.productName || item.name || '').toLowerCase();
+      return name.includes('class ring') || (name.includes('ring') && !name.includes('pershing'));
+    });
+  }
+  const mainName = (order.product_name || order.productName || order.name || '').toLowerCase();
+  return mainName.includes('class ring') || (mainName.includes('ring') && !mainName.includes('pershing'));
+};
 
 export const SalesPage: React.FC = () => {
   // Scroll to top when component mounts
@@ -90,7 +104,7 @@ export const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'insurance' | 'hardbound'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'classring'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -104,6 +118,18 @@ export const SalesPage: React.FC = () => {
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
   const [insuranceOrders, setInsuranceOrders] = useState<any[]>([]);
   const [hardboundOrders, setHardboundOrders] = useState<any[]>([]);
+  const [classRingOrders, setClassRingOrders] = useState<any[]>([]);
+  const [isClassRingAvailable, setIsClassRingAvailable] = useState<boolean>(() => {
+    const saved = localStorage.getItem('silms_class_ring_available');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  const handleClassRingAvailabilityToggle = () => {
+    const nextVal = !isClassRingAvailable;
+    setIsClassRingAvailable(nextVal);
+    localStorage.setItem('silms_class_ring_available', String(nextVal));
+    window.dispatchEvent(new Event('silms_settings_updated'));
+  };
   const [hardboundSearchQuery, setHardboundSearchQuery] = useState<string>('');
   const [hardboundFilterDate, setHardboundFilterDate] = useState<string>('');
   const [hardboundCurrentPage, setHardboundCurrentPage] = useState<number>(1);
@@ -117,6 +143,7 @@ export const SalesPage: React.FC = () => {
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
   const [fulfillmentSearchQuery, setFulfillmentSearchQuery] = useState<string>('');
+  const [downpaymentSearchQuery, setDownpaymentSearchQuery] = useState<string>('');
   const [notifiedOrders, setNotifiedOrders] = useState<Set<string>>(() => {
     try {
       const saved = localStorage.getItem('coop_notified_preorders');
@@ -226,9 +253,9 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab]);
 
-  // Load orders for fulfillment tab
+  // Load orders for fulfillment and downpayment tabs
   useEffect(() => {
-    if (user?.id && activeTab === 'fulfillment') {
+    if (user?.id && (activeTab === 'fulfillment' || activeTab === 'downpayment')) {
       loadPreOrderOrders();
       loadDownpaymentOrders();
       
@@ -250,6 +277,19 @@ export const SalesPage: React.FC = () => {
       // Set up polling for real-time updates (every 10 seconds)
       const interval = setInterval(() => {
         loadHardboundOrders();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab]);
+
+  // Load orders for class ring tab
+  useEffect(() => {
+    if (user?.id && activeTab === 'classring') {
+      loadClassRingOrders();
+      
+      const interval = setInterval(() => {
+        loadClassRingOrders();
       }, 10000);
       
       return () => clearInterval(interval);
@@ -316,6 +356,7 @@ export const SalesPage: React.FC = () => {
     }
     else if (activeTab === 'insurance') await loadInsuranceOrders();
     else if (activeTab === 'hardbound') await loadHardboundOrders();
+    else if (activeTab === 'classring') await loadClassRingOrders();
   };
 
   // Excel / CSV Importer Helper Functions
@@ -840,7 +881,7 @@ export const SalesPage: React.FC = () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
       
-      // Filter orders for today (exclude insurance orders)
+      // Filter orders for today (exclude insurance and class ring orders)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
@@ -851,18 +892,9 @@ export const SalesPage: React.FC = () => {
         const isToday = orderDate.getTime() === today.getTime();
         const isCompletedOrCancelled = order.status === 'completed' || order.status === 'released' || order.status === 'cancelled';
         const isNotInsurance = order.order_type !== 'insurance';
+        const isNotRing = !isClassRingOrder(order);
         
-        console.log('[Daily Summary Filter]', {
-          receipt: order.receipt_no,
-          order_type: order.order_type,
-          status: order.status,
-          isToday,
-          isCompletedOrCancelled,
-          isNotInsurance,
-          included: isToday && isCompletedOrCancelled && isNotInsurance
-        });
-        
-        return isToday && isCompletedOrCancelled && isNotInsurance;
+        return isToday && isCompletedOrCancelled && isNotInsurance && isNotRing;
       });
       
       console.log('[Daily Summary] Filtered orders:', todayOrders.length, 'out of', allOrders.length);
@@ -900,7 +932,7 @@ export const SalesPage: React.FC = () => {
     try {
       const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
       
-      // Filter orders for selected date (exclude insurance orders)
+      // Filter orders for selected date (exclude insurance and class ring orders)
       const targetDate = new Date(selectedDate);
       targetDate.setHours(0, 0, 0, 0);
       
@@ -910,13 +942,27 @@ export const SalesPage: React.FC = () => {
         orderDate.setHours(0, 0, 0, 0);
         return orderDate.getTime() === targetDate.getTime() && 
                (order.status === 'completed' || order.status === 'released' || order.status === 'cancelled') &&
-               order.order_type !== 'insurance'; // Exclude insurance orders
+               order.order_type !== 'insurance' &&
+               !isClassRingOrder(order); // Exclude Class Ring orders from Coop sales
       });
       
       setHistoryOrders(historyOrdersFiltered);
     } catch (err) {
       console.error('Failed to load history summary:', err);
     }
+  };
+
+  const isLockerRentalOrder = (order: any): boolean => {
+    if (!order) return false;
+    if (order.order_type === 'locker' || order.order_type === 'locker_rental') return true;
+    if (order.items && Array.isArray(order.items)) {
+      return order.items.some((item: any) => {
+        const name = (item.product_name || item.productName || item.name || '').toLowerCase();
+        return name.includes('locker');
+      });
+    }
+    const mainName = (order.product_name || order.productName || order.name || '').toLowerCase();
+    return mainName.includes('locker');
   };
 
   const loadRemittanceSummary = async () => {
@@ -931,12 +977,26 @@ export const SalesPage: React.FC = () => {
         orderDate.setHours(0, 0, 0, 0);
         return orderDate.getTime() === targetDate.getTime() && 
                (order.status === 'completed' || order.status === 'released' || order.status === 'cancelled') &&
-               order.order_type !== 'insurance';
+               order.order_type !== 'insurance' &&
+               !isClassRingOrder(order) &&
+               !isLockerRentalOrder(order);
       });
       
       setRemittanceOrders(filtered);
     } catch (err) {
       console.error('Failed to load remittance summary:', err);
+    }
+  };
+
+  const loadClassRingOrders = async () => {
+    try {
+      const allTransactions = await apiClient.getAllTransactions(user?.id || '') as any[];
+      if (Array.isArray(allTransactions)) {
+        const ringOrders = allTransactions.filter((order: any) => isClassRingOrder(order));
+        setClassRingOrders(ringOrders);
+      }
+    } catch (err) {
+      console.error('Failed to load Class Ring orders:', err);
     }
   };
 
@@ -1780,6 +1840,88 @@ export const SalesPage: React.FC = () => {
       showNotification('Hardbound report exported successfully!', 'success');
       return;
     }
+
+    if (activeTab === 'classring') {
+      const rows = classRingOrders.map(order => {
+        const item = order.items?.[0] || {};
+        const opts = item.selectedOptions || order.selectedOptions || {};
+        const paymentDateStr = new Date(order.completed_at || order.updated_at || order.created_at).toLocaleDateString();
+
+        return {
+          receiptNo: order.receipt_no || 'N/A',
+          cadetName: `${order.first_name || ''} ${order.last_name || ''}`.trim() || order.walk_in_name || 'N/A',
+          contactNumber: opts['Contact Number'] || order.contact_number || 'N/A',
+          contactAddress: opts['Contact Address'] || opts['Complete Address'] || order.address || 'N/A',
+          schoolOrg: opts['School/Organization'] || 'UC METC',
+          program: opts['Degree/Program'] || order.course || 'BSMT',
+          gradYear: opts['Graduation Year'] || '2026',
+          model: opts['Model'] || 'Medium',
+          material: opts['Material'] || 'Stainless Steel',
+          finish: opts['Finish'] || 'Natural Gold',
+          ringSize: opts['Ring Size'] || 'Size 8',
+          birthstone: opts['Birthstone'] || 'September (Sapphire)',
+          engraving: opts['Inside Engraving'] || 'None',
+          price: parseFloat(order.total_amount || item.price || 0),
+          paymentMethod: formatPaymentMethod(order.payment_method),
+          status: (order.status || 'pending').toUpperCase(),
+          date: paymentDateStr,
+        };
+      });
+
+      const totalRevenueVal = rows.reduce((sum, r) => sum + r.price, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #d97706; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Cadet Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Contact No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Contact Address</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Program & Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Model & Size</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Material & Finish</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Birthstone</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Inside Engraving</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">Total Price</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Status</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#fffbeb';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; font-family: Consolas, monospace;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">${row.cadetName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.contactNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.contactAddress}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.program} (${row.gradYear})</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.model} (${row.ringSize})</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.material} - ${row.finish}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.birthstone}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #b45309;">${row.engraving}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #d97706;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.status}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.date}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = getExcelHtmlWrapper(
+        'Royal Gem Official Class Ring Orders (Trust Fund Account)',
+        'Segregated Royal Gem Class Ring Custom Orders List',
+        [
+          { label: 'Total Trust Funds Collected', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#fffbeb', border: '#fde047', color: '#b45309' },
+          { label: 'Total Class Ring Orders', value: classRingOrders.length.toString(), bg: '#eff6ff', border: '#93c5fd', color: '#1d4ed8' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `class_ring_orders_${formatLocalDate(new Date())}`);
+      showNotification('Class Ring orders report exported successfully!', 'success');
+      return;
+    }
   };
 
   return (
@@ -1804,8 +1946,8 @@ export const SalesPage: React.FC = () => {
               <span>Import Excel/CSV</span>
             </button>
 
-            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, and Hardbound tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound') && (
+            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, and Class Ring tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
@@ -1878,7 +2020,17 @@ export const SalesPage: React.FC = () => {
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Fulfillment
+              Pre-Orders
+            </button>
+            <button
+              onClick={() => setActiveTab('downpayment')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'downpayment'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Downpayments
             </button>
             <button
               onClick={() => setActiveTab('insurance')}
@@ -1899,6 +2051,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               Hardbound
+            </button>
+            <button
+              onClick={() => setActiveTab('classring')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'classring'
+                  ? 'text-blue-600 border-b-2 border-blue-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Class Ring
             </button>
           </div>
         </div>
@@ -3299,13 +3461,13 @@ export const SalesPage: React.FC = () => {
           </div>
         )}
 
-        {/* Order Fulfillment Tab */}
+        {/* Pre-Orders Tab */}
         {activeTab === 'fulfillment' && (
           <div className="space-y-6 animate-fade-in">
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
               <div className="mb-6">
-                <h3 className="text-lg font-semibold text-slate-900 mb-1">Order Fulfillment</h3>
-                <p className="text-sm text-slate-600">Manage pre-orders awaiting fulfillment and downpayment balance collections.</p>
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">Pre-Orders</h3>
+                <p className="text-sm text-slate-600">Manage pre-orders awaiting fulfillment and pickup.</p>
               </div>
 
               {/* Search Bar */}
@@ -3329,7 +3491,7 @@ export const SalesPage: React.FC = () => {
               </div>
 
               {/* Pre-Orders Section */}
-              <div className="mb-8">
+              <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Package size={20} className="text-purple-600" />
                   <h4 className="text-md font-semibold text-slate-900">Pre-Orders Awaiting Fulfillment</h4>
@@ -3461,7 +3623,7 @@ export const SalesPage: React.FC = () => {
                                   }}
                                   disabled={isUpdatingStatus}
                                 >
-                                  {(notifiedOrders.has(order.id) || order.is_notified || order.notified) ? 'Notified (Resend)' : 'Ready to Release'}
+                                  {(notifiedOrders.has(order.id) || order.is_notified || order.notified) ? 'Notified (Resend)' : 'Ready for Release'}
                                 </button>
 
                                 <button
@@ -3485,7 +3647,7 @@ export const SalesPage: React.FC = () => {
                                   }}
                                   disabled={isUpdatingStatus}
                                 >
-                                  {isUpdatingStatus ? 'Processing...' : 'Mark as Released'}
+                                  {isUpdatingStatus ? 'Processing...' : 'Released'}
                                 </button>
                               </div>
                             </div>
@@ -3495,6 +3657,38 @@ export const SalesPage: React.FC = () => {
                     })}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Downpayments Tab */}
+        {activeTab === 'downpayment' && (
+          <div className="space-y-6 animate-fade-in">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-slate-900 mb-1">Downpayments</h3>
+                <p className="text-sm text-slate-600">Manage downpayment balance collections and dues.</p>
+              </div>
+
+              {/* Search Bar */}
+              <div className="mb-6">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
+                  <input
+                    type="text"
+                    placeholder="Search by customer name..."
+                    value={downpaymentSearchQuery}
+                    onChange={(e) => setDownpaymentSearchQuery(e.target.value)}
+                    onFocus={(e) => {
+                      e.currentTarget.style.animation = 'inputBounce 0.3s ease-out';
+                      setTimeout(() => {
+                        e.currentTarget.style.animation = '';
+                      }, 300);
+                    }}
+                    className="w-full pl-10 pr-4 py-2 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-200 focus:border-purple-500 transition-all"
+                  />
+                </div>
               </div>
 
               {/* Downpayment Balance Section */}
@@ -3508,9 +3702,9 @@ export const SalesPage: React.FC = () => {
                       if (o.receipt_no && o.receipt_no.startsWith('BAL-')) return false; // Exclude balance payment orders from count
                       
                       // Apply search filter
-                      if (fulfillmentSearchQuery) {
+                      if (downpaymentSearchQuery) {
                         const customerName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-                        if (!customerName.includes(fulfillmentSearchQuery.toLowerCase())) return false;
+                        if (!customerName.includes(downpaymentSearchQuery.toLowerCase())) return false;
                       }
                       
                       // Check if this order has a completed balance payment
@@ -3547,13 +3741,13 @@ export const SalesPage: React.FC = () => {
                 
                 {downpaymentOrders.filter(o => {
                   if (o.status !== 'completed') return false;
-                  if (!fulfillmentSearchQuery) return true;
+                  if (!downpaymentSearchQuery) return true;
                   const customerName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-                  return customerName.includes(fulfillmentSearchQuery.toLowerCase());
+                  return customerName.includes(downpaymentSearchQuery.toLowerCase());
                 }).length === 0 ? (
                   <div className="text-center py-8 bg-slate-50 rounded-lg">
                     <p className="text-slate-500 text-sm">
-                      {fulfillmentSearchQuery ? 'No downpayment orders found matching your search' : 'No downpayment balances pending'}
+                      {downpaymentSearchQuery ? 'No downpayment orders found matching your search' : 'No downpayment balances pending'}
                     </p>
                   </div>
                 ) : (
@@ -3561,9 +3755,9 @@ export const SalesPage: React.FC = () => {
                     {downpaymentOrders
                       .filter(o => {
                         if (o.status !== 'completed') return false;
-                        if (!fulfillmentSearchQuery) return true;
+                        if (!downpaymentSearchQuery) return true;
                         const customerName = `${o.first_name || ''} ${o.last_name || ''}`.toLowerCase();
-                        return customerName.includes(fulfillmentSearchQuery.toLowerCase());
+                        return customerName.includes(downpaymentSearchQuery.toLowerCase());
                       })
                       .filter(o => {
                         // Exclude balance payment orders (BAL-) from display
@@ -3719,14 +3913,13 @@ export const SalesPage: React.FC = () => {
                               {isFullyPaid ? (
                                 <>
                                   <p className="text-xs text-slate-600 mb-1">Total Paid:</p>
-                                  <p className="text-lg font-bold text-green-600 mb-2">
+                                  <p className="text-lg font-bold text-green-600 mb-1">
                                     ₱{downpaymentItems.reduce((sum: number, item: any) => {
+                                      const paidAmount = parseFloat(item.subtotal || 0);
                                       let fullPrice = item.fullPrice || item.full_price;
                                       
-                                      // If no full_price in database, estimate based on product name (for legacy orders)
                                       if (!fullPrice) {
                                         const productName = item.productName || item.product_name || '';
-                                        
                                         if (productName.includes('Gala')) {
                                           const isMember = productName.includes('Member');
                                           fullPrice = isMember ? 1150 : 1200;
@@ -3735,7 +3928,7 @@ export const SalesPage: React.FC = () => {
                                         }
                                       }
                                       
-                                      return sum + ((fullPrice || 0) * item.quantity);
+                                      return sum + (fullPrice * item.quantity);
                                     }, 0).toLocaleString()}
                                   </p>
                                   <div className="text-xs text-green-600 font-semibold">
@@ -4177,6 +4370,226 @@ export const SalesPage: React.FC = () => {
                           </button>
                         </div>
                       </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Class Ring Tab */}
+        {activeTab === 'classring' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Summary Banner */}
+            <div className="bg-blue-600 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/20 rounded-full text-xs font-bold backdrop-blur-xs border border-white/30 text-blue-100">
+                    <Award size={14} className="text-blue-200" />
+                    <span>Segregated Royal Gem Trust Account</span>
+                  </div>
+                  <h3 className="text-2xl sm:text-3xl font-black text-white">Class Ring Orders & Trust Funds</h3>
+                  <p className="text-blue-100 text-xs sm:text-sm max-w-2xl leading-relaxed">
+                    Official maritime graduation class ring customizer logs. All funds collected are held on behalf of Royal Gem Jewelers and are strictly isolated from general Cooperative sales.
+                  </p>
+                </div>
+                
+                {/* Stats & Availability Toggle */}
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 w-full md:w-auto">
+                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 text-center">
+                    <p className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Total Trust Funds</p>
+                    <p className="text-xl sm:text-2xl font-black text-white mt-1">
+                      ₱{classRingOrders.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 text-center">
+                    <p className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Total Ring Orders</p>
+                    <p className="text-xl sm:text-2xl font-black text-white mt-1">
+                      {classRingOrders.length}
+                    </p>
+                  </div>
+                  <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 flex flex-col justify-between items-center text-center col-span-2 lg:col-span-1">
+                    <p className="text-[11px] font-bold text-blue-200 uppercase tracking-wider">Class Ring</p>
+                    <div className="flex items-center gap-3 mt-1">
+                      <span className={`text-xs font-black px-2 py-0.5 rounded-full ${isClassRingAvailable ? 'bg-emerald-400/20 text-emerald-300 border border-emerald-400/30' : 'bg-rose-400/20 text-rose-300 border border-rose-400/30'}`}>
+                        {isClassRingAvailable ? 'AVAILABLE' : 'UNAVAILABLE'}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleClassRingAvailabilityToggle}
+                        style={{ minHeight: '28px', height: '28px', minWidth: '48px', width: '48px' }}
+                        className={`no-min-target relative inline-flex h-7 w-12 p-0.5 flex-shrink-0 cursor-pointer rounded-full transition-colors duration-200 ease-in-out focus:outline-none ${
+                          isClassRingAvailable ? 'bg-emerald-500 shadow-md' : 'bg-slate-400/60'
+                        }`}
+                        aria-label="Toggle Class Ring Ordering Availability"
+                      >
+                        <span
+                          className={`pointer-events-none inline-block h-6 w-6 flex-shrink-0 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                            isClassRingAvailable ? 'translate-x-5' : 'translate-x-0'
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Main Orders Log Card */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="p-5 sm:p-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">Custom Class Ring Submissions</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">Filter by cadet name, program, birthstone, or order status</p>
+                </div>
+
+                {/* Filter Controls */}
+                <div className="flex flex-col sm:flex-row items-center gap-3">
+                  <div className="relative w-full sm:w-64">
+                    <Search size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search cadet, ring model, engraving..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-300 text-xs sm:text-sm font-semibold focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    />
+                  </div>
+
+                  <select
+                    value={statusFilter}
+                    onChange={(e: any) => setStatusFilter(e.target.value)}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl border border-slate-300 bg-white text-xs sm:text-sm font-bold text-slate-700 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  >
+                    <option value="all">All Statuses</option>
+                    <option value="completed">Completed / Paid</option>
+                    <option value="pending">Pending Cashier</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Class Ring Orders List */}
+              <div className="p-4 sm:p-6">
+                {(() => {
+                  const filteredRings = classRingOrders.filter((order) => {
+                    const matchesStatus = statusFilter === 'all' || 
+                      (statusFilter === 'completed' && (order.status === 'completed' || order.status === 'released')) ||
+                      ((statusFilter as string) === 'pending' && order.status === 'pending') ||
+                      (statusFilter === 'cancelled' && order.status === 'cancelled');
+
+                    const item = order.items?.[0] || {};
+                    const opts = item.selectedOptions || order.selectedOptions || {};
+                    const cadetName = `${order.first_name || ''} ${order.last_name || ''}`.toLowerCase();
+                    const engraving = (opts['Inside Engraving'] || '').toLowerCase();
+                    const model = (opts['Model'] || '').toLowerCase();
+                    const receipt = (order.receipt_no || '').toLowerCase();
+                    const query = searchQuery.toLowerCase();
+
+                    const matchesSearch = !query || cadetName.includes(query) || engraving.includes(query) || model.includes(query) || receipt.includes(query);
+
+                    return matchesStatus && matchesSearch;
+                  });
+
+                  if (filteredRings.length === 0) {
+                    return (
+                      <div className="text-center py-16 bg-slate-50 rounded-2xl border border-dashed border-slate-300 space-y-3">
+                        <Award size={48} className="mx-auto text-slate-400" />
+                        <h4 className="text-base font-bold text-slate-700">No Class Ring Orders Found</h4>
+                        <p className="text-xs text-slate-500 max-w-sm mx-auto">
+                          When cadets customize and submit class ring orders online, they will appear in this dedicated Royal Gem trust log.
+                        </p>
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <div className="space-y-4">
+                      {filteredRings.map((order) => {
+                        const item = order.items?.[0] || {};
+                        const opts = item.selectedOptions || order.selectedOptions || {};
+                        const cadetName = `${order.first_name || ''} ${order.last_name || ''}`.trim() || order.walk_in_name || 'Cadet Member';
+
+                        return (
+                          <div key={order.id || order.receipt_no} className="bg-slate-50/80 rounded-2xl border border-slate-200 p-4 sm:p-6 shadow-2xs hover:border-blue-300 transition-all space-y-4">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3">
+                              <div className="flex items-center space-x-3">
+                                <span className="font-mono text-xs font-black text-blue-900 bg-blue-100 px-3 py-1 rounded-lg border border-blue-200">
+                                  #{order.receipt_no}
+                                </span>
+                                <div>
+                                  <h4 className="text-base font-extrabold text-slate-900">{cadetName}</h4>
+                                  <p className="text-xs text-slate-500 font-medium">
+                                    Submitted {new Date(order.created_at).toLocaleString()}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center space-x-3">
+                                <span className={`text-xs font-black uppercase px-3 py-1 rounded-full ${
+                                  order.status === 'completed' || order.status === 'released'
+                                    ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                    : order.status === 'cancelled'
+                                    ? 'bg-red-100 text-red-800 border border-red-300'
+                                    : 'bg-blue-100 text-blue-800 border border-blue-300'
+                                }`}>
+                                  {order.status}
+                                </span>
+                                <span className="text-lg font-black text-blue-700">
+                                  ₱{parseFloat(order.total_amount || 0).toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Ring Specifications Grid */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                              {/* Ring Specs */}
+                              <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5">
+                                <p className="font-bold text-blue-800 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                                  <Award size={13} />
+                                  <span>Ring Specifications</span>
+                                </p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Model:</span> {opts['Model'] || 'Medium'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Ring Size:</span> {opts['Ring Size'] || 'Size 8'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Material:</span> {opts['Material'] || 'Stainless Steel'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Finish Tone:</span> {opts['Finish'] || 'Natural Gold'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Birthstone:</span> {opts['Birthstone'] || 'September (Sapphire)'}</p>
+                              </div>
+
+                              {/* Cadet Contact Info */}
+                              <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-1.5">
+                                <p className="font-bold text-blue-800 text-[11px] uppercase tracking-wider flex items-center gap-1">
+                                  <User size={13} />
+                                  <span>Cadet Contact Details</span>
+                                </p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Contact:</span> {opts['Contact Number'] || order.contact_number || 'N/A'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">School:</span> {opts['School/Organization'] || 'UC METC'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Program:</span> {opts['Degree/Program'] || order.course || 'BSMT'}</p>
+                                <p className="text-slate-800 font-semibold"><span className="text-slate-500 font-normal">Grad Year:</span> {opts['Graduation Year'] || '2026'}</p>
+                                <p className="text-slate-800 font-semibold truncate"><span className="text-slate-500 font-normal">Address:</span> {opts['Contact Address'] || opts['Complete Address'] || order.address || 'N/A'}</p>
+                              </div>
+
+                              {/* Inside Engraving & Payment */}
+                              <div className="bg-white rounded-xl p-3 border border-slate-200 space-y-2 flex flex-col justify-between">
+                                <div>
+                                  <p className="font-bold text-blue-800 text-[11px] uppercase tracking-wider mb-1">
+                                    Inside Ring Engraving
+                                  </p>
+                                  <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-200 text-center font-mono font-bold text-blue-900 text-xs">
+                                    "{opts['Inside Engraving'] || 'None'}"
+                                  </div>
+                                </div>
+
+                                <div className="pt-2 border-t border-slate-100 text-[11px] flex justify-between text-slate-500">
+                                  <span>Method: <strong className="text-slate-800">{formatPaymentMethod(order.payment_method)}</strong></span>
+                                  <span>Ref: <strong className="text-slate-800 font-mono">{order.reference_number || 'N/A'}</strong></span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })()}

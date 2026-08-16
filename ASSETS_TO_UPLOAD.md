@@ -21,6 +21,7 @@ This file contains all local assets that need to be uploaded to Cloudinary.
 ### Product Images:
 - Anchor.jpeg
 - BSNAME Uniform.jpeg
+- class_ring.jpg
 - Black Belt.jpeg
 - Buttons.jpeg
 - CWTS Shirt.jpeg

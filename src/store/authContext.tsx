@@ -6,6 +6,7 @@ import { apiClient } from '../services/api';
 import { AppDataSync } from './appDataSync';
 import { useNotificationStore } from './notificationStore';
 import { useAppStore } from './appStore';
+import { recordLoginAudit } from '../utils/sessionAuditTracker';
 
 interface AuthContextType {
   user: User | null;
@@ -101,6 +102,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setToken(token);
       setUser(user);
+
+      // Record real-time security audit log
+      try {
+        recordLoginAudit(user.id);
+      } catch (e) {}
 
       // Initialize app data from backend
       await AppDataSync.initializeAppData(user.id);

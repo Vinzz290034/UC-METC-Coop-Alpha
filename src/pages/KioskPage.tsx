@@ -507,14 +507,38 @@ export const KioskPage: React.FC = () => {
     };
   };
 
-  // Filter products list
+  // Filter & sort products list
   const filteredProducts = useMemo(() => {
-    return products.filter(p => {
+    const query = searchQuery.trim().toLowerCase();
+    const list = products.filter(p => {
       if (p.available === false) return false;
-      const matchesCategory = selectedCategory === 'all' || p.category === selectedCategory || (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
-      const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           p.sku.toLowerCase().includes(searchQuery.toLowerCase());
+      // Exclude Class Rings from Kiosk catalog
+      const isRing = p.name.toLowerCase().includes('class ring') || (p.name.toLowerCase().includes('ring') && !p.name.toLowerCase().includes('pershing'));
+      if (isRing) return false;
+      const matchesCategory = 
+        selectedCategory === 'all' || 
+        p.category === selectedCategory || 
+        ((selectedCategory === 'equipment' || selectedCategory === 'ppe') && (p.category === 'equipment' || p.category === 'ppe')) ||
+        (selectedCategory === 'essentials' && (p.category === 'essentials' || p.category === 'grocery'));
+      const matchesSearch = !query || 
+                           p.name.toLowerCase().includes(query) || 
+                           p.sku.toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
+    });
+
+    if (!query) return list;
+
+    // Rank prefix & word-start matches higher (e.g. "Type A" before "Safety Shoes")
+    return list.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+
+      const aStartsWith = aName.startsWith(query) || aName.split(/\s+/).some(w => w.startsWith(query));
+      const bStartsWith = bName.startsWith(query) || bName.split(/\s+/).some(w => w.startsWith(query));
+
+      if (aStartsWith && !bStartsWith) return -1;
+      if (!aStartsWith && bStartsWith) return 1;
+      return 0;
     });
   }, [products, selectedCategory, searchQuery]);
 
@@ -551,7 +575,7 @@ export const KioskPage: React.FC = () => {
       }
     }
 
-    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform';
+    const isTailoredProduct = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name);
     const fullPrice = getSelectedPrice(activeProduct, selectedOptions) || activeProduct.price;
     let actualPrice = fullPrice;
     
@@ -1028,7 +1052,7 @@ export const KioskPage: React.FC = () => {
               </div>
 
               {/* Product cards grid */}
-              <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-2">
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pr-2 auto-rows-max items-start content-start">
                 {filteredProducts.map((product) => {
                   const prices = getAvailablePrices(product);
                   const image = (product.image && product.image.trim() !== '' && product.image !== '📦')
@@ -1467,6 +1491,17 @@ export const KioskPage: React.FC = () => {
                     <span className="text-gray-600 truncate max-w-[200px]">{email}</span>
                   </div>
                 </div>
+
+                {/* Email Registered Banner */}
+                <div className="mt-4 p-3 bg-purple-50 border border-purple-200 rounded-xl text-left flex items-start gap-2.5">
+                  <span className="text-base leading-none">📩</span>
+                  <div>
+                    <p className="text-xs font-bold text-purple-950">Email Registered for Receipt</p>
+                    <p className="text-[11px] text-purple-700 font-medium leading-snug">
+                      Your digital receipt will be automatically sent to <strong>{email}</strong> once your payment is completed at the counter (check your spam folder if not in inbox).
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div className="flex flex-col items-center space-y-4">
@@ -1507,7 +1542,9 @@ export const KioskPage: React.FC = () => {
                     className="w-40 h-40 object-contain rounded-lg"
                   />
                 </div>
-                <p className="text-[10px] text-slate-400 font-semibold mt-3">Take a screenshot or present this on your phone</p>
+                <div className="mt-3 p-2.5 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 font-medium w-full text-center">
+                  📩 Digital receipt will also be sent to <strong>{email}</strong> <span className="text-purple-700 text-[11px] font-normal">(check your spam folder)</span>
+                </div>
               </div>
 
               <div className="flex flex-col items-center space-y-4">
@@ -1539,7 +1576,7 @@ export const KioskPage: React.FC = () => {
                 <h3 className="font-black text-xl text-gray-900 text-center leading-tight mb-1">{activeProduct.name}</h3>
                 <span className="text-xs font-mono text-gray-400 font-bold uppercase tracking-wider mb-3">{activeProduct.sku ? activeProduct.sku.replace(/^GROC\s*-\s*/i, 'ESS-').replace(/^GROC-/i, 'ESS-') : activeProduct.sku}</span>
                 {(() => {
-                  const isTailored = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform';
+                  const isTailored = ['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name);
                   const fullP = getSelectedPrice(activeProduct, selectedOptions) || activeProduct.price;
                   let dispP = fullP;
 
@@ -1571,7 +1608,7 @@ export const KioskPage: React.FC = () => {
                 <div>
                   <h4 className="text-lg font-black text-gray-800 uppercase tracking-wider mb-4 border-b pb-2 border-gray-100">Configure Item</h4>
                   
-                  {(['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) || activeProduct.category === 'uniform') && (
+                  {['Gala', 'Type A & B Uniform', 'BSNAME Uniform'].includes(activeProduct.name) && (
                     <div className="mb-5">
                       <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Payment Options</label>
                       <div className="grid grid-cols-2 gap-2 bg-gray-100 p-1 border border-gray-200 rounded-xl">

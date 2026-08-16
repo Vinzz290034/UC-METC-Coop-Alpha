@@ -163,5 +163,77 @@ router.put('/cancel/:receiptNo', async (req: Request, res: Response) => {
   }
 });
 
+// ── Fallback in-memory maintenance state ──
+let inMemoryMaintenanceState = {
+  enabled: false,
+  message: 'The UC-METC SILMS portal is currently undergoing scheduled maintenance to upgrade our system services. We apologize for any inconvenience.',
+  eta: '2 hours',
+  updatedAt: new Date().toISOString()
+};
+
+// GET /api/public/system-status (Public maintenance status check)
+router.get('/system-status', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('maintenance_enabled', 'maintenance_message', 'maintenance_eta', 'maintenance_updated_at')`
+    );
+
+    if (result.rows.length > 0) {
+      const settingsMap: Record<string, string> = {};
+      result.rows.forEach((row: { setting_key: string; setting_value: string }) => {
+        settingsMap[row.setting_key] = row.setting_value;
+      });
+
+      return res.json({
+        enabled: settingsMap['maintenance_enabled'] === 'true',
+        message: settingsMap['maintenance_message'] || inMemoryMaintenanceState.message,
+        eta: settingsMap['maintenance_eta'] !== undefined ? settingsMap['maintenance_eta'] : inMemoryMaintenanceState.eta,
+        updatedAt: settingsMap['maintenance_updated_at'] || inMemoryMaintenanceState.updatedAt
+      });
+    }
+
+    res.json(inMemoryMaintenanceState);
+  } catch (error) {
+    console.error('[public/system-status] Error fetching maintenance state, using fallback:', error);
+    res.json(inMemoryMaintenanceState);
+  }
+});
+
+// POST /api/public/system-status (Global update endpoint for maintenance mode)
+router.post('/system-status', async (req: Request, res: Response) => {
+  try {
+    const { enabled, message, eta } = req.body;
+    const nowIso = new Date().toISOString();
+
+    inMemoryMaintenanceState = {
+      enabled: Boolean(enabled),
+      message: message || inMemoryMaintenanceState.message,
+      eta: eta !== undefined ? eta : inMemoryMaintenanceState.eta,
+      updatedAt: nowIso
+    };
+
+    try {
+      await pool.query(
+        `INSERT INTO system_settings (setting_key, setting_value, updated_at)
+         VALUES 
+           ('maintenance_enabled', $1, NOW()),
+           ('maintenance_message', $2, NOW()),
+           ('maintenance_eta', $3, NOW()),
+           ('maintenance_updated_at', $4, NOW())
+         ON CONFLICT (setting_key) 
+         DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()`,
+        [String(Boolean(enabled)), inMemoryMaintenanceState.message, inMemoryMaintenanceState.eta, nowIso]
+      );
+    } catch (dbErr) {
+      console.warn('[public/system-status] DB write warning, using memory fallback:', dbErr);
+    }
+
+    res.json(inMemoryMaintenanceState);
+  } catch (error) {
+    console.error('[public/system-status] Error updating maintenance state:', error);
+    res.status(500).json({ error: 'Failed to update system status' });
+  }
+});
+
 export default router;
 
