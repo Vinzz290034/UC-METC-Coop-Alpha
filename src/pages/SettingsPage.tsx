@@ -69,7 +69,7 @@ export const SettingsPage: React.FC = () => {
     setMaintState(updated);
     showNotification(
       nextEnabled ? 'Maintenance Mode ENABLED & synced globally!' : 'Maintenance Mode DISABLED — Portal is back online!',
-      nextEnabled ? 'warning' : 'success'
+      'success'
     );
   };
 

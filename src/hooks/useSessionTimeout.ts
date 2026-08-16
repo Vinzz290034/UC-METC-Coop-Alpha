@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useAuth } from '../store/authContext';
 import { useUIStore } from '../store/uiStore';
+import { getMaintenanceState } from '../utils/maintenanceManager';
 
 export const useSessionTimeout = () => {
   const { user, logout } = useAuth();
@@ -10,6 +11,10 @@ export const useSessionTimeout = () => {
 
   useEffect(() => {
     if (!user) return;
+    // Don't run session timeout while maintenance mode is active —
+    // non-admin users are stuck on the maintenance page and should not be timed out
+    const maintState = getMaintenanceState();
+    if (maintState.enabled && user.role !== 'admin') return;
 
     const checkAndResetTimer = () => {
       const now = Date.now();

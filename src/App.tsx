@@ -122,11 +122,13 @@ function AppContent() {
     // Detect logout: was authenticated, now not authenticated
     if (prevAuthRef.current === true && isAuthenticated === false) {
       console.log('[APP] Logout detected! Checking maintenance state before navigating');
-      syncMaintenanceStateFromBackend();
-      const currentMaint = getMaintenanceState();
-      if (!currentMaint.enabled) {
-        navigate('/', { replace: true });
-      }
+      // Await backend sync so we have accurate maintenance state before deciding redirect
+      syncMaintenanceStateFromBackend().then((currentMaint) => {
+        if (!currentMaint.enabled) {
+          navigate('/', { replace: true });
+        }
+        // If maintenance is ON, stay on MaintenancePage — do NOT redirect to login
+      });
     }
 
     // Update ref for next comparison

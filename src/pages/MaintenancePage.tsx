@@ -8,7 +8,7 @@ import {
   CheckCircle2,
   AlertTriangle
 } from 'lucide-react';
-import { getMaintenanceState, MaintenanceState } from '../utils/maintenanceManager';
+import { getMaintenanceState, MaintenanceState, setMaintenanceState } from '../utils/maintenanceManager';
 import { useAuth } from '../store/authContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -86,12 +86,31 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
   const [nowMs, setNowMs] = useState<number>(Date.now());
 
   // Ticking 1-second interval for real-time live countdown
+  const hasAutoDisabledRef = React.useRef(false);
   useEffect(() => {
     const timer = setInterval(() => {
       setNowMs(Date.now());
     }, 1000);
     return () => clearInterval(timer);
   }, []);
+
+  // Auto-disable maintenance mode when countdown reaches zero
+  useEffect(() => {
+    if (hasAutoDisabledRef.current) return;
+    const currentState = state;
+    if (!currentState.enabled || !currentState.eta) return;
+
+    const targetEpoch = calculateTargetEpoch(currentState.eta, currentState.updatedAt);
+    if (!targetEpoch) return;
+
+    const remaining = targetEpoch - nowMs;
+    if (remaining <= 0) {
+      hasAutoDisabledRef.current = true;
+      // Automatically turn off maintenance mode when countdown reaches zero
+      setMaintenanceState(false, currentState.message, currentState.eta);
+      setState(getMaintenanceState());
+    }
+  }, [nowMs, state]);
 
   // Admin bypass modal state
   const [showAdminLogin, setShowAdminLogin] = useState(false);
