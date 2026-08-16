@@ -1,4 +1,4 @@
-import { apiClient } from '../services/api';
+import { getApiBaseUrl } from '../utils/apiBaseUrl';
 
 export interface MaintenanceState {
   enabled: boolean;
@@ -16,6 +16,8 @@ const DEFAULT_STATE: MaintenanceState = {
   // Use a very old timestamp so the race-condition guard never blocks fresh backend syncs
   updatedAt: '1970-01-01T00:00:00.000Z'
 };
+
+const getStatusUrl = () => `${getApiBaseUrl()}/public/system-status`;
 
 export const getMaintenanceState = (): MaintenanceState => {
   try {
@@ -52,16 +54,25 @@ export const syncMaintenanceStateFromBackend = async (): Promise<MaintenanceStat
     }
     const local = getMaintenanceState();
 
-    const res = await apiClient.get('/public/system-status');
-    if (res && typeof res.enabled === 'boolean') {
+    // Use raw fetch (no auth headers) since this is a public endpoint
+    const res = await fetch(getStatusUrl(), {
+      method: 'GET',
+      headers: { 'Content-Type': 'application/json' },
+      cache: 'no-store'
+    });
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    if (data && typeof data.enabled === 'boolean') {
       const newState: MaintenanceState = {
-        enabled: Boolean(res.enabled),
-        message: res.message || DEFAULT_STATE.message,
-        eta: res.eta !== undefined ? res.eta : DEFAULT_STATE.eta,
-        updatedAt: res.updatedAt || new Date().toISOString()
+        enabled: Boolean(data.enabled),
+        message: data.message || DEFAULT_STATE.message,
+        eta: data.eta !== undefined ? data.eta : DEFAULT_STATE.eta,
+        updatedAt: data.updatedAt || new Date().toISOString()
       };
-      
-      // Only update local storage and dispatch event if state changed
+
+      // Update local storage and dispatch event if state changed
       if (local.enabled !== newState.enabled || local.message !== newState.message || local.eta !== newState.eta) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newState));
         window.dispatchEvent(new CustomEvent('silms_maintenance_updated', { detail: newState }));
@@ -94,8 +105,12 @@ export const setMaintenanceState = (
     console.error('Failed to save maintenance state to localStorage', err);
   }
 
-  // Push update to backend asynchronously for global sync across all devices
-  apiClient.post('/public/system-status', newState).catch((err) => {
+  // Push update to backend using raw fetch (no auth headers) — public endpoint
+  fetch(getStatusUrl(), {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(newState)
+  }).catch((err) => {
     console.warn('[maintenanceManager] Failed to push maintenance state to backend:', err);
   });
 
