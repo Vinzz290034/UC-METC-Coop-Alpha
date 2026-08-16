@@ -74,15 +74,31 @@ function AppContent() {
     window.addEventListener('silms_maintenance_updated', handleUpdate);
 
     // Initial backend global sync check on page load
-    syncMaintenanceStateFromBackend();
+    syncMaintenanceStateFromBackend().then(synced => {
+      if (synced) setMaintenanceStateState(synced);
+    });
 
-    // Periodic global sync polling every 15 seconds across all devices
+    // Check when user switches tabs, refocuses window, or unlocks phone screen
+    const handleFocus = () => {
+      syncMaintenanceStateFromBackend().then(synced => {
+        if (synced) setMaintenanceStateState(synced);
+      });
+    };
+
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleFocus);
+
+    // Periodic global sync polling every 10 seconds across all active sessions
     const pollInterval = setInterval(() => {
-      syncMaintenanceStateFromBackend();
-    }, 15000);
+      syncMaintenanceStateFromBackend().then(synced => {
+        if (synced) setMaintenanceStateState(synced);
+      });
+    }, 10000);
 
     return () => {
       window.removeEventListener('silms_maintenance_updated', handleUpdate);
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleFocus);
       clearInterval(pollInterval);
     };
   }, []);

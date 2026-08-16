@@ -184,8 +184,11 @@ router.get('/system-status', async (req: Request, res: Response) => {
         settingsMap[row.setting_key] = row.setting_value;
       });
 
+      const dbEnabled = settingsMap['maintenance_enabled'];
+      const isEnabled = dbEnabled !== undefined ? dbEnabled === 'true' : inMemoryMaintenanceState.enabled;
+
       return res.json({
-        enabled: settingsMap['maintenance_enabled'] === 'true',
+        enabled: isEnabled,
         message: settingsMap['maintenance_message'] || inMemoryMaintenanceState.message,
         eta: settingsMap['maintenance_eta'] !== undefined ? settingsMap['maintenance_eta'] : inMemoryMaintenanceState.eta,
         updatedAt: settingsMap['maintenance_updated_at'] || inMemoryMaintenanceState.updatedAt
