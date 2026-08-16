@@ -60,8 +60,13 @@ function AppContent() {
   
   // ── Maintenance Mode State Listener & Global Backend Sync ──
   const [maintenanceState, setMaintenanceStateState] = useState<MaintenanceState>(getMaintenanceState);
+  const [isInitialMaintChecked, setIsInitialMaintChecked] = useState<boolean>(() => {
+    // If already known to be enabled from cached local storage, no initial wait needed
+    return getMaintenanceState().enabled;
+  });
 
   useEffect(() => {
+    let isMounted = true;
     const handleUpdate = (e: Event) => {
       const customEvent = e as CustomEvent<MaintenanceState>;
       if (customEvent.detail) {
@@ -73,15 +78,23 @@ function AppContent() {
 
     window.addEventListener('silms_maintenance_updated', handleUpdate);
 
-    // Initial backend global sync check on page load
-    syncMaintenanceStateFromBackend().then(synced => {
-      if (synced) setMaintenanceStateState(synced);
-    });
+    // Initial backend global sync check on page load with fallback timeout
+    const fallbackTimer = setTimeout(() => {
+      if (isMounted) setIsInitialMaintChecked(true);
+    }, 800);
+
+    syncMaintenanceStateFromBackend()
+      .then(synced => {
+        if (isMounted && synced) setMaintenanceStateState(synced);
+      })
+      .finally(() => {
+        if (isMounted) setIsInitialMaintChecked(true);
+      });
 
     // Check when user switches tabs, refocuses window, or unlocks phone screen
     const handleFocus = () => {
       syncMaintenanceStateFromBackend().then(synced => {
-        if (synced) setMaintenanceStateState(synced);
+        if (isMounted && synced) setMaintenanceStateState(synced);
       });
     };
 
@@ -91,11 +104,13 @@ function AppContent() {
     // Periodic global sync polling every 10 seconds across all active sessions
     const pollInterval = setInterval(() => {
       syncMaintenanceStateFromBackend().then(synced => {
-        if (synced) setMaintenanceStateState(synced);
+        if (isMounted && synced) setMaintenanceStateState(synced);
       });
     }, 10000);
 
     return () => {
+      isMounted = false;
+      clearTimeout(fallbackTimer);
       window.removeEventListener('silms_maintenance_updated', handleUpdate);
       window.removeEventListener('focus', handleFocus);
       document.removeEventListener('visibilitychange', handleFocus);
@@ -135,9 +150,9 @@ function AppContent() {
     prevAuthRef.current = isAuthenticated;
   }, [isAuthenticated, isValidating, navigate]);
 
-  // Show blank screen while validating to prevent any cached state from flashing
-  if (isValidating) {
-    return <div className="w-full h-screen bg-white flex items-center justify-center" />;
+  // Show clean background while validating auth or completing initial maintenance sync to prevent flash of content
+  if (isValidating || (!isInitialMaintChecked && !maintenanceState.enabled)) {
+    return <div className="w-full h-screen bg-slate-50 flex items-center justify-center" />;
   }
 
   // ── MAINTENANCE MODE GUARD ──
