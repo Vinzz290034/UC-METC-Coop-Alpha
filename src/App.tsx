@@ -141,13 +141,13 @@ function AppContent() {
   }
 
   // ── MAINTENANCE MODE GUARD ──
-  // If maintenance mode is ON and user is NOT an admin, block access and show MaintenancePage
+  // If maintenance mode is ON and user is NOT an admin, ALL routes (including /login) show MaintenancePage.
+  // Admins can bypass via the secret modal on the MaintenancePage itself.
   const isAdmin = user && user.role === 'admin';
   
   if (maintenanceState.enabled && !isAdmin) {
     return (
       <Routes>
-        <Route path="/login" element={<LoginPage />} />
         <Route path="*" element={<MaintenancePage />} />
       </Routes>
     );
