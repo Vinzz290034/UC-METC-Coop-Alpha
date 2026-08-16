@@ -13,7 +13,8 @@ const DEFAULT_STATE: MaintenanceState = {
   enabled: false,
   message: 'The UC-METC SILMS portal is currently undergoing scheduled maintenance to upgrade our system services. We apologize for any inconvenience.',
   eta: '2 hours',
-  updatedAt: new Date().toISOString()
+  // Use a very old timestamp so the race-condition guard never blocks fresh backend syncs
+  updatedAt: '1970-01-01T00:00:00.000Z'
 };
 
 export const getMaintenanceState = (): MaintenanceState => {
@@ -39,12 +40,17 @@ export const getMaintenanceState = (): MaintenanceState => {
 
 export const syncMaintenanceStateFromBackend = async (): Promise<MaintenanceState> => {
   try {
-    const local = getMaintenanceState();
-    const localTime = new Date(local.updatedAt).getTime();
-    // If local toggle occurred in the last 3 seconds, protect optimistic state from race condition
-    if (Date.now() - localTime < 3000) {
-      return local;
+    // Only apply race-condition guard if there is an actual saved localStorage state
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const local = getMaintenanceState();
+      const localTime = new Date(local.updatedAt).getTime();
+      // If a local admin toggle occurred in the last 3 seconds, protect optimistic state
+      if (Date.now() - localTime < 3000) {
+        return local;
+      }
     }
+    const local = getMaintenanceState();
 
     const res = await apiClient.get('/public/system-status');
     if (res && typeof res.enabled === 'boolean') {
