@@ -18,11 +18,80 @@ interface MaintenancePageProps {
   isPreview?: boolean;
 }
 
+// Helper: Parse user typed ETA text into target epoch timestamp based on updatedAt ISO timestamp
+const calculateTargetEpoch = (etaText: string, updatedAtIso: string): number | null => {
+  if (!etaText) return null;
+  const startMs = updatedAtIso ? new Date(updatedAtIso).getTime() : Date.now();
+  if (isNaN(startMs)) return null;
+
+  const raw = etaText
+    .replace(/^Expected completion:\s*/i, '')
+    .replace(/^Estimated completion:\s*/i, '')
+    .replace(/^Estimated uptime:\s*/i, '')
+    .trim();
+
+  // Pattern: "3 days", "1 day", "3d"
+  const daysMatch = raw.match(/^(\d+(?:\.\d+)?)\s*(?:days?|d)$/i);
+  if (daysMatch) {
+    return startMs + parseFloat(daysMatch[1]) * 86400 * 1000;
+  }
+
+  // Pattern: "2 hours", "1.5 hrs", "2h"
+  const hoursMatch = raw.match(/^(\d+(?:\.\d+)?)\s*(?:hours?|hrs?|h)$/i);
+  if (hoursMatch) {
+    return startMs + parseFloat(hoursMatch[1]) * 3600 * 1000;
+  }
+
+  // Pattern: "30 minutes", "45 mins", "30m"
+  const minsMatch = raw.match(/^(\d+(?:\.\d+)?)\s*(?:minutes?|mins?|m)$/i);
+  if (minsMatch) {
+    return startMs + parseFloat(minsMatch[1]) * 60 * 1000;
+  }
+
+  // Pattern: "1 day 4 hours", "2h 30m"
+  const dhmsMatch = raw.match(/^(?:(\d+)\s*d(?:ays?)?)?\s*(?:(\d+)\s*h(?:ours?|rs?)?)?\s*(?:(\d+)\s*m(?:ins?|inutes?)?)?$/i);
+  if (dhmsMatch && (dhmsMatch[1] || dhmsMatch[2] || dhmsMatch[3])) {
+    const d = parseInt(dhmsMatch[1] || '0', 10);
+    const h = parseInt(dhmsMatch[2] || '0', 10);
+    const m = parseInt(dhmsMatch[3] || '0', 10);
+    const totalMs = (d * 86400 + h * 3600 + m * 60) * 1000;
+    if (totalMs > 0) return startMs + totalMs;
+  }
+
+  return null;
+};
+
+const formatRemainingTime = (diffMs: number): string => {
+  if (diffMs <= 0) return 'Finishing Up... Portal Returning Online Soon';
+  const totalSecs = Math.floor(diffMs / 1000);
+  const days = Math.floor(totalSecs / 86400);
+  const hours = Math.floor((totalSecs % 86400) / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+
+  const parts: string[] = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0 || days > 0) parts.push(`${hours}h`);
+  parts.push(`${mins}m`);
+  parts.push(`${secs}s`);
+
+  return parts.join(' ') + ' Remaining';
+};
+
 export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPreview = false }) => {
   const [state, setState] = useState<MaintenanceState>(getMaintenanceState);
   const { user, login } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const [nowMs, setNowMs] = useState<number>(Date.now());
+
+  // Ticking 1-second interval for real-time live countdown
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNowMs(Date.now());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Admin bypass modal state
   const [showAdminLogin, setShowAdminLogin] = useState(false);
@@ -120,13 +189,23 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
     }
   };
 
-  // Format state.eta cleanly (strip redundant "Expected completion:" if present)
+  // Format state.eta cleanly and calculate real-time live countdown if relative duration is present
   const rawEta = state.eta || '';
-  const formattedEta = rawEta
+  const cleanedEta = rawEta
     .replace(/^Expected completion:\s*/i, '')
     .replace(/^Estimated completion:\s*/i, '')
     .replace(/^Estimated uptime:\s*/i, '')
     .trim();
+
+  const targetEpoch = calculateTargetEpoch(cleanedEta, state.updatedAt);
+  const remainingMs = targetEpoch ? targetEpoch - nowMs : null;
+
+  let displayEtaText = cleanedEta;
+  let isLiveCountdown = false;
+  if (remainingMs !== null) {
+    displayEtaText = formatRemainingTime(remainingMs);
+    isLiveCountdown = true;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col justify-between relative overflow-hidden font-sans">
@@ -176,11 +255,16 @@ export const MaintenancePage: React.FC<MaintenancePageProps> = ({ onBypass, isPr
             </p>
           </div>
 
-          {/* Clean Estimated Completion Banner */}
-          {formattedEta && (
-            <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm text-purple-950 font-semibold max-w-lg mx-auto">
-              <Clock className="w-4 h-4 text-purple-600 shrink-0" />
-              <span><strong className="text-purple-700">Estimated Completion:</strong> {formattedEta}</span>
+          {/* Clean Estimated Completion Banner / Live Countdown */}
+          {displayEtaText && (
+            <div className="bg-purple-50/70 border border-purple-200/80 rounded-2xl p-4 flex items-center justify-center gap-2.5 text-xs sm:text-sm text-purple-950 font-semibold max-w-lg mx-auto shadow-xs">
+              <Clock className="w-4 h-4 text-purple-600 shrink-0 animate-pulse" />
+              <span>
+                <strong className="text-purple-700">Estimated Completion:</strong>{' '}
+                <span className={isLiveCountdown ? 'font-mono text-purple-900 font-bold' : ''}>
+                  {displayEtaText}
+                </span>
+              </span>
             </div>
           )}
         </div>
