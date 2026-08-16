@@ -57,8 +57,8 @@ export async function uploadToCloudinary(
   fileOrBase64: File | string,
   folder: 'products' | 'receipts' | 'announcements' = 'products'
 ): Promise<string> {
-  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'doas4qcdo';
-  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'ml_default';
+  const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'fncjex7d';
+  const uploadPreset = import.meta.env.VITE_CLOUDINARY_UPLOAD_PRESET || 'UC METC SILMS';
 
   // If it's already a URL (not base64 and not a File), just return it
   if (typeof fileOrBase64 === 'string' && !fileOrBase64.startsWith('data:')) {
