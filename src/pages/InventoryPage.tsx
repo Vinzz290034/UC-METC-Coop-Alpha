@@ -256,6 +256,59 @@ const formatProductNameWithVariants = (item: any): string => {
   return parseAndFormatLegacyProductName(fullName, unitPrice);
 };
 
+// Helper function to extract variants array cleanly whether stored as object or array
+const getProductVariantsList = (p: any): Array<{ itemKeySuffix: string; variantKey?: string; variantStr: string; sku: string; price: number; stock: number; [key: string]: any }> => {
+  if (!p || !p.variants) return [];
+  
+  let rawVariants: any[] = [];
+  if (Array.isArray(p.variants)) {
+    rawVariants = p.variants.map((v: any, idx: number) => ({ _vKey: `v_${idx}`, ...v }));
+  } else if (typeof p.variants === 'object' && p.variants !== null) {
+    rawVariants = Object.entries(p.variants).map(([vKey, vVal]: [string, any]) => {
+      const vObj = typeof vVal === 'object' && vVal !== null ? vVal : { stock: Number(vVal) || 0 };
+      return { _vKey: vKey, ...vObj };
+    });
+  }
+
+  const parsedProductPrice = parseFloat(p.price) || 0;
+
+  return rawVariants.map((v: any, idx: number) => {
+    const itemKeySuffix = `v_${idx}`;
+    let variantStr = '';
+    if (v.options && typeof v.options === 'object' && Object.keys(v.options).length > 0) {
+      variantStr = Object.entries(v.options)
+        .map(([k, val]) => {
+          if (k.toLowerCase().startsWith('option-') || k.toLowerCase().startsWith('opt_') || !isNaN(Number(k))) {
+            return `${val}`;
+          }
+          return `${k}: ${val}`;
+        })
+        .join(', ');
+    } else if (v._vKey) {
+      variantStr = v._vKey.replace(/-/g, ' ').replace(/_/g, ' ');
+    } else {
+      variantStr = Object.entries(v)
+        .filter(([k]) => k !== 'stock' && k !== 'price' && k !== 'sku' && k !== '_vKey')
+        .map(([k, val]) => `${k}: ${val}`)
+        .join(', ');
+    }
+
+    const parsedVPrice = parseFloat(v.price);
+    const vPrice = !isNaN(parsedVPrice) && parsedVPrice > 0 ? parsedVPrice : parsedProductPrice;
+    const sysStock = typeof v.stock === 'number' ? v.stock : (parseInt(v.stock, 10) || 0);
+
+    return {
+      itemKeySuffix,
+      variantKey: v._vKey,
+      variantStr,
+      sku: v.sku || `${p.sku || 'SKU'}-${idx + 1}`,
+      price: vPrice,
+      stock: sysStock,
+      options: v.options || {},
+    };
+  });
+};
+
 interface ReceiveStockVariantFieldProps {
   productId: string;
   selectedVariantIndex: string;
@@ -478,58 +531,6 @@ export const InventoryPage: React.FC = () => {
   const [auditModalCategory, setAuditModalCategory] = useState<string>('all');
   const [auditModalSearch, setAuditModalSearch] = useState<string>('');
 
-  // Helper function to extract variants array cleanly whether stored as object or array
-  const getProductVariantsList = (p: any): Array<{ itemKeySuffix: string; variantKey?: string; variantStr: string; sku: string; price: number; stock: number; [key: string]: any }> => {
-    if (!p || !p.variants) return [];
-    
-    let rawVariants: any[] = [];
-    if (Array.isArray(p.variants)) {
-      rawVariants = p.variants.map((v: any, idx: number) => ({ _vKey: `v_${idx}`, ...v }));
-    } else if (typeof p.variants === 'object' && p.variants !== null) {
-      rawVariants = Object.entries(p.variants).map(([vKey, vVal]: [string, any]) => {
-        const vObj = typeof vVal === 'object' && vVal !== null ? vVal : { stock: Number(vVal) || 0 };
-        return { _vKey: vKey, ...vObj };
-      });
-    }
-
-    const parsedProductPrice = parseFloat(p.price) || 0;
-
-    return rawVariants.map((v: any, idx: number) => {
-      const itemKeySuffix = `v_${idx}`;
-      let variantStr = '';
-      if (v.options && typeof v.options === 'object' && Object.keys(v.options).length > 0) {
-        variantStr = Object.entries(v.options)
-          .map(([k, val]) => {
-            if (k.toLowerCase().startsWith('option-') || k.toLowerCase().startsWith('opt_') || !isNaN(Number(k))) {
-              return `${val}`;
-            }
-            return `${k}: ${val}`;
-          })
-          .join(', ');
-      } else if (v._vKey) {
-        variantStr = v._vKey.replace(/-/g, ' ').replace(/_/g, ' ');
-      } else {
-        variantStr = Object.entries(v)
-          .filter(([k]) => k !== 'stock' && k !== 'price' && k !== 'sku' && k !== '_vKey')
-          .map(([k, val]) => `${k}: ${val}`)
-          .join(', ');
-      }
-
-      const parsedVPrice = parseFloat(v.price);
-      const vPrice = !isNaN(parsedVPrice) && parsedVPrice > 0 ? parsedVPrice : parsedProductPrice;
-      const sysStock = typeof v.stock === 'number' ? v.stock : (parseInt(v.stock, 10) || 0);
-
-      return {
-        itemKeySuffix,
-        variantKey: v._vKey,
-        variantStr,
-        sku: v.sku || `${p.sku || 'SKU'}-${idx + 1}`,
-        price: vPrice,
-        stock: sysStock,
-        options: v.options || {},
-      };
-    });
-  };
 
   const getInventoryProductDisplayTitle = (name: string, variantLabel?: string) => {
     const baseName = (name || '').trim();
