@@ -238,5 +238,90 @@ router.post('/system-status', async (req: Request, res: Response) => {
   }
 });
 
+// ── Fallback in-memory locker maintenance state ──
+let inMemoryLockerMaintenanceState = {
+  enabled: false,
+  title: 'Locker Rentals Temporarily Unavailable',
+  message: 'The Locker Management team is currently finalizing locker allocations, maintenance inspections, and inventory audits. Locker applications and reservations are temporarily unavailable as of now. Please check back soon or visit the UC-METC Coop Office.',
+  eta: 'Finalizing Lockers',
+  updatedAt: new Date().toISOString()
+};
+
+// GET /api/public/locker-status (Public locker maintenance status check)
+router.get('/locker-status', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT setting_key, setting_value FROM system_settings WHERE setting_key IN ('locker_maintenance_enabled', 'locker_maintenance_title', 'locker_maintenance_message', 'locker_maintenance_eta', 'locker_maintenance_updated_at')`
+    );
+
+    if (result.rows.length > 0) {
+      const settingsMap: Record<string, string> = {};
+      result.rows.forEach((row: { setting_key: string; setting_value: string }) => {
+        settingsMap[row.setting_key] = row.setting_value;
+      });
+
+      const dbEnabled = settingsMap['locker_maintenance_enabled'];
+      const isEnabled = dbEnabled !== undefined ? dbEnabled === 'true' : inMemoryLockerMaintenanceState.enabled;
+
+      return res.json({
+        enabled: isEnabled,
+        title: settingsMap['locker_maintenance_title'] || inMemoryLockerMaintenanceState.title,
+        message: settingsMap['locker_maintenance_message'] || inMemoryLockerMaintenanceState.message,
+        eta: settingsMap['locker_maintenance_eta'] !== undefined ? settingsMap['locker_maintenance_eta'] : inMemoryLockerMaintenanceState.eta,
+        updatedAt: settingsMap['locker_maintenance_updated_at'] || inMemoryLockerMaintenanceState.updatedAt
+      });
+    }
+
+    res.json(inMemoryLockerMaintenanceState);
+  } catch (error) {
+    console.error('[public/locker-status] Error fetching locker maintenance state, using fallback:', error);
+    res.json(inMemoryLockerMaintenanceState);
+  }
+});
+
+// POST /api/public/locker-status (Update locker maintenance status)
+router.post('/locker-status', async (req: Request, res: Response) => {
+  try {
+    const { enabled, title, message, eta } = req.body;
+    const nowIso = new Date().toISOString();
+
+    inMemoryLockerMaintenanceState = {
+      enabled: Boolean(enabled),
+      title: title || inMemoryLockerMaintenanceState.title,
+      message: message || inMemoryLockerMaintenanceState.message,
+      eta: eta !== undefined ? eta : inMemoryLockerMaintenanceState.eta,
+      updatedAt: nowIso
+    };
+
+    try {
+      await pool.query(
+        `INSERT INTO system_settings (setting_key, setting_value, updated_at)
+         VALUES 
+           ('locker_maintenance_enabled', $1, NOW()),
+           ('locker_maintenance_title', $2, NOW()),
+           ('locker_maintenance_message', $3, NOW()),
+           ('locker_maintenance_eta', $4, NOW()),
+           ('locker_maintenance_updated_at', $5, NOW())
+         ON CONFLICT (setting_key) 
+         DO UPDATE SET setting_value = EXCLUDED.setting_value, updated_at = NOW()`,
+        [
+          String(Boolean(enabled)),
+          inMemoryLockerMaintenanceState.title,
+          inMemoryLockerMaintenanceState.message,
+          inMemoryLockerMaintenanceState.eta,
+          nowIso
+        ]
+      );
+    } catch (dbErr) {
+      console.warn('[public/locker-status] DB write warning, using memory fallback:', dbErr);
+    }
+
+    res.json(inMemoryLockerMaintenanceState);
+  } catch (error) {
+    console.error('[public/locker-status] Error updating locker maintenance state:', error);
+    res.status(500).json({ error: 'Failed to update locker maintenance status' });
+  }
+});
+
 export default router;
 

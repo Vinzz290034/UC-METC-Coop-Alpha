@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Eye, Search, Lock, DollarSign, FileText, CheckCircle2, Download, RefreshCw, X, CheckSquare, AlertTriangle, Calendar, Key, ShieldCheck } from 'lucide-react';
+import { Plus, Eye, Search, Lock, DollarSign, FileText, CheckCircle2, Download, RefreshCw, X, CheckSquare, AlertTriangle, Calendar, Key, ShieldCheck, Wrench, ToggleLeft, ToggleRight } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useUIStore } from '../store/uiStore';
+import { getLockerMaintenanceState, setLockerMaintenanceState, syncLockerMaintenanceStateFromBackend, LockerMaintenanceState } from '../utils/lockerMaintenanceManager';
 import * as XLSX from 'xlsx';
 
 // Helper: Calculate Academic Semester End Date & weekly late key penalty
@@ -111,10 +112,6 @@ const calculateRentalDates = (paidAtOrCreatedAt: string | undefined, semesterCou
 export const LockerManagementPage: React.FC = () => {
   const { showNotification } = useUIStore();
 
-  useEffect(() => {
-    fetchLockerSystemData();
-  }, []);
-
   const [lockers, setLockers] = useState<any[]>([]);
   const [rentals, setRentals] = useState<any[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -125,6 +122,10 @@ export const LockerManagementPage: React.FC = () => {
   const [rentalSearch, setRentalSearch] = useState<string>('');
   const [rentalStatusFilter, setRentalStatusFilter] = useState<'all' | 'pending' | 'active' | 'expiring' | 'terminated'>('all');
   const [selectedAgreement, setSelectedAgreement] = useState<any | null>(null);
+
+  // Locker Availability & Maintenance State
+  const [lockerMaintenance, setLockerMaintenance] = useState<LockerMaintenanceState>(() => getLockerMaintenanceState());
+  const [maintenanceToggling, setMaintenanceToggling] = useState<boolean>(false);
 
   // Clearance Checkboxes in Modal
   const [isCleanVerified, setIsCleanVerified] = useState<boolean>(false);
@@ -141,6 +142,42 @@ export const LockerManagementPage: React.FC = () => {
   const [newLockerCode, setNewLockerCode] = useState<string>('');
   const [newLockerBuilding, setNewLockerBuilding] = useState<string>('Machine Shop');
   const [newLockerSize, setNewLockerSize] = useState<string>('Medium');
+
+  useEffect(() => {
+    fetchLockerSystemData();
+    syncLockerMaintenanceStateFromBackend().then(state => {
+      if (state) setLockerMaintenance(state);
+    });
+
+    const handleLockerMaintUpdate = (e: any) => {
+      if (e.detail) {
+        setLockerMaintenance(e.detail);
+      }
+    };
+
+    window.addEventListener('silms_locker_maintenance_updated', handleLockerMaintUpdate);
+    return () => {
+      window.removeEventListener('silms_locker_maintenance_updated', handleLockerMaintUpdate);
+    };
+  }, []);
+
+  const handleToggleMaintenance = async (targetEnabled: boolean) => {
+    try {
+      setMaintenanceToggling(true);
+      const newState = setLockerMaintenanceState(targetEnabled);
+      setLockerMaintenance(newState);
+      if (targetEnabled) {
+        showNotification('Locker Maintenance Mode ENABLED. Lockers now show as "Under Maintenance / Finalizing" and unavailable to students.', 'info');
+      } else {
+        showNotification('Locker Maintenance Mode DISABLED. Lockers are now OPEN and available for student applications.', 'success');
+      }
+    } catch (err) {
+      console.error('Error toggling locker maintenance:', err);
+      showNotification('Failed to change locker availability status', 'error');
+    } finally {
+      setMaintenanceToggling(false);
+    }
+  };
 
   const fetchLockerSystemData = async () => {
     try {
@@ -501,7 +538,7 @@ export const LockerManagementPage: React.FC = () => {
 
 
         {/* Top Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <div>
             <h1 className="text-3xl font-black text-slate-900 flex items-center gap-3">
               <Lock className="text-purple-600" size={32} /> Locker Management Portal
@@ -511,7 +548,48 @@ export const LockerManagementPage: React.FC = () => {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Locker Availability / Maintenance Mode Toggle Switch */}
+            <div className={`flex items-center gap-3 px-4 py-2.5 rounded-2xl border transition-all ${
+              lockerMaintenance.enabled
+                ? 'bg-amber-50/90 border-amber-300 shadow-xs'
+                : 'bg-emerald-50/80 border-emerald-200 shadow-xs'
+            }`}>
+              <div className="flex flex-col text-left">
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2.5 h-2.5 rounded-full ${
+                    lockerMaintenance.enabled ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'
+                  }`} />
+                  <span className={`text-xs font-black tracking-wider uppercase ${
+                    lockerMaintenance.enabled ? 'text-amber-900' : 'text-emerald-900'
+                  }`}>
+                    {lockerMaintenance.enabled ? 'Maintenance: Lockers Offline' : 'Lockers Available'}
+                  </span>
+                </div>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  {lockerMaintenance.enabled ? 'Students see "Under Maintenance / Finalizing"' : 'Students can view & apply for lockers'}
+                </span>
+              </div>
+
+              <button
+                type="button"
+                role="switch"
+                aria-checked={lockerMaintenance.enabled}
+                disabled={maintenanceToggling}
+                onClick={() => handleToggleMaintenance(!lockerMaintenance.enabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  lockerMaintenance.enabled ? 'bg-amber-500' : 'bg-slate-300 hover:bg-slate-400'
+                }`}
+                title={lockerMaintenance.enabled ? 'Click to make lockers available for students' : 'Click to set lockers to Maintenance / Finalizing mode'}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                    lockerMaintenance.enabled ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
             <button
               onClick={fetchLockerSystemData}
               className="p-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all flex items-center gap-2 cursor-pointer"

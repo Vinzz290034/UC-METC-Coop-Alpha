@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
-import { Lock, CheckCircle2, AlertTriangle, Info, Loader2, Key, ChevronLeft, Menu, Search, MapPin, ShieldCheck, FileText, CheckSquare, Calendar, RefreshCw, Sparkles, Clock, ArrowRight } from 'lucide-react';
+import { Lock, CheckCircle2, AlertTriangle, Info, Loader2, Key, ChevronLeft, Menu, Search, MapPin, ShieldCheck, FileText, CheckSquare, Calendar, RefreshCw, Sparkles, Clock, ArrowRight, Wrench } from 'lucide-react';
 import { apiClient } from '../services/api';
 import { useUIStore } from '../store/uiStore';
 import { useAuth } from '../store/authContext';
+import { getLockerMaintenanceState, syncLockerMaintenanceStateFromBackend, LockerMaintenanceState } from '../utils/lockerMaintenanceManager';
 
 const DEFAULT_SAMPLE_LOCKERS: any[] = [];
 
@@ -124,6 +125,9 @@ export const LockerPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [myRental, setMyRental] = useState<any>(null);
   const [availableLockers, setAvailableLockers] = useState<any[]>([]);
+
+  // Locker Availability & Maintenance Mode
+  const [lockerMaint, setLockerMaint] = useState<LockerMaintenanceState>(() => getLockerMaintenanceState());
   
   // Search & Filter State
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -212,6 +216,20 @@ export const LockerPage: React.FC = () => {
 
   useEffect(() => {
     fetchLockerData();
+    syncLockerMaintenanceStateFromBackend().then(state => {
+      if (state) setLockerMaint(state);
+    });
+
+    const handleLockerMaintUpdate = (e: any) => {
+      if (e.detail) {
+        setLockerMaint(e.detail);
+      }
+    };
+
+    window.addEventListener('silms_locker_maintenance_updated', handleLockerMaintUpdate);
+    return () => {
+      window.removeEventListener('silms_locker_maintenance_updated', handleLockerMaintUpdate);
+    };
   }, [user]);
 
   // Determine student course exclusive locker location
@@ -513,6 +531,25 @@ export const LockerPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Admin Maintenance Mode Active Banner */}
+        {user?.role === 'admin' && lockerMaint.enabled && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-2xl shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-bold animate-fade-in border border-amber-400/40">
+            <div className="flex items-center gap-2.5">
+              <Wrench size={20} className="animate-bounce text-amber-200 shrink-0" />
+              <div>
+                <span className="text-sm font-black block text-amber-100">Locker Maintenance Mode Active</span>
+                <span className="text-white/90 text-xs font-medium">Students currently see the "Under Maintenance / Finalizing Lockers" notice. You are previewing as an Administrator.</span>
+              </div>
+            </div>
+            <button
+              onClick={() => navigate('/lockers')}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-xl font-extrabold transition-all cursor-pointer shrink-0 shadow-xs"
+            >
+              Locker Management Portal
+            </button>
+          </div>
+        )}
+
         {/* Success / Error Alerts */}
         {error && (
           <div className="mb-6 p-4 bg-red-50 border-l-4 border-red-500 rounded-r-xl text-red-700 flex items-start gap-3 shadow-xs">
@@ -528,9 +565,57 @@ export const LockerPage: React.FC = () => {
           </div>
         )}
 
-        {myRental ? (
+        {/* ── USER MAINTENANCE & FINALIZING LOCKERS VIEW (WHEN TOGGLED ON) ── */}
+        {lockerMaint.enabled && user?.role !== 'admin' && !myRental ? (
+          <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xl overflow-hidden animate-confirm-pop max-w-3xl mx-auto my-6">
+            {/* Top Banner */}
+            <div className="bg-gradient-to-br from-purple-700 via-indigo-700 to-purple-900 p-8 sm:p-12 text-white relative text-center">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+              <div className="absolute bottom-0 left-0 w-64 h-64 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col items-center">
+                <div className="w-20 h-20 rounded-3xl bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center mb-5 shadow-inner">
+                  <Lock size={38} className="text-amber-300 animate-pulse" />
+                </div>
+
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-amber-400/20 border border-amber-300/40 rounded-full text-amber-200 text-xs font-black uppercase tracking-wider mb-3.5">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+                  {lockerMaint.eta || 'Finalizing Locker Inventory'}
+                </div>
+
+                <h2 className="text-2xl sm:text-3xl font-black text-white max-w-xl leading-tight">
+                  {lockerMaint.title || 'Locker Rentals Temporarily Unavailable'}
+                </h2>
+
+                <p className="text-purple-100 text-sm sm:text-base mt-3.5 max-w-lg leading-relaxed font-medium text-justify sm:text-center">
+                  {lockerMaint.message}
+                </p>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="p-6 sm:p-8 flex items-center justify-center">
+              <button
+                onClick={() => navigate('/dashboard')}
+                className="w-full sm:w-auto px-8 py-3.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-extrabold text-xs sm:text-sm shadow-md hover:shadow-lg transition-all cursor-pointer active:scale-95 flex items-center justify-center gap-2"
+              >
+                <ChevronLeft size={18} />
+                <span>Return to Dashboard</span>
+              </button>
+            </div>
+          </div>
+        ) : myRental ? (
           /* ── MY CURRENT ACTIVE / PENDING LOCKER STATUS ── */
           <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden animate-confirm-pop">
+            {/* If maintenance is active, show top notice for existing renters */}
+            {lockerMaint.enabled && (
+              <div className="p-3.5 bg-amber-50 border-b border-amber-200 text-amber-900 text-xs font-semibold flex items-center gap-2">
+                <AlertTriangle size={16} className="text-amber-600 shrink-0" />
+                <span>
+                  <strong>Notice:</strong> Locker inventory is currently under maintenance & finalization. New rentals and extensions are temporarily on hold.
+                </span>
+              </div>
+            )}
             <div className="bg-gradient-to-r from-purple-700 via-indigo-700 to-purple-800 p-6 sm:p-8 text-white relative">
               <div className="flex justify-between items-start">
                 <div>
