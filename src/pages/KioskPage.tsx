@@ -273,6 +273,7 @@ export const KioskPage: React.FC = () => {
   const [paymentType, setPaymentType] = useState<'full' | 'downpayment'>('full');
   const [researchTitle, setResearchTitle] = useState('');
   const [leadResearcher, setLeadResearcher] = useState('');
+  const [instructor, setInstructor] = useState('');
 
   // Derived active product from store to ensure real-time reflection of price, image, options & variants
   const activeProduct = useMemo(() => {
@@ -284,7 +285,8 @@ export const KioskPage: React.FC = () => {
     ['Gala', 'Type A & B Uniform'].includes(activeProduct.name) ||
     (activeProduct.stock <= 0 && activeProduct.allowPreorder === true) ||
     (activeProduct.options && activeProduct.options.length > 0) ||
-    activeProduct.name === 'Hard Bound'
+    activeProduct.name === 'Hard Bound' ||
+    ['Swimming Set', 'Swimming Cap'].includes(activeProduct.name)
   ) : false;
 
   const isSelectionConfigured = (product: Product, selectedOpts: Record<string, string>): boolean => {
@@ -558,6 +560,14 @@ export const KioskPage: React.FC = () => {
       }
     }
 
+    // Validate Swimming Set / Swimming Cap fields
+    if (['Swimming Set', 'Swimming Cap'].includes(activeProduct.name)) {
+      if (!instructor.trim()) {
+        showNotification("Please enter your Instructor's Name", 'error');
+        return;
+      }
+    }
+
     // Check if options are selected
     if (activeProduct.options && activeProduct.options.length > 0) {
       if (activeProduct.name === 'BSNAME Uniform') {
@@ -591,6 +601,9 @@ export const KioskPage: React.FC = () => {
     if (activeProduct.name === 'Hard Bound') {
       mergedOptions['researchTitle'] = researchTitle.trim();
       mergedOptions['leadResearcher'] = leadResearcher.trim();
+    }
+    if (['Swimming Set', 'Swimming Cap'].includes(activeProduct.name)) {
+      mergedOptions['instructor'] = instructor.trim();
     }
 
     // Determine order type dynamically based on variant/item stock or made-to-order status
@@ -632,6 +645,7 @@ export const KioskPage: React.FC = () => {
     setPaymentType('full');
     setResearchTitle('');
     setLeadResearcher('');
+    setInstructor('');
   };
 
   const updateCartQuantity = (id: string, delta: number) => {
@@ -1681,6 +1695,15 @@ export const KioskPage: React.FC = () => {
                       <div>
                         <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Lead Researcher Name</label>
                         <input type="text" placeholder="Enter Lead Researcher" value={leadResearcher} onChange={(e) => setLeadResearcher(e.target.value)} className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-gray-800 text-sm shadow-sm" />
+                      </div>
+                    </div>
+                  )}
+
+                  {['Swimming Set', 'Swimming Cap'].includes(activeProduct.name) && (
+                    <div className="space-y-4 mb-5">
+                      <div>
+                        <label className="block text-sm font-bold text-gray-500 mb-2 uppercase tracking-wider">Instructor</label>
+                        <input type="text" placeholder="Enter Instructor's Name" value={instructor} onChange={(e) => setInstructor(e.target.value)} className="w-full px-4 py-3 bg-white border-2 border-gray-200 rounded-xl focus:border-purple-500 focus:outline-none text-gray-800 text-sm shadow-sm" />
                       </div>
                     </div>
                   )}

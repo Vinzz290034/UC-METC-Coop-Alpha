@@ -809,6 +809,7 @@ export const MerchandisePage: React.FC = () => {
   const [orderType, setOrderType] = useState<'regular' | 'preorder'>('regular');
   const [researchTitle, setResearchTitle] = useState<string>('');
   const [leadResearcher, setLeadResearcher] = useState<string>('');
+  const [instructor, setInstructor] = useState<string>('');
   const [cartAnimating, setCartAnimating] = useState(false);
   const cartButtonRef = useRef<HTMLButtonElement>(null);
   const { products, addToCart } = useAppStore();
@@ -931,6 +932,7 @@ export const MerchandisePage: React.FC = () => {
   useEffect(() => {
     setResearchTitle('');
     setLeadResearcher('');
+    setInstructor('');
   }, [selectedProduct]);
 
   // Scroll to top when component mounts
@@ -1285,6 +1287,14 @@ export const MerchandisePage: React.FC = () => {
       }
     }
 
+    // Validate Swimming Set / Swimming Cap fields
+    if (['Swimming Set', 'Swimming Cap'].includes(product.name)) {
+      if (!instructor.trim()) {
+        showNotification("Please enter your Instructor's Name", 'error');
+        return;
+      }
+    }
+
     // Check if product has required options
     if (product.options && product.options.length > 0) {
       if (product.name === 'BSNAME Uniform') {
@@ -1357,11 +1367,14 @@ export const MerchandisePage: React.FC = () => {
       }
     }
     
-    // Merge custom options for Hard Bound
+    // Merge custom options for Hard Bound and Swimming items
     const mergedOptions = { ...selectedOptions };
     if (product.name === 'Hard Bound') {
       mergedOptions['researchTitle'] = researchTitle.trim();
       mergedOptions['leadResearcher'] = leadResearcher.trim();
+    }
+    if (['Swimming Set', 'Swimming Cap'].includes(product.name)) {
+      mergedOptions['instructor'] = instructor.trim();
     }
     
     // Generate a deterministic cart item ID based on product, selected options, payment type, and order type
@@ -2299,6 +2312,18 @@ export const MerchandisePage: React.FC = () => {
                       label="Lead Researcher"
                       value={leadResearcher}
                       onChange={(e) => setLeadResearcher(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+
+                {/* Custom Fields for Swimming Set & Swimming Cap Instructor */}
+                {['Swimming Set', 'Swimming Cap'].includes(selectedProduct.name) && (
+                  <div className="pt-4 border-t border-slate-200 space-y-4">
+                    <FloatingInput
+                      label="Instructor"
+                      value={instructor}
+                      onChange={(e) => setInstructor(e.target.value)}
                       required
                     />
                   </div>

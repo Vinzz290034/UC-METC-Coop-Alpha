@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -104,7 +104,7 @@ export const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'classring'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -118,6 +118,7 @@ export const SalesPage: React.FC = () => {
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
   const [insuranceOrders, setInsuranceOrders] = useState<any[]>([]);
   const [hardboundOrders, setHardboundOrders] = useState<any[]>([]);
+  const [swimmingOrders, setSwimmingOrders] = useState<any[]>([]);
   const [classRingOrders, setClassRingOrders] = useState<any[]>([]);
   const [isClassRingAvailable, setIsClassRingAvailable] = useState<boolean>(() => {
     const saved = localStorage.getItem('silms_class_ring_available');
@@ -139,6 +140,15 @@ export const SalesPage: React.FC = () => {
   useEffect(() => {
     setHardboundCurrentPage(1);
   }, [hardboundSearchQuery, hardboundFilterDate]);
+
+  const [swimmingSearchQuery, setSwimmingSearchQuery] = useState<string>('');
+  const [swimmingFilterDate, setSwimmingFilterDate] = useState<string>('');
+  const [swimmingCurrentPage, setSwimmingCurrentPage] = useState<number>(1);
+  const [swimmingRowsPerPage, setSwimmingRowsPerPage] = useState<number>(15);
+
+  useEffect(() => {
+    setSwimmingCurrentPage(1);
+  }, [swimmingSearchQuery, swimmingFilterDate]);
   const [insuranceRevenue, setInsuranceRevenue] = useState<number>(0);
   const [tailoredFilter, setTailoredFilter] = useState<'all' | 'preorder' | 'downpayment' | 'fullpayment' | 'released'>('all');
   const [tailoredSearchQuery, setTailoredSearchQuery] = useState<string>('');
@@ -283,6 +293,19 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab]);
 
+  // Load orders for swimming tab
+  useEffect(() => {
+    if (user?.id && activeTab === 'swimming') {
+      loadSwimmingOrders();
+      
+      const interval = setInterval(() => {
+        loadSwimmingOrders();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab]);
+
   // Load orders for class ring tab
   useEffect(() => {
     if (user?.id && activeTab === 'classring') {
@@ -343,7 +366,6 @@ export const SalesPage: React.FC = () => {
     }
   }, [selectedImportSheet]);
 
-
   const refreshActiveTabData = async () => {
     if (activeTab === 'pending') await loadPendingOrders();
     else if (activeTab === 'daily') await loadDailySummary();
@@ -356,6 +378,7 @@ export const SalesPage: React.FC = () => {
     }
     else if (activeTab === 'insurance') await loadInsuranceOrders();
     else if (activeTab === 'hardbound') await loadHardboundOrders();
+    else if (activeTab === 'swimming') await loadSwimmingOrders();
     else if (activeTab === 'classring') await loadClassRingOrders();
   };
 
@@ -1153,6 +1176,25 @@ export const SalesPage: React.FC = () => {
     }
   };
 
+  const loadSwimmingOrders = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      
+      const swimmingOrdersFiltered = allOrders.filter((order: any) => {
+        if (!order.items || !Array.isArray(order.items)) return false;
+        if (order.status !== 'completed' && order.status !== 'released') return false;
+        return order.items.some((item: any) => {
+          const name = (item.productName || item.product_name || '').toLowerCase();
+          return name.includes('swimming') || name.includes('swim set') || name.includes('swim cap') || name.includes('swimset');
+        });
+      });
+      
+      setSwimmingOrders(swimmingOrdersFiltered);
+    } catch (err) {
+      console.error('Failed to load swimming orders:', err);
+    }
+  };
+
   const changeDate = (days: number) => {
     const newDate = new Date(selectedDate);
     newDate.setDate(newDate.getDate() + days);
@@ -1841,6 +1883,115 @@ export const SalesPage: React.FC = () => {
       return;
     }
 
+    if (activeTab === 'swimming') {
+      const rows: any[] = [];
+      swimmingOrders.forEach(order => {
+        order.items?.forEach((item: any) => {
+          const productName = (item.productName || item.product_name || '').toLowerCase();
+          if (!productName.includes('swimming') && !productName.includes('swim set') && !productName.includes('swim cap') && !productName.includes('swimset')) return;
+          
+          const orderDateObj = new Date(order.created_at);
+          const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+          if (swimmingFilterDate && orderDateString !== swimmingFilterDate) return;
+          
+          rows.push({
+            receiptNo: order.receipt_no || 'N/A',
+            studentName: formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'N/A',
+            studentId: order.id_number || order.walk_in_id_number || 'N/A',
+            course: order.course || order.walk_in_course || 'N/A',
+            productName: item.productName || item.product_name || 'Swimming Gear',
+            size: item.selectedOptions?.size || item.selectedOptions?.Size || 'N/A',
+            quantity: item.quantity || 1,
+            instructor: item.selectedOptions?.instructor || item.selectedOptions?.Instructor || 'N/A',
+            date: new Date(order.created_at).toLocaleDateString(),
+            amount: parseFloat(item.subtotal || order.total_amount || 0),
+            paymentMethod: formatPaymentMethod(order.payment_method)
+          });
+        });
+      });
+
+      const tableRows = rows.map((row, index) => {
+        return `
+          <tr style="height: 30px;">
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; text-align: center; padding: 6px; color: #000000;">${index + 1}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000; font-weight: bold;">${row.receiptNo}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000;">${row.studentName}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000;">${row.course}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000;">${row.productName}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; text-align: center; color: #000000;">${row.size}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; color: #000000; font-weight: bold;">${row.instructor}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; text-align: center; color: #000000;">${row.date}</td>
+            <td style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; padding: 6px; text-align: right; color: #000000;">₱${row.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = `
+        <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head>
+          <!--[if gte mso 9]>
+          <xml>
+            <x:ExcelWorkbook>
+              <x:ExcelWorksheets>
+                <x:ExcelWorksheet>
+                  <x:Name>Swimming Orders</x:Name>
+                  <x:WorksheetOptions>
+                    <x:DisplayGridlines/>
+                  </x:WorksheetOptions>
+                </x:ExcelWorksheet>
+              </x:ExcelWorksheets>
+            </x:ExcelWorkbook>
+          </xml>
+          <![endif]-->
+          <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+        </head>
+        <body style="font-family: Arial, sans-serif;">
+          <table style="width: 100%; border: none; margin-bottom: 20px;">
+            <tr>
+              <td colspan="9" style="font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; text-align: center; color: #000000; padding: 2px 0;">
+                University of Cebu - METC Multipurpose Cooperative (UC-METC MPC)
+              </td>
+            </tr>
+            <tr>
+              <td colspan="9" style="font-family: Arial, sans-serif; font-size: 10px; text-align: center; color: #444444; padding: 2px 0;">
+                UCMETC Campus Alumnos, Mambaling, Cebu City
+              </td>
+            </tr>
+            <tr>
+              <td colspan="9" style="font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; color: #000000; padding: 4px 0; padding-bottom: 20px;">
+                Swimming Gear Orders Log - Date: ${swimmingFilterDate ? new Date(swimmingFilterDate).toLocaleDateString('en-US', { dateStyle: 'long' }) : new Date().toLocaleDateString('en-US', { dateStyle: 'long' })}
+              </td>
+            </tr>
+          </table>
+
+          <table style="border-collapse: collapse; border: 1px solid #cbd5e1; width: 100%;">
+            <thead>
+              <tr style="height: 35px; background-color: #0284c7;">
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 45px; color: #ffffff; background-color: #0284c7;">NO.</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 120px; color: #ffffff; background-color: #0284c7;">RECEIPT NO</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 180px; color: #ffffff; background-color: #0284c7;">STUDENT NAME</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 90px; color: #ffffff; background-color: #0284c7;">COURSE</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 160px; color: #ffffff; background-color: #0284c7;">PRODUCT</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 70px; color: #ffffff; background-color: #0284c7;">SIZE</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 180px; color: #ffffff; background-color: #0284c7;">INSTRUCTOR</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 100px; color: #ffffff; background-color: #0284c7;">DATE</th>
+                <th style="border: 1px solid #cbd5e1; font-family: Arial, sans-serif; font-size: 11px; font-weight: bold; text-align: center; padding: 6px; width: 100px; color: #ffffff; background-color: #0284c7;">AMOUNT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRows}
+            </tbody>
+          </table>
+        </body>
+        </html>
+      `;
+
+      const fileDateSuffix = swimmingFilterDate ? swimmingFilterDate : formatLocalDate(new Date());
+      triggerExcelDownload(htmlContent, `swimming_instructor_orders_${fileDateSuffix}`);
+      showNotification('Swimming report exported successfully!', 'success');
+      return;
+    }
+
     if (activeTab === 'classring') {
       const rows = classRingOrders.map(order => {
         const item = order.items?.[0] || {};
@@ -2051,6 +2202,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               Hardbound
+            </button>
+            <button
+              onClick={() => setActiveTab('swimming')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'swimming'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Swimming
             </button>
             <button
               onClick={() => setActiveTab('classring')}
@@ -4362,6 +4523,287 @@ export const SalesPage: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setHardboundCurrentPage(totalPages)}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="Last Page"
+                          >
+                            Last »
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Swimming Tab */}
+        {activeTab === 'swimming' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Summary */}
+            <div className="bg-purple-600 rounded-xl p-8 text-white shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold mb-1">Swimming Gear & Instructor Portal</h3>
+                  <p className="text-purple-100 text-sm mt-1">Manage and track Swimming Set & Swimming Cap orders and instructors</p>
+                  <div className="flex gap-4 mt-4 text-xs font-semibold text-purple-100">
+                    <span className="bg-white/15 px-3 py-1 rounded-full">
+                      {(() => {
+                        const filteredByDateCount = swimmingOrders.filter((order: any) => {
+                          const orderDateObj = new Date(order.created_at);
+                          const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+                          return !swimmingFilterDate || orderDateString === swimmingFilterDate;
+                        }).length;
+                        return swimmingFilterDate 
+                          ? `Completed on ${new Date(swimmingFilterDate).toLocaleDateString('en-US', { dateStyle: 'medium' })}: ${filteredByDateCount}` 
+                          : `Total Orders: ${swimmingOrders.length}`;
+                      })()}
+                    </span>
+                  </div>
+                </div>
+                <div className="bg-white/20 p-4 rounded-full hidden sm:block">
+                  <Waves size={48} />
+                </div>
+              </div>
+            </div>
+
+            {/* Main Content Card */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm">
+              <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-900">Swimming Order Log</h3>
+                  <p className="text-sm text-slate-600 mt-1">View instructors, sizes, and student details for swimming gear orders</p>
+                </div>
+                
+                {/* Controls (Date Filter & Search Bar) */}
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                  {/* Date Filter */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <label htmlFor="sw-date-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                      Date:
+                    </label>
+                    <div className="relative w-full sm:w-44">
+                      <input
+                        id="sw-date-filter"
+                        type="date"
+                        value={swimmingFilterDate}
+                        onChange={(e) => setSwimmingFilterDate(e.target.value)}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white text-slate-900 font-medium"
+                      />
+                      {swimmingFilterDate && (
+                        <button
+                          onClick={() => setSwimmingFilterDate('')}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold bg-white px-1"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full sm:w-72">
+                    <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search instructors, students, receipt..."
+                      value={swimmingSearchQuery}
+                      onChange={(e) => setSwimmingSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6">
+                {(() => {
+                  const filtered = swimmingOrders.filter((order: any) => {
+                    if (swimmingFilterDate) {
+                      const orderDateObj = new Date(order.created_at);
+                      const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+                      if (orderDateString !== swimmingFilterDate) return false;
+                    }
+
+                    const query = swimmingSearchQuery.toLowerCase().trim();
+                    if (!query) return true;
+                    if (order.receipt_no?.toLowerCase().includes(query)) return true;
+                    const fullName = `${order.first_name || ''} ${order.last_name || ''}`.toLowerCase();
+                    if (fullName.includes(query)) return true;
+                    if (order.id_number?.toLowerCase().includes(query)) return true;
+                    return order.items?.some((item: any) => {
+                      const instructorName = item.selectedOptions?.instructor || item.selectedOptions?.Instructor || '';
+                      const prodName = item.productName || item.product_name || '';
+                      return instructorName.toLowerCase().includes(query) || prodName.toLowerCase().includes(query);
+                    }) || false;
+                  });
+
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-12">
+                        <Package size={48} className="mx-auto text-slate-300 mb-4" />
+                        <p className="text-slate-600 text-lg">No swimming orders found</p>
+                      </div>
+                    );
+                  }
+
+                  const totalItems = filtered.length;
+                  const totalPages = Math.max(1, Math.ceil(totalItems / swimmingRowsPerPage));
+                  const currentPageClamped = Math.min(swimmingCurrentPage, totalPages);
+                  const startIndex = (currentPageClamped - 1) * swimmingRowsPerPage;
+                  const endIndex = Math.min(startIndex + swimmingRowsPerPage, totalItems);
+                  const paginatedOrders = filtered.slice(startIndex, endIndex);
+
+                  return (
+                    <div className="space-y-6">
+                      <div className="space-y-6">
+                        {paginatedOrders.map((order: any) => (
+                          <div
+                            key={order.id}
+                            className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
+                          >
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+                              <div>
+                                <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                                  <h4 className="font-semibold text-slate-900 text-base">
+                                    {formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Walk-in Student'}
+                                  </h4>
+                                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                    order.status === 'pending'
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : order.status === 'completed'
+                                      ? 'bg-green-100 text-green-700'
+                                      : order.status === 'released'
+                                      ? 'bg-purple-100 text-purple-700'
+                                      : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {(order.status || 'completed').toUpperCase()}
+                                  </span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-medium">
+                                  Student ID: {order.id_number || order.walk_in_id_number || 'N/A'} • Course: {order.course || order.walk_in_course || 'BSMT'}
+                                </p>
+                              </div>
+                              <div className="text-left md:text-right">
+                                <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
+                                <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                              <div className="lg:col-span-8 space-y-3">
+                                {order.items?.map((item: any, idx: number) => {
+                                  const name = (item.productName || item.product_name || '').toLowerCase();
+                                  const isSwim = name.includes('swimming') || name.includes('swim set') || name.includes('swim cap') || name.includes('swimset');
+                                  if (!isSwim) return null;
+                                  return (
+                                    <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2 text-purple-600">
+                                          <Waves size={16} />
+                                          <span className="text-xs font-bold uppercase tracking-wider">{item.productName || item.product_name}</span>
+                                        </div>
+                                        {item.selectedOptions?.size && (
+                                          <span className="text-xs font-semibold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200">
+                                            Size: {item.selectedOptions.size}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="space-y-1.5 pt-1">
+                                        <div>
+                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Assigned Instructor</p>
+                                          <div className="flex items-center gap-1.5 mt-0.5">
+                                            <User size={14} className="text-purple-600" />
+                                            <p className="text-sm font-semibold text-slate-800">
+                                              {item.selectedOptions?.instructor || item.selectedOptions?.Instructor || 'Not Specified'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                <div>
+                                  <p className="text-xs text-slate-500 mb-1">Amount:</p>
+                                  <p className="text-2xl font-bold text-slate-900 mb-2">
+                                    ₱{(order.items || [])
+                                      .filter((item: any) => {
+                                        const name = (item.productName || item.product_name || '').toLowerCase();
+                                        return name.includes('swimming') || name.includes('swim set') || name.includes('swim cap') || name.includes('swimset');
+                                      })
+                                      .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
+                                      .toLocaleString()}
+                                  </p>
+                                  <div className="text-xs text-slate-500 font-medium">
+                                    Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
+                                    {order.payment_method === 'ewallet' && order.reference_number && (
+                                      <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600">
+                          <div className="flex items-center gap-2">
+                            <span>Rows per page:</span>
+                            <select
+                              value={swimmingRowsPerPage}
+                              onChange={(e) => {
+                                setSwimmingRowsPerPage(Number(e.target.value));
+                                setSwimmingCurrentPage(1);
+                              }}
+                              className="px-2.5 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-slate-800 font-bold"
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={25}>25</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+                          <span>
+                            Showing {startIndex + 1}–{endIndex} of {totalItems} orders
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setSwimmingCurrentPage(1)}
+                            disabled={currentPageClamped === 1}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="First Page"
+                          >
+                            « First
+                          </button>
+                          <button
+                            onClick={() => setSwimmingCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPageClamped === 1}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <ChevronLeft size={14} />
+                            <span>Prev</span>
+                          </button>
+                          <span className="px-3 py-1.5 text-xs font-extrabold text-purple-700 bg-purple-50 rounded-lg border border-purple-200">
+                            Page {currentPageClamped} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() => setSwimmingCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => setSwimmingCurrentPage(totalPages)}
                             disabled={currentPageClamped === totalPages}
                             className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             title="Last Page"

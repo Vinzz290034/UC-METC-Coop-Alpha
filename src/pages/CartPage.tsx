@@ -196,6 +196,11 @@ export const CartPage: React.FC = () => {
                               Lead Researcher: <span className="text-slate-800 font-semibold">{item.selectedOptions.leadResearcher}</span>
                             </p>
                           )}
+                          {item.selectedOptions?.instructor && (
+                            <p className="text-xs text-slate-500 mt-1">
+                              Instructor: <span className="text-slate-800 font-semibold">{item.selectedOptions.instructor}</span>
+                            </p>
+                          )}
                           <p className="text-base sm:text-lg font-bold text-purple-600 mt-1">
                             ₱{item.price.toLocaleString('en-US', {
                               minimumFractionDigits: 2,
