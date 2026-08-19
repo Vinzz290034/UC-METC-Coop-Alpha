@@ -11,7 +11,7 @@ import { apiClient } from '../services/api';
 import type { Product, ItemType } from '../types';
 import { PRODUCT_IMAGES } from '../constants/cloudinaryAssets';
 import { uploadToCloudinary } from '../utils/cloudinary';
-import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+import { formatProductName, parseAndFormatLegacyProductName, cleanRepeatedSegments } from '../utils/productNameFormatter';
 import { formatDisplaySKU, generateCategoryNextSKU } from '../utils/skuFormatter';
 
 const CATEGORY_OPTIONS = [
@@ -197,8 +197,8 @@ const formatProductNameWithVariants = (item: any): string => {
   // Get the full product name from database
   let fullName = item?.product_name || item?.productName || 'Unknown Product';
   
-  // Clean up any extra spaces
-  fullName = fullName.replace(/\s+/g, ' ').trim();
+  // Clean up any extra spaces and repeated segments
+  fullName = cleanRepeatedSegments(fullName.replace(/\s+/g, ' ').trim());
   
   // If the name already appears to be formatted (contains " - " pattern multiple times),
   // check for duplicates and clean up
@@ -212,17 +212,17 @@ const formatProductNameWithVariants = (item: any): string => {
       const thirdPartBeforeParen = parts[2].split('(')[0].trim();
       
       // Compare after trimming both parts
-      if (secondPart === thirdPartBeforeParen) {
+      if (secondPart.toLowerCase() === thirdPartBeforeParen.toLowerCase()) {
         // Remove the duplicate - keep base name, variant name, and everything after (including course code)
         const baseName = parts[0].trim();
         const variantName = parts[1].trim();
         // Get everything after the duplicate, including the course code in parentheses
         const afterDuplicate = parts[2].substring(thirdPartBeforeParen.length).trim();
-        return `${baseName} - ${variantName} ${afterDuplicate}`.trim();
+        return cleanRepeatedSegments(`${baseName} - ${variantName} ${afterDuplicate}`.trim());
       }
     }
     
-    return fullName;
+    return cleanRepeatedSegments(fullName);
   }
   
   // Get unit price to determine if member discount was applied
@@ -248,12 +248,12 @@ const formatProductNameWithVariants = (item: any): string => {
     // Extract base name from full name (remove everything after first parenthesis)
     const baseNameMatch = fullName.match(/^([^(]+)/);
     const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
-    return formatProductName(baseName, options, unitPrice);
+    return cleanRepeatedSegments(formatProductName(baseName, options, unitPrice));
   }
   
   // Fallback: Parse the legacy format from the product name itself
   // This handles old orders where the full format was stored in product_name
-  return parseAndFormatLegacyProductName(fullName, unitPrice);
+  return cleanRepeatedSegments(parseAndFormatLegacyProductName(fullName, unitPrice));
 };
 
 // Helper function to extract variants array cleanly whether stored as object or array
@@ -461,9 +461,10 @@ export const InventoryPage: React.FC = () => {
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [monthlyData, setMonthlyData] = useState<any>(null);
   const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
+  const [monthlyPaymentTypeFilter, setMonthlyPaymentTypeFilter] = useState<'all' | 'full' | 'downpayment' | 'balance'>('all');
   const [selectedMonthlyExportProducts, setSelectedMonthlyExportProducts] = useState<string[]>([]);
   const [showMonthlyExportModal, setShowMonthlyExportModal] = useState<boolean>(false);
-  const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; quantity: number } | null>(null);
+  const [selectedProductSoldDetails, setSelectedProductSoldDetails] = useState<{ productName: string; paymentType?: 'full' | 'downpayment' | 'balance'; quantity: number } | null>(null);
   const [productSoldSearchQuery, setProductSoldSearchQuery] = useState<string>('');
   const [showForm, setShowForm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -1868,22 +1869,43 @@ interface StockIntakeItem {
         sum + parseFloat(order.total_amount), 0
       );
       
-      // Calculate product units sold
-      const productsSold: Record<string, { quantity: number; revenue: number }> = {};
+      // Calculate product units sold with payment stage distinction
+      const productsSold: Record<string, { productName: string; paymentType: 'full' | 'downpayment' | 'balance'; quantity: number; revenue: number }> = {};
       
       monthlyOrders.forEach((order: any) => {
         const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
-                                 (order.receiptNo && order.receiptNo.startsWith('BAL-'));
+                                 (order.receiptNo && order.receiptNo.startsWith('BAL-')) ||
+                                 (order.order_type === 'balance_payment') ||
+                                 (order.orderType === 'balance_payment');
         if (order.items && Array.isArray(order.items)) {
           order.items.forEach((item: any) => {
-            const productName = formatProductNameWithVariants(item);
-            if (!productsSold[productName]) {
-              productsSold[productName] = { quantity: 0, revenue: 0 };
+            const rawProductName = formatProductNameWithVariants(item);
+            const cleanName = cleanRepeatedSegments(rawProductName);
+            
+            const rawPaymentType = item.paymentType || item.payment_type || order.paymentType || order.payment_type;
+            const price = parseFloat(item.price || item.unit_price || item.unitPrice || 0);
+            const isTailored = cleanName.toLowerCase().includes('uniform') || cleanName.toLowerCase().includes('gala');
+            
+            let pType: 'full' | 'downpayment' | 'balance' = 'full';
+            if (isBalancePayment) {
+              pType = 'balance';
+            } else if (rawPaymentType === 'downpayment' || (isTailored && (price === 1500 || price === 500))) {
+              pType = 'downpayment';
+            }
+
+            const itemKey = `${cleanName}::${pType}`;
+            if (!productsSold[itemKey]) {
+              productsSold[itemKey] = { 
+                productName: cleanName,
+                paymentType: pType,
+                quantity: 0, 
+                revenue: 0 
+              };
             }
             if (!isBalancePayment) {
-              productsSold[productName].quantity += item.quantity;
+              productsSold[itemKey].quantity += (parseInt(String(item.quantity || 1), 10) || 1);
             }
-            productsSold[productName].revenue += parseFloat(item.subtotal);
+            productsSold[itemKey].revenue += parseFloat(String(item.subtotal || (item.quantity * (price || 0)) || 0)) || 0;
           });
         }
       });
@@ -1899,16 +1921,31 @@ interface StockIntakeItem {
     }
   };
 
-  const getProductSoldOrders = (productName: string) => {
+  const getProductSoldOrders = (productName: string, paymentType?: 'full' | 'downpayment' | 'balance') => {
     if (!monthlyData || !monthlyData.orders) return [];
     
     const matchingPurchases: any[] = [];
     
     monthlyData.orders.forEach((order: any) => {
+      const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                               (order.receiptNo && order.receiptNo.startsWith('BAL-')) ||
+                               (order.order_type === 'balance_payment') ||
+                               (order.orderType === 'balance_payment');
       if (order.items && Array.isArray(order.items)) {
         order.items.forEach((item: any) => {
-          const itemProductName = formatProductNameWithVariants(item);
-          if (itemProductName === productName) {
+          const itemProductName = cleanRepeatedSegments(formatProductNameWithVariants(item));
+          const rawPaymentType = item.paymentType || item.payment_type || order.paymentType || order.payment_type;
+          const price = parseFloat(item.price || item.unit_price || item.unitPrice || 0);
+          const isTailored = itemProductName.toLowerCase().includes('uniform') || itemProductName.toLowerCase().includes('gala');
+          
+          let pType: 'full' | 'downpayment' | 'balance' = 'full';
+          if (isBalancePayment) {
+            pType = 'balance';
+          } else if (rawPaymentType === 'downpayment' || (isTailored && (price === 1500 || price === 500))) {
+            pType = 'downpayment';
+          }
+
+          if (itemProductName === productName && (!paymentType || pType === paymentType)) {
             matchingPurchases.push({
               id: order.id,
               receipt_no: order.receipt_no || order.receiptNo || 'N/A',
@@ -1918,7 +1955,8 @@ interface StockIntakeItem {
                 ? `${order.course} - ${order.year}` 
                 : order.course || order.year || 'N/A',
               quantity: item.quantity || 0,
-              subtotal: parseFloat(item.subtotal || 0),
+              subtotal: parseFloat(String(item.subtotal || (item.quantity * price) || 0)) || 0,
+              paymentType: pType,
             });
           }
         });
@@ -1929,13 +1967,13 @@ interface StockIntakeItem {
     return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   };
 
-  const handleExportMonthlyReport = (selectedProductNames?: string[]) => {
+  const handleExportMonthlyReport = (selectedProductKeys?: string[]) => {
     if (!monthlyData) return;
     
     // Helper to resolve category and SKU from master products
     const resolveProductInfo = (itemName: string) => {
-      const baseName = itemName.split(' - ')[0];
-      const matchedProduct = products.find(p => p.name === baseName);
+      const baseName = itemName.split(' - ')[0].split('(')[0].trim();
+      const matchedProduct = products.find(p => p.name.toLowerCase().trim() === baseName.toLowerCase().trim() || p.name.toLowerCase().trim() === itemName.toLowerCase().trim());
       const rawCat = matchedProduct?.category || '';
       const category = (rawCat === 'equipment' || rawCat === 'ppe') ? 'PPE' : (rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Merchandise');
       const sku = matchedProduct?.sku || 'N/A';
@@ -1945,8 +1983,8 @@ interface StockIntakeItem {
     let entries = Object.entries(monthlyData.productsSold);
     
     // Filter if specific products were specified
-    if (selectedProductNames && selectedProductNames.length > 0) {
-      entries = entries.filter(([pName]) => selectedProductNames.includes(pName));
+    if (selectedProductKeys && selectedProductKeys.length > 0) {
+      entries = entries.filter(([pKey]) => selectedProductKeys.includes(pKey));
     }
 
     if (entries.length === 0) {
@@ -1956,11 +1994,15 @@ interface StockIntakeItem {
 
     const rows = entries
       .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-      .map(([productName, data]: [string, any]) => {
-        const { category, sku } = resolveProductInfo(productName);
-        const price = data.revenue / (data.quantity || 1);
+      .map(([key, data]: [string, any]) => {
+        const pName = data.productName || key;
+        const pType = data.paymentType || 'full';
+        const pTypeLabel = pType === 'downpayment' ? 'Downpayment' : pType === 'balance' ? 'Balance Settlement' : 'Full Payment';
+        const { category, sku } = resolveProductInfo(pName);
+        const price = data.quantity > 0 ? (data.revenue / data.quantity) : data.revenue;
         return {
-          name: productName,
+          name: pName,
+          paymentType: pTypeLabel,
           category,
           sku,
           price,
@@ -1975,6 +2017,7 @@ interface StockIntakeItem {
     const tableHeader = `
       <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 140px;">Payment Stage</th>
         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
         <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Avg Unit Price</th>
@@ -1985,9 +2028,11 @@ interface StockIntakeItem {
 
     const tableRows = rows.map((row, index) => {
       const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const pColor = row.paymentType === 'Downpayment' ? '#b45309' : row.paymentType === 'Balance Settlement' ? '#047857' : '#6d28d9';
       return `
         <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
           <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${pColor};">${row.paymentType}</td>
           <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
           <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
           <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
@@ -5485,61 +5530,110 @@ interface StockIntakeItem {
 
           {/* Products Sold Table */}
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3">
-                  <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
-                  {selectedMonthlyExportProducts.length > 0 && (
-                    <span className="px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border border-purple-200">
-                      {selectedMonthlyExportProducts.length} selected for export
-                    </span>
-                  )}
+            <div className="p-6 border-b border-slate-200 flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-slate-900">Products Sold This Month</h3>
+                    {selectedMonthlyExportProducts.length > 0 && (
+                      <span className="px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border border-purple-200">
+                        {selectedMonthlyExportProducts.length} selected for export
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Breakdown of product items sold, downpayment deposits, and balance settlements.</p>
                 </div>
-                <p className="text-xs text-slate-500 mt-1">Select specific products to generate a customized Excel report</p>
-              </div>
 
-              <div className="flex flex-wrap items-center gap-2.5">
-                <div className="relative flex-1 sm:w-64">
-                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
-                    <Search size={16} />
-                  </span>
-                  <input
-                    type="text"
-                    placeholder="Search product name..."
-                    value={monthlySearchQuery}
-                    onChange={(e) => setMonthlySearchQuery(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
-                  />
-                  {monthlySearchQuery && (
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="relative flex-1 sm:w-64">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                      <Search size={16} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search product name..."
+                      value={monthlySearchQuery}
+                      onChange={(e) => setMonthlySearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                    />
+                    {monthlySearchQuery && (
+                      <button
+                        onClick={() => setMonthlySearchQuery('')}
+                        className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowMonthlyExportModal(true)}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"
+                    title="Open Product Picker Modal"
+                  >
+                    <Filter size={15} />
+                    <span>Select Products</span>
+                  </button>
+
+                  {selectedMonthlyExportProducts.length > 0 && (
                     <button
-                      onClick={() => setMonthlySearchQuery('')}
-                      className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                      type="button"
+                      onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts)}
+                      className="flex items-center space-x-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95 animate-fade-in"
                     >
-                      <X size={14} />
+                      <Download size={15} />
+                      <span>Export Selected ({selectedMonthlyExportProducts.length})</span>
                     </button>
                   )}
                 </div>
+              </div>
 
+              {/* Payment Stage Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                  <Filter size={14} /> Payment Stage:
+                </span>
                 <button
-                  type="button"
-                  onClick={() => setShowMonthlyExportModal(true)}
-                  className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200"
-                  title="Open Product Picker Modal"
+                  onClick={() => setMonthlyPaymentTypeFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                    monthlyPaymentTypeFilter === 'all'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
                 >
-                  <Filter size={15} />
-                  <span>Select Products</span>
+                  All Transactions
                 </button>
-
-                {selectedMonthlyExportProducts.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts)}
-                    className="flex items-center space-x-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95 animate-fade-in"
-                  >
-                    <Download size={15} />
-                    <span>Export Selected ({selectedMonthlyExportProducts.length})</span>
-                  </button>
-                )}
+                <button
+                  onClick={() => setMonthlyPaymentTypeFilter('full')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                    monthlyPaymentTypeFilter === 'full'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Full Payments
+                </button>
+                <button
+                  onClick={() => setMonthlyPaymentTypeFilter('downpayment')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                    monthlyPaymentTypeFilter === 'downpayment'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  Downpayments
+                </button>
+                <button
+                  onClick={() => setMonthlyPaymentTypeFilter('balance')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                    monthlyPaymentTypeFilter === 'balance'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  Balance Settlements
+                </button>
               </div>
             </div>
 
@@ -5548,6 +5642,7 @@ interface StockIntakeItem {
                 <thead className="bg-slate-50 border-b border-slate-200">
                   <tr>
                     <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Payment Stage</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Units Sold</th>
                     <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
                   </tr>
@@ -5555,36 +5650,84 @@ interface StockIntakeItem {
                 <tbody>
                   {(() => {
                     const filtered = Object.entries(monthlyData.productsSold)
-                      .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
-                      .sort((a: any, b: any) => b[1].quantity - a[1].quantity);
+                      .filter(([_, data]: [string, any]) => {
+                        const nameMatches = (data.productName || '').toLowerCase().includes(monthlySearchQuery.toLowerCase());
+                        const typeMatches = monthlyPaymentTypeFilter === 'all' || data.paymentType === monthlyPaymentTypeFilter;
+                        return nameMatches && typeMatches;
+                      })
+                      .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue);
 
                     if (filtered.length === 0) {
                       return (
                         <tr>
-                          <td colSpan={3} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
-                            No products found matching "{monthlySearchQuery}"
+                          <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
+                            No products found matching the current filter
                           </td>
                         </tr>
                       );
                     }
 
-                    return filtered.map(([productName, data]: [string, any]) => {
+                    return filtered.map(([key, data]: [string, any]) => {
                       return (
                         <tr 
-                          key={productName} 
+                          key={key} 
                           className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
                         >
-                          <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
-                          <td className="px-6 py-4 text-sm text-right">
-                            <button
-                              onClick={() => setSelectedProductSoldDetails({ productName, quantity: data.quantity })}
-                              className="px-3 py-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-purple-200/50 shadow-sm"
-                            >
-                              {data.quantity} units
-                            </button>
+                          <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                            <div>{data.productName}</div>
+                            {data.paymentType === 'downpayment' && (
+                              <span className="text-[11px] text-amber-700 font-bold">
+                                Partial Downpayment Deposit
+                              </span>
+                            )}
+                            {data.paymentType === 'balance' && (
+                              <span className="text-[11px] text-emerald-700 font-bold">
+                                Remaining Balance Settlement
+                              </span>
+                            )}
                           </td>
-                          <td className="px-6 py-4 text-sm text-right font-semibold text-slate-900">
-                            ₱{data.revenue.toLocaleString()}
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
+                            {data.paymentType === 'downpayment' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                DOWNPAYMENT
+                              </span>
+                            ) : data.paymentType === 'balance' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                BALANCE SETTLEMENT
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                Full Payment
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            {data.paymentType === 'balance' ? (
+                              <button
+                                onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
+                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-emerald-200 shadow-2xs"
+                                title="Click to view balance settlement orders"
+                              >
+                                Balance Settlements
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
+                                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 shadow-2xs ${
+                                  data.paymentType === 'downpayment'
+                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                                    : 'bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200/50'
+                                }`}
+                              >
+                                {data.quantity} units
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right font-black text-slate-900">
+                            ₱{data.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </td>
                         </tr>
                       );
@@ -6182,13 +6325,13 @@ interface StockIntakeItem {
 
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[42vh] overflow-y-auto">
                 {Object.entries(monthlyData.productsSold)
-                  .filter(([productName]) => productName.toLowerCase().includes(monthlySearchQuery.toLowerCase()))
-                  .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
-                  .map(([productName, data]: [string, any]) => {
-                    const isChecked = selectedMonthlyExportProducts.includes(productName);
+                  .filter(([_, data]: [string, any]) => (data.productName || '').toLowerCase().includes(monthlySearchQuery.toLowerCase()))
+                  .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue)
+                  .map(([itemKey, data]: [string, any]) => {
+                    const isChecked = selectedMonthlyExportProducts.includes(itemKey);
                     return (
                       <label 
-                        key={productName}
+                        key={itemKey}
                         className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/60' : 'hover:bg-slate-50'}`}
                       >
                         <div className="flex items-center gap-3 min-w-0 pr-2">
@@ -6197,19 +6340,35 @@ interface StockIntakeItem {
                             checked={isChecked}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedMonthlyExportProducts(prev => [...prev, productName]);
+                                setSelectedMonthlyExportProducts(prev => [...prev, itemKey]);
                               } else {
-                                setSelectedMonthlyExportProducts(prev => prev.filter(name => name !== productName));
+                                setSelectedMonthlyExportProducts(prev => prev.filter(name => name !== itemKey));
                               }
                             }}
                             className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
                           />
-                          <span className="text-sm font-medium text-slate-800 truncate">{productName}</span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-800 truncate">{data.productName}</span>
+                              {data.paymentType === 'downpayment' && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                  DOWNPAYMENT
+                                </span>
+                              )}
+                              {data.paymentType === 'balance' && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  BALANCE
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-shrink-0">
-                          <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">{data.quantity} units</span>
-                          <span className="text-purple-700 font-bold">₱{data.revenue.toLocaleString()}</span>
+                          <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">
+                            {data.paymentType === 'balance' ? 'Settlement' : `${data.quantity} units`}
+                          </span>
+                          <span className="text-purple-700 font-bold">₱{data.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                         </div>
                       </label>
                     );
@@ -7175,11 +7334,28 @@ interface StockIntakeItem {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-slate-200 bg-slate-50">
               <div>
-                <h3 className="text-xl font-bold text-slate-900">
-                  {selectedProductSoldDetails.productName}
-                </h3>
+                <div className="flex flex-wrap items-center gap-3">
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {selectedProductSoldDetails.productName}
+                  </h3>
+                  {selectedProductSoldDetails.paymentType === 'downpayment' && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300">
+                      DOWNPAYMENT DEPOSITS
+                    </span>
+                  )}
+                  {selectedProductSoldDetails.paymentType === 'balance' && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      BALANCE SETTLEMENTS
+                    </span>
+                  )}
+                  {selectedProductSoldDetails.paymentType === 'full' && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                      FULL PAYMENTS
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-slate-500 mt-1">
-                  Purchases in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total units sold: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.quantity} units</span>
+                  Transactions in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.paymentType === 'balance' ? 'Balance Settlement Transactions' : `${selectedProductSoldDetails.quantity} units`}</span>
                 </p>
               </div>
               <button
@@ -7220,7 +7396,7 @@ interface StockIntakeItem {
             {/* Modal Body / Table */}
             <div className="flex-1 overflow-y-auto p-6">
               {(() => {
-                const purchases = getProductSoldOrders(selectedProductSoldDetails.productName);
+                const purchases = getProductSoldOrders(selectedProductSoldDetails.productName, selectedProductSoldDetails.paymentType);
                 const filteredPurchases = purchases.filter(p => 
                   productSoldSearchQuery === '' || 
                   p.name.toLowerCase().includes(productSoldSearchQuery.toLowerCase())
@@ -7233,7 +7409,7 @@ interface StockIntakeItem {
                       <p className="text-slate-500">
                         {productSoldSearchQuery 
                           ? `No purchases found matching "${productSoldSearchQuery}"` 
-                          : 'No purchase records found for this product.'}
+                          : 'No purchase records found for this product category.'}
                       </p>
                     </div>
                   );
@@ -7248,6 +7424,7 @@ interface StockIntakeItem {
                           <th className="text-left py-3 px-6 font-semibold text-slate-900">Receipt No.</th>
                           <th className="text-left py-3 px-6 font-semibold text-slate-900">Name</th>
                           <th className="text-left py-3 px-6 font-semibold text-slate-900">Course & Year</th>
+                          <th className="text-center py-3 px-6 font-semibold text-slate-900">Payment Stage</th>
                           <th className="text-center py-3 px-6 font-semibold text-slate-900">Quantity</th>
                           <th className="text-right py-3 px-6 font-semibold text-slate-900">Amount</th>
                         </tr>
@@ -7271,8 +7448,23 @@ interface StockIntakeItem {
                             <td className="py-4 px-6 text-slate-700">
                               {purchase.courseYear}
                             </td>
+                            <td className="py-4 px-6 text-center whitespace-nowrap">
+                              {purchase.paymentType === 'downpayment' ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                  DOWNPAYMENT
+                                </span>
+                              ) : purchase.paymentType === 'balance' ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  BALANCE
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                  FULL
+                                </span>
+                              )}
+                            </td>
                             <td className="py-4 px-6 text-center font-medium text-slate-800">
-                              {purchase.quantity}
+                              {purchase.paymentType === 'balance' ? '-' : purchase.quantity}
                             </td>
                             <td className="py-4 px-6 text-right font-bold text-green-700 whitespace-nowrap">
                               ₱{purchase.subtotal.toFixed(2)}

@@ -1,4 +1,39 @@
 /**
+ * Deduplicates repeated variant or course segments in a product name string
+ * Example: "Type A & B Uniform - BSMT - BSMT (₱2,950)" -> "Type A & B Uniform - BSMT (₱2,950)"
+ * Example: "Type A & B Uniform - SHS - SHS (₱2,700)" -> "Type A & B Uniform - SHS (₱2,700)"
+ */
+export function cleanRepeatedSegments(name: string): string {
+  if (!name || typeof name !== 'string') return '';
+  let cleaned = name.replace(/\s+/g, ' ').trim();
+
+  // Deduplicate hyphen-separated parts
+  const parts = cleaned.split(' - ');
+  const uniqueParts: string[] = [];
+  parts.forEach((p, idx) => {
+    const trimmed = p.trim();
+    const basePart = trimmed.split('(')[0].trim();
+    const prevPart = uniqueParts.length > 0 ? uniqueParts[uniqueParts.length - 1].split('(')[0].trim() : '';
+    if (idx > 0 && (basePart.toLowerCase() === prevPart.toLowerCase() || trimmed.toLowerCase() === prevPart.toLowerCase())) {
+      // If the duplicate has parentheses details (like (₱2,950)), preserve them
+      if (trimmed.includes('(')) {
+        const parenContent = trimmed.substring(trimmed.indexOf('('));
+        if (!uniqueParts[uniqueParts.length - 1].includes(parenContent)) {
+          uniqueParts[uniqueParts.length - 1] = `${uniqueParts[uniqueParts.length - 1]} ${parenContent}`.trim();
+        }
+      }
+      return;
+    }
+    uniqueParts.push(trimmed);
+  });
+  cleaned = uniqueParts.join(' - ');
+
+  // Clean patterns like "BSMT - BSMT" or "SHS - SHS" or "BSMARE - BSMARE"
+  cleaned = cleaned.replace(/\b([A-Za-z0-9]+)\s*-\s*\1\b/gi, '$1');
+  return cleaned;
+}
+
+/**
  * Formats a product name with its selected options in a concise way
  * Example: "Gala - Bundle F (BSMARE) - Member Price" for members
  * Example: "Gala - Bundle F (BSMARE)" for non-members
@@ -21,10 +56,10 @@ export function formatProductName(
     const model = selectedOptions?.['Model'] || selectedOptions?.['model'];
     const ringSize = selectedOptions?.['Ring Size'] || selectedOptions?.['ringSize'] || selectedOptions?.['size'];
     if (model && ringSize) {
-      return `Class Ring - ${model} (${ringSize.startsWith('Size') ? ringSize : 'Size ' + ringSize})`;
+      return cleanRepeatedSegments(`Class Ring - ${model} (${ringSize.startsWith('Size') ? ringSize : 'Size ' + ringSize})`);
     }
     if (model) {
-      return `Class Ring - ${model}`;
+      return cleanRepeatedSegments(`Class Ring - ${model}`);
     }
     return 'Class Ring';
   }
@@ -34,7 +69,7 @@ export function formatProductName(
   }
 
   if (!selectedOptions || Object.keys(selectedOptions).length === 0) {
-    return productName;
+    return cleanRepeatedSegments(productName);
   }
 
   const parts: string[] = [productName];
@@ -44,7 +79,9 @@ export function formatProductName(
   if (selectedOptions['bundle']) {
     const bundleText = selectedOptions['bundle'];
     const bundleName = bundleText.split('(')[0].trim();
-    parts.push(bundleName);
+    if (!productName.toLowerCase().includes(bundleName.toLowerCase())) {
+      parts.push(bundleName);
+    }
     
     // Check if member pricing was applied by comparing unit price
     if (unitPrice && bundleText.includes('Member')) {
@@ -62,30 +99,39 @@ export function formatProductName(
   // Extract part name (for ROTC Manual)
   if (selectedOptions['part']) {
     const partName = selectedOptions['part'].split('(')[0].trim();
-    parts.push(partName);
+    if (!productName.toLowerCase().includes(partName.toLowerCase())) {
+      parts.push(partName);
+    }
   }
 
   // Extract color (without pricing)
   if (selectedOptions['color']) {
     const colorName = selectedOptions['color'].split('(')[0].trim();
-    parts.push(colorName);
+    if (!productName.toLowerCase().includes(colorName.toLowerCase())) {
+      parts.push(colorName);
+    }
   }
 
   // Extract size (without pricing)
   if (selectedOptions['size']) {
     const sizeName = selectedOptions['size'].split('(')[0].trim();
-    parts.push(sizeName);
+    if (!productName.toLowerCase().includes(sizeName.toLowerCase())) {
+      parts.push(sizeName);
+    }
   }
 
   // Add course in parentheses if present (and not already added as main info)
   if (selectedOptions['course'] && !selectedOptions['bundle']) {
-    parts.push(selectedOptions['course']);
+    const courseInfo = selectedOptions['course'].split('(')[0].trim();
+    if (!productName.toLowerCase().includes(courseInfo.toLowerCase())) {
+      parts.push(courseInfo);
+    }
   } else if (selectedOptions['course'] && selectedOptions['bundle']) {
     // For Gala, add course in parentheses
-    const courseInfo = selectedOptions['course'];
+    const courseInfo = selectedOptions['course'].split('(')[0].trim();
     const result = `${parts.join(' - ')} (${courseInfo})`;
-    // Only add "- Member Price" suffix if member pricing was actually used
-    return isMemberPrice ? `${result} - Member Price` : result;
+    const formatted = isMemberPrice ? `${result} - Member Price` : result;
+    return cleanRepeatedSegments(formatted);
   }
 
   // Handle the generic 'Variants' key used by products with a single variant selector
@@ -93,7 +139,7 @@ export function formatProductName(
   if (selectedOptions['Variants'] || selectedOptions['variants']) {
     const variantValue = selectedOptions['Variants'] || selectedOptions['variants'];
     const variantName = variantValue.split('(')[0].trim();
-    if (variantName && variantName !== productName) {
+    if (variantName && variantName !== productName && !productName.toLowerCase().includes(variantName.toLowerCase())) {
       parts.push(variantName);
     }
   }
@@ -103,12 +149,15 @@ export function formatProductName(
   for (const [key, value] of Object.entries(selectedOptions)) {
     if (!knownKeys.has(key) && value) {
       const valName = String(value).split('(')[0].trim();
-      if (valName) parts.push(valName);
+      if (valName && !productName.toLowerCase().includes(valName.toLowerCase())) {
+        parts.push(valName);
+      }
     }
   }
 
   const result = parts.join(' - ');
-  return isMemberPrice ? `${result} - Member Price` : result;
+  const formatted = isMemberPrice ? `${result} - Member Price` : result;
+  return cleanRepeatedSegments(formatted);
 }
 
 /**
@@ -149,7 +198,9 @@ export function parseAndFormatLegacyProductName(fullProductName: string, unitPri
   if (bundleText) {
     // Extract just the bundle name without pricing
     const bundleName = bundleText.split('(')[0].trim();
-    parts.push(bundleName);
+    if (!baseName.toLowerCase().includes(bundleName.toLowerCase())) {
+      parts.push(bundleName);
+    }
     
     // Check if member price was used
     if (unitPrice && bundleText.includes('Member')) {
@@ -165,11 +216,15 @@ export function parseAndFormatLegacyProductName(fullProductName: string, unitPri
   }
   
   if (course) {
-    const result = `${parts.join(' - ')} (${course})`;
-    // Only add "- Member Price" suffix if member pricing was actually used
-    return isMemberPrice ? `${result} - Member Price` : result;
+    const courseTrim = course.split('(')[0].trim();
+    if (!baseName.toLowerCase().includes(courseTrim.toLowerCase())) {
+      const result = `${parts.join(' - ')} (${courseTrim})`;
+      const formatted = isMemberPrice ? `${result} - Member Price` : result;
+      return cleanRepeatedSegments(formatted);
+    }
   }
   
   const result = parts.join(' - ');
-  return isMemberPrice ? `${result} - Member Price` : result;
+  const formatted = isMemberPrice ? `${result} - Member Price` : result;
+  return cleanRepeatedSegments(formatted);
 }

@@ -18,6 +18,8 @@ import {
   XCircle,
   FileText,
   Lock,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { apiClient } from '../services/api';
@@ -167,6 +169,13 @@ export const ReportsPage: React.FC = () => {
   const [classRingSearchQuery, setClassRingSearchQuery] = useState<string>('');
   const [classRingStatusFilter, setClassRingStatusFilter] = useState<'all' | 'completed' | 'pending' | 'cancelled'>('all');
   const [showVariantDetails, setShowVariantDetails] = useState<boolean>(true);
+  const [salesPaymentTypeFilter, setSalesPaymentTypeFilter] = useState<'all' | 'full' | 'downpayment' | 'balance'>('all');
+  const [monthlyLedgerPage, setMonthlyLedgerPage] = useState<number>(1);
+  const [monthlyLedgerRowsPerPage, setMonthlyLedgerRowsPerPage] = useState<number>(10);
+
+  useEffect(() => {
+    setMonthlyLedgerPage(1);
+  }, [selectedSalesMonth, salesPaymentTypeFilter, monthlySearchQuery, showVariantDetails]);
 
   const isClassRingOrder = (order: any): boolean => {
     if (!order) return false;
@@ -279,7 +288,7 @@ export const ReportsPage: React.FC = () => {
       return ym === selectedSalesMonth;
     });
 
-    const pMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number; sku?: string } } = {};
+    const pMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number; sku?: string; paymentType: 'full' | 'downpayment' | 'balance'; fullPrice?: number } } = {};
 
     const getGeneralProductName = (item: any, matchedProduct: any): string => {
       if (matchedProduct?.name) return matchedProduct.name;
@@ -302,6 +311,11 @@ export const ReportsPage: React.FC = () => {
     };
 
     selectedSales.forEach(s => {
+      const isBalanceOrder = (s.receipt_no && s.receipt_no.startsWith('BAL-')) ||
+                             (s.receiptNo && s.receiptNo.startsWith('BAL-')) ||
+                             (s.receiptNumber && s.receiptNumber.startsWith('BAL-')) ||
+                             s.order_type === 'balance_payment' || s.orderType === 'balance_payment';
+
       if (s.items && Array.isArray(s.items)) {
         s.items.forEach((item: any) => {
           const rawName = item.productName || item.product_name || item.name || 'General Merchandise';
@@ -311,31 +325,46 @@ export const ReportsPage: React.FC = () => {
 
           const qty = parseInt(String(item.quantity || item.qty || 1), 10) || 1;
           const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
-          const itemSubtotal = qty * unitPrice;
+          const itemSubtotal = parseFloat(String(item.subtotal || item.total_amount || item.totalAmount || (qty * unitPrice))) || (qty * unitPrice);
           const category = matchedProduct?.category || 'general';
           const sku = matchedProduct?.sku || item.sku || '';
 
+          const rawPaymentType = item.paymentType || item.payment_type || s.paymentType || s.payment_type;
+          const isTailored = rawName.toLowerCase().includes('uniform') || rawName.toLowerCase().includes('gala');
+          const catalogPrice = matchedProduct?.price || 0;
+
+          let paymentType: 'full' | 'downpayment' | 'balance' = 'full';
+          if (isBalanceOrder) {
+            paymentType = 'balance';
+          } else if (rawPaymentType === 'downpayment' || (isTailored && ((unitPrice === 1500 && catalogPrice > 1500) || (unitPrice === 500 && catalogPrice > 500)))) {
+            paymentType = 'downpayment';
+          }
+
           if (showVariantDetails) {
-            // Detailed Variant Mode: Group by specific variant name & price point
+            // Detailed Variant Mode: Group by specific variant name & payment type & price point
             const variantName = getItemVariantName(item, matchedProduct);
-            const mapKey = `${variantName.toLowerCase().trim()}::${unitPrice}`;
+            const mapKey = `${variantName.toLowerCase().trim()}::${paymentType}::${unitPrice}`;
 
             if (!pMap[mapKey]) {
-              pMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku };
+              pMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku, paymentType, fullPrice: catalogPrice || unitPrice };
             }
-            pMap[mapKey].unitsSold += qty;
+            if (!isBalanceOrder) {
+              pMap[mapKey].unitsSold += qty;
+            }
             pMap[mapKey].revenue += itemSubtotal;
           } else {
-            // General Mode: Group strictly by base product name across all variants
+            // General Mode: Group strictly by base product name and payment type
             const generalName = getGeneralProductName(item, matchedProduct);
-            const mapKey = generalName.toLowerCase().trim();
+            const mapKey = `${generalName.toLowerCase().trim()}::${paymentType}`;
 
             if (!pMap[mapKey]) {
-              pMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, sku };
+              pMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, sku, paymentType, fullPrice: catalogPrice || unitPrice };
             }
-            pMap[mapKey].unitsSold += qty;
+            if (!isBalanceOrder) {
+              pMap[mapKey].unitsSold += qty;
+            }
             pMap[mapKey].revenue += itemSubtotal;
-            if (matchedProduct?.price) {
+            if (matchedProduct?.price && paymentType === 'full') {
               pMap[mapKey].price = matchedProduct.price;
             } else if (pMap[mapKey].unitsSold > 0) {
               pMap[mapKey].price = pMap[mapKey].revenue / pMap[mapKey].unitsSold;
@@ -351,6 +380,10 @@ export const ReportsPage: React.FC = () => {
       }
       return b.revenue - a.revenue;
     });
+
+    if (salesPaymentTypeFilter !== 'all') {
+      topLedger = topLedger.filter(p => p.paymentType === salesPaymentTypeFilter);
+    }
 
     if (monthlySearchQuery.trim()) {
       const q = monthlySearchQuery.toLowerCase().trim();
@@ -369,7 +402,7 @@ export const ReportsPage: React.FC = () => {
       selectedMonthTotalUnits: totalUnits,
       maxMonthlyUnits: maxUnits,
     };
-  }, [completedSales, selectedSalesMonth, monthlySearchQuery, productMapByName, showVariantDetails, products]);
+  }, [completedSales, selectedSalesMonth, monthlySearchQuery, productMapByName, showVariantDetails, products, salesPaymentTypeFilter]);
 
   const generateInventoryReport = () => {
     try {
@@ -650,8 +683,13 @@ export const ReportsPage: React.FC = () => {
                     return ym === selectedSalesMonth;
                   });
 
-                  const monthlyMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number } } = {};
+                  const monthlyMap: { [key: string]: { name: string; category: string; unitsSold: number; revenue: number; price: number; paymentType: string } } = {};
                   selectedMonthSales.forEach(s => {
+                    const isBalanceOrder = (s.receipt_no && s.receipt_no.startsWith('BAL-')) ||
+                                           (s.receiptNo && s.receiptNo.startsWith('BAL-')) ||
+                                           (s.receiptNumber && s.receiptNumber.startsWith('BAL-')) ||
+                                           s.order_type === 'balance_payment' || s.orderType === 'balance_payment';
+
                     if (s.items && Array.isArray(s.items)) {
                       s.items.forEach((item: any) => {
                         const rawName = item.productName || item.product_name || item.name || 'General Merchandise';
@@ -664,28 +702,43 @@ export const ReportsPage: React.FC = () => {
                         const subtotal = parseFloat(String(item.subtotal || item.total_amount || item.totalAmount || 0)) || (qty * unitPrice);
                         const category = matchedProduct?.category || 'general';
 
+                        const rawPaymentType = item.paymentType || item.payment_type || s.paymentType || s.payment_type;
+                        const isTailored = rawName.toLowerCase().includes('uniform') || rawName.toLowerCase().includes('gala');
+                        const catalogPrice = matchedProduct?.price || 0;
+
+                        let pTypeStr = 'Full Payment';
+                        if (isBalanceOrder) {
+                          pTypeStr = 'Balance Settlement';
+                        } else if (rawPaymentType === 'downpayment' || (isTailored && ((unitPrice === 1500 && catalogPrice > 1500) || (unitPrice === 500 && catalogPrice > 500)))) {
+                          pTypeStr = 'Downpayment';
+                        }
+
                         if (showVariantDetails) {
                           let variantName = formatProductName(rawName, options, unitPrice);
                           if (rawName.includes('(') && rawName.includes(':')) {
                             variantName = parseAndFormatLegacyProductName(rawName, unitPrice);
                           }
-                          const mapKey = `${variantName.toLowerCase().trim()}::${unitPrice}`;
+                          const mapKey = `${variantName.toLowerCase().trim()}::${pTypeStr}::${unitPrice}`;
 
                           if (!monthlyMap[mapKey]) {
-                            monthlyMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice };
+                            monthlyMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, paymentType: pTypeStr };
                           }
-                          monthlyMap[mapKey].unitsSold += qty;
+                          if (!isBalanceOrder) {
+                            monthlyMap[mapKey].unitsSold += qty;
+                          }
                           monthlyMap[mapKey].revenue += subtotal > 0 ? subtotal : (unitPrice * qty);
                         } else {
                           const generalName = matchedProduct?.name || (rawName.includes('(') ? rawName.split('(')[0] : rawName.split(' - ')[0]).trim();
-                          const mapKey = generalName.toLowerCase().trim();
+                          const mapKey = `${generalName.toLowerCase().trim()}::${pTypeStr}`;
 
                           if (!monthlyMap[mapKey]) {
-                            monthlyMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice };
+                            monthlyMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, paymentType: pTypeStr };
                           }
-                          monthlyMap[mapKey].unitsSold += qty;
+                          if (!isBalanceOrder) {
+                            monthlyMap[mapKey].unitsSold += qty;
+                          }
                           monthlyMap[mapKey].revenue += subtotal > 0 ? subtotal : (unitPrice * qty);
-                          if (matchedProduct?.price) {
+                          if (matchedProduct?.price && pTypeStr === 'Full Payment') {
                             monthlyMap[mapKey].price = matchedProduct.price;
                           } else if (monthlyMap[mapKey].unitsSold > 0) {
                             monthlyMap[mapKey].price = monthlyMap[mapKey].revenue / monthlyMap[mapKey].unitsSold;
@@ -705,10 +758,11 @@ export const ReportsPage: React.FC = () => {
                   csvRows.push(
                     [''],
                     [`MONTHLY TOP-SELLING PRODUCTS LEDGER (${selectedSalesMonth.toUpperCase()})`],
-                    ['Rank', 'Product Name', 'Category', 'Units Sold', 'Unit Price (PHP)', 'Total Revenue (PHP)'],
+                    ['Rank', 'Product Name', 'Payment Type', 'Category', 'Units Sold', 'Unit Price (PHP)', 'Total Revenue (PHP)'],
                     ...topLedger.map((prod, idx) => [
                       `#${idx + 1}`,
                       `"${prod.name.replace(/"/g, '""')}"`,
+                      prod.paymentType.toUpperCase(),
                       prod.category.toUpperCase(),
                       String(prod.unitsSold),
                       prod.price.toFixed(2),
@@ -1218,34 +1272,83 @@ export const ReportsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Month Selector Quick Pills */}
-                    <div className="flex flex-wrap items-center gap-2 mb-6 border-b border-slate-100 pb-4">
-                      <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
-                        <Calendar size={14} /> Filter Month:
-                      </span>
-                      <button
-                        onClick={() => setSelectedSalesMonth('all')}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all ${
-                          selectedSalesMonth === 'all'
-                            ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-600/30'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        All Months (YTD)
-                      </button>
-                      {sortedMonthKeys.map(ym => (
+                    {/* Month Selector & Payment Type Quick Pills */}
+                    <div className="space-y-3 mb-6 border-b border-slate-100 pb-4">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                          <Calendar size={14} /> Filter Month:
+                        </span>
                         <button
-                          key={ym}
-                          onClick={() => setSelectedSalesMonth(ym)}
+                          onClick={() => setSelectedSalesMonth('all')}
                           className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all ${
-                            selectedSalesMonth === ym
+                            selectedSalesMonth === 'all'
                               ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-600/30'
                               : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
                           }`}
                         >
-                          {availableMonthsMap[ym]}
+                          All Months (YTD)
                         </button>
-                      ))}
+                        {sortedMonthKeys.map(ym => (
+                          <button
+                            key={ym}
+                            onClick={() => setSelectedSalesMonth(ym)}
+                            className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold transition-all ${
+                              selectedSalesMonth === ym
+                                ? 'bg-purple-600 text-white shadow-md ring-2 ring-purple-600/30'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            {availableMonthsMap[ym]}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Payment Type Quick Filter */}
+                      <div className="flex flex-wrap items-center gap-2 pt-1">
+                        <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                          <Filter size={14} /> Payment Type:
+                        </span>
+                        <button
+                          onClick={() => setSalesPaymentTypeFilter('all')}
+                          className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                            salesPaymentTypeFilter === 'all'
+                              ? 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          All Transactions
+                        </button>
+                        <button
+                          onClick={() => setSalesPaymentTypeFilter('full')}
+                          className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                            salesPaymentTypeFilter === 'full'
+                              ? 'bg-purple-600 text-white shadow-xs'
+                              : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                          }`}
+                        >
+                          Full Payments
+                        </button>
+                        <button
+                          onClick={() => setSalesPaymentTypeFilter('downpayment')}
+                          className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                            salesPaymentTypeFilter === 'downpayment'
+                              ? 'bg-amber-500 text-white shadow-xs'
+                              : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                          }`}
+                        >
+                          Downpayments
+                        </button>
+                        <button
+                          onClick={() => setSalesPaymentTypeFilter('balance')}
+                          className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all ${
+                            salesPaymentTypeFilter === 'balance'
+                              ? 'bg-emerald-600 text-white shadow-xs'
+                              : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                          }`}
+                        >
+                          Balance Settlements
+                        </button>
+                      </div>
                     </div>
 
                     {/* Period Summary Stats Banner */}
@@ -1259,7 +1362,7 @@ export const ReportsPage: React.FC = () => {
                             {selectedSalesMonth === 'all' ? 'All Months (YTD) Performance' : `${availableMonthsMap[selectedSalesMonth]} Ranking`}
                           </h4>
                           <span className="text-xs text-slate-500 font-medium">
-                            {monthlyTopLedger.length} unique product{monthlyTopLedger.length === 1 ? '' : 's'} sold in this period
+                            {monthlyTopLedger.length} product entry line{monthlyTopLedger.length === 1 ? '' : 's'} in this view
                           </span>
                         </div>
                       </div>
@@ -1287,6 +1390,7 @@ export const ReportsPage: React.FC = () => {
                           <tr className="bg-slate-100/90 text-slate-700 border-b border-slate-200 uppercase tracking-wider font-bold text-xs">
                             <th className="py-3.5 px-4 text-center w-16">Rank</th>
                             <th className="py-3.5 px-4">Product Name</th>
+                            <th className="py-3.5 px-4 text-center">Payment Stage</th>
                             <th className="py-3.5 px-4 text-center">Category</th>
                             <th className="py-3.5 px-4 text-center">Units Sold (Monthly)</th>
                             <th className="py-3.5 px-4 text-right">Unit Price</th>
@@ -1294,31 +1398,74 @@ export const ReportsPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100 bg-white">
-                          {monthlyTopLedger.length === 0 ? (
-                            <tr>
-                              <td colSpan={6} className="py-10 text-center text-slate-500 font-medium">
-                                <Package size={40} className="mx-auto text-slate-300 mb-2" />
-                                <p className="text-base font-semibold text-slate-700">No sales recorded for this period</p>
-                                <p className="text-xs text-slate-400 mt-1">Select another month from the options above</p>
-                              </td>
-                            </tr>
-                          ) : (
-                            monthlyTopLedger.map((prod, idx) => {
+                          {(() => {
+                            const totalLedgerItems = monthlyTopLedger.length;
+                            const totalLedgerPages = Math.max(1, Math.ceil(totalLedgerItems / monthlyLedgerRowsPerPage));
+                            const effectiveLedgerPage = Math.min(monthlyLedgerPage, totalLedgerPages);
+                            const paginatedLedger = monthlyTopLedger.slice(
+                              (effectiveLedgerPage - 1) * monthlyLedgerRowsPerPage,
+                              effectiveLedgerPage * monthlyLedgerRowsPerPage
+                            );
+
+                            if (totalLedgerItems === 0) {
+                              return (
+                                <tr>
+                                  <td colSpan={7} className="py-10 text-center text-slate-500 font-medium">
+                                    <Package size={40} className="mx-auto text-slate-300 mb-2" />
+                                    <p className="text-base font-semibold text-slate-700">No sales recorded for this filter</p>
+                                    <p className="text-xs text-slate-400 mt-1">Select another month or payment type from the options above</p>
+                                  </td>
+                                </tr>
+                              );
+                            }
+
+                            return paginatedLedger.map((prod, idx) => {
+                              const overallRank = (effectiveLedgerPage - 1) * monthlyLedgerRowsPerPage + idx;
                               const unitPercent = Math.min(100, Math.round((prod.unitsSold / maxMonthlyUnits) * 100));
 
-                              let rankBadge = <span className="font-bold text-slate-500">#{idx + 1}</span>;
-                              if (idx === 0) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-black text-xs">🥇 #1</span>;
-                              else if (idx === 1) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 font-black text-xs">🥈 #2</span>;
-                              else if (idx === 2) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-800 text-amber-100 font-black text-xs">🥉 #3</span>;
+                              let rankBadge = <span className="font-bold text-slate-500">#{overallRank + 1}</span>;
+                              if (overallRank === 0) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-black text-xs">🥇 #1</span>;
+                              else if (overallRank === 1) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-slate-200 text-slate-900 border border-slate-300 font-black text-xs">🥈 #2</span>;
+                              else if (overallRank === 2) rankBadge = <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-amber-800 text-amber-100 font-black text-xs">🥉 #3</span>;
 
                               return (
-                                <tr key={`${prod.name}-${prod.price}-${prod.unitsSold}-${showVariantDetails}`} className="hover:bg-purple-50/40 transition-colors">
+                                <tr key={`${prod.name}-${prod.paymentType}-${prod.price}-${prod.unitsSold}-${showVariantDetails}-${overallRank}`} className="hover:bg-purple-50/40 transition-colors">
                                   <td className="py-3.5 px-4 text-center">
                                     {rankBadge}
                                   </td>
                                   <td className="py-3.5 px-4">
                                     <div className="font-bold text-slate-900">{prod.name}</div>
-                                    {prod.sku && <div className="text-[11px] font-mono text-slate-400 uppercase font-semibold">{prod.sku}</div>}
+                                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                                      {prod.sku && <span className="text-[11px] font-mono text-slate-400 uppercase font-semibold">{prod.sku}</span>}
+                                      {prod.paymentType === 'downpayment' && prod.fullPrice && prod.fullPrice > prod.price && (
+                                        <span className="text-[11px] text-amber-700 font-bold">
+                                          (Downpayment Deposit • Full: ₱{prod.fullPrice.toLocaleString('en-US', { minimumFractionDigits: 2 })})
+                                        </span>
+                                      )}
+                                      {prod.paymentType === 'balance' && (
+                                        <span className="text-[11px] text-emerald-700 font-bold">
+                                          (Remaining Balance Settlement)
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                                    {prod.paymentType === 'downpayment' ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                        DOWNPAYMENT
+                                      </span>
+                                    ) : prod.paymentType === 'balance' ? (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                        BALANCE SETTLEMENT
+                                      </span>
+                                    ) : (
+                                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                        Full Payment
+                                      </span>
+                                    )}
                                   </td>
                                   <td className="py-3.5 px-4 text-center whitespace-nowrap">
                                     <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 uppercase">
@@ -1330,7 +1477,7 @@ export const ReportsPage: React.FC = () => {
                                       {prod.unitsSold.toLocaleString()} units
                                     </div>
                                     <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
-                                      <div className="bg-purple-600 h-full rounded-full transition-all duration-500" style={{ width: `${unitPercent}%` }} />
+                                      <div className={`h-full rounded-full transition-all duration-500 ${prod.paymentType === 'downpayment' ? 'bg-amber-500' : prod.paymentType === 'balance' ? 'bg-emerald-500' : 'bg-purple-600'}`} style={{ width: `${unitPercent}%` }} />
                                     </div>
                                   </td>
                                   <td className="py-3.5 px-4 text-right font-medium text-slate-700 whitespace-nowrap">
@@ -1341,10 +1488,95 @@ export const ReportsPage: React.FC = () => {
                                   </td>
                                 </tr>
                               );
-                            })
-                          )}
+                            });
+                          })()}
                         </tbody>
                       </table>
+
+                      {/* Pagination Controls Footer Bar */}
+                      {monthlyTopLedger.length > 0 && (() => {
+                        const totalLedgerItems = monthlyTopLedger.length;
+                        const totalLedgerPages = Math.max(1, Math.ceil(totalLedgerItems / monthlyLedgerRowsPerPage));
+                        const effectiveLedgerPage = Math.min(monthlyLedgerPage, totalLedgerPages);
+
+                        return (
+                          <div className="bg-slate-50 px-6 py-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600 font-medium">
+                              <span>
+                                Showing <strong className="text-slate-900 font-bold">{(effectiveLedgerPage - 1) * monthlyLedgerRowsPerPage + 1}</strong> to <strong className="text-slate-900 font-bold">{Math.min(effectiveLedgerPage * monthlyLedgerRowsPerPage, totalLedgerItems)}</strong> of <strong className="text-slate-900 font-bold">{totalLedgerItems}</strong> product entries
+                              </span>
+
+                              <div className="flex items-center gap-1.5 sm:border-l sm:border-slate-200 sm:pl-3">
+                                <span className="text-slate-500">Rows:</span>
+                                <select
+                                  value={monthlyLedgerRowsPerPage}
+                                  onChange={(e) => {
+                                    setMonthlyLedgerRowsPerPage(Number(e.target.value));
+                                    setMonthlyLedgerPage(1);
+                                  }}
+                                  className="px-2 py-1 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 cursor-pointer"
+                                >
+                                  <option value={10}>10</option>
+                                  <option value={20}>20</option>
+                                  <option value={50}>50</option>
+                                  <option value={100}>100</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            {/* Page Nav */}
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setMonthlyLedgerPage(prev => Math.max(1, prev - 1))}
+                                disabled={effectiveLedgerPage === 1}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
+                                title="Previous Page"
+                              >
+                                <ChevronLeft size={15} />
+                                <span className="hidden sm:inline">Prev</span>
+                              </button>
+
+                              <div className="flex items-center gap-1">
+                                {Array.from({ length: totalLedgerPages }, (_, i) => i + 1)
+                                  .filter(pageNum => {
+                                    if (totalLedgerPages <= 7) return true;
+                                    if (pageNum === 1 || pageNum === totalLedgerPages) return true;
+                                    return Math.abs(pageNum - effectiveLedgerPage) <= 1;
+                                  })
+                                  .map((pageNum, i, arr) => {
+                                    const prev = arr[i - 1];
+                                    const showEllipsis = prev && pageNum - prev > 1;
+                                    return (
+                                      <React.Fragment key={pageNum}>
+                                        {showEllipsis && <span className="px-1 text-xs text-slate-400 font-bold">...</span>}
+                                        <button
+                                          onClick={() => setMonthlyLedgerPage(pageNum)}
+                                          className={`min-w-[30px] h-7 px-2 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                                            effectiveLedgerPage === pageNum
+                                              ? 'bg-purple-600 text-white shadow-xs'
+                                              : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-100'
+                                          }`}
+                                        >
+                                          {pageNum}
+                                        </button>
+                                      </React.Fragment>
+                                    );
+                                  })}
+                              </div>
+
+                              <button
+                                onClick={() => setMonthlyLedgerPage(prev => Math.min(totalLedgerPages, prev + 1))}
+                                disabled={effectiveLedgerPage === totalLedgerPages}
+                                className="px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-100 disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-xs font-bold flex items-center gap-1 shadow-2xs cursor-pointer"
+                                title="Next Page"
+                              >
+                                <span className="hidden sm:inline">Next</span>
+                                <ChevronRight size={15} />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
