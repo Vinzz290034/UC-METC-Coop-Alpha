@@ -805,7 +805,7 @@ export const SalesPage: React.FC = () => {
           })),
           totalAmount: t.totalAmount,
           paymentMethod: t.paymentMethod,
-          referenceNumber: null,
+          referenceNumber: t.referenceNumber || null,
           receiptNo: t.receiptNo,
           orderType: 'merchandise',
           status: 'completed',
@@ -4826,20 +4826,62 @@ export const SalesPage: React.FC = () => {
                               let currentHeaderDate: string = '';
                               let currentTransaction: any = null;
 
+                              // Detect column indices from header row if present
+                              let colDate = 0;
+                              let colTrNo = 1;
+                              let colClient = 2;
+                              let colCourse = 3;
+                              let colItem = 4;
+                              let colQty = 5;
+                              let colSize = 6;
+                              let colAmount = 7;
+                              let colRemarks = 8;
+                              let colGCash = 9;
+
+                              // Scan first 15 rows for header row
+                              for (let i = 0; i < Math.min(15, rows.length); i++) {
+                                const r = rows[i];
+                                if (!r) continue;
+                                const cells = r.map(c => String(c || '').toLowerCase().trim());
+                                const hasDate = cells.some(c => c.includes('date'));
+                                const hasTr = cells.some(c => c.includes('tr no') || c.includes('tr #') || c.includes('tr.') || c.includes('receipt'));
+                                const hasClient = cells.some(c => c.includes('client') || c.includes('student') || c.includes('name') || c.includes('customer'));
+                                const hasItem = cells.some(c => c.includes('item') || c.includes('product') || c.includes('particular'));
+                                const hasAmount = cells.some(c => c.includes('amount') || c.includes('price') || c.includes('total'));
+
+                                if ((hasDate || hasTr) && (hasClient || hasItem) && (hasItem || hasAmount)) {
+                                  cells.forEach((headerText, idx) => {
+                                    if (headerText.includes('date')) colDate = idx;
+                                    else if (headerText.includes('tr no') || headerText.includes('tr #') || headerText.includes('tr.') || headerText.includes('receipt')) colTrNo = idx;
+                                    else if (headerText.includes('client') || headerText.includes('student') || headerText.includes('name') || headerText.includes('customer')) colClient = idx;
+                                    else if (headerText.includes('course') || headerText.includes('program') || headerText.includes('dept')) colCourse = idx;
+                                    else if (headerText.includes('item') || headerText.includes('product') || headerText.includes('particular') || headerText.includes('description')) colItem = idx;
+                                    else if (headerText.includes('qnty') || headerText.includes('qty') || headerText.includes('quantity')) colQty = idx;
+                                    else if (headerText.includes('size')) colSize = idx;
+                                    else if (headerText.includes('amount') || headerText.includes('price') || headerText.includes('total')) colAmount = idx;
+                                    else if (headerText.includes('remark') || headerText.includes('note')) colRemarks = idx;
+                                    else if (headerText.includes('gcash') || headerText.includes('ref') || headerText.includes('reference') || headerText.includes('e-wallet') || headerText.includes('ewallet')) colGCash = idx;
+                                  });
+                                  break;
+                                }
+                              }
+
                               for (let r = 0; r < rows.length; r++) {
                                 const row = rows[r];
                                 if (!row || row.length === 0) continue;
 
-                                const colA = String(row[0] || '').trim();
-                                const colB = String(row[1] || '').trim();
-                                const colC = String(row[2] || '').trim();
-                                const colD = String(row[3] || '').trim();
-                                const colE = String(row[4] || '').trim();
-                                const colF = String(row[5] || '').trim();
-                                const colG = String(row[6] || '').trim();
-                                const colH = String(row[7] || '').trim();
+                                const colA = String(row[colDate] || '').trim();
+                                const colB = String(row[colTrNo] || '').trim();
+                                const colC = String(row[colClient] || '').trim();
+                                const colD = String(row[colCourse] || '').trim();
+                                const colE = String(row[colItem] || '').trim();
+                                const colF = String(row[colQty] || '').trim();
+                                const colG = String(row[colSize] || '').trim();
+                                const colH = String(row[colAmount] || '').trim();
+                                const colRemarksVal = String(row[colRemarks] || '').trim();
+                                const colGCashVal = String(row[colGCash] || '').trim();
 
-                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.') {
+                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.' || colB.toLowerCase() === 'tr no' || colC.toLowerCase() === 'client') {
                                   continue;
                                 }
 
@@ -4877,6 +4919,37 @@ export const SalesPage: React.FC = () => {
                                 const size = colG;
                                 const amountVal = parseFloat(colH.replace(/,/g, '')) || 0;
 
+                                // Payment Method & GCash Ref Detection
+                                let rowPaymentMethod = importSettings.defaultPaymentMethod || 'cash';
+                                let rowReferenceNumber: string | null = null;
+
+                                if (colGCashVal) {
+                                  rowPaymentMethod = 'ewallet';
+                                  rowReferenceNumber = colGCashVal.replace(/^ref\s*[:#]?\s*/i, '').trim();
+                                } else if (colRemarksVal) {
+                                  const remLower = colRemarksVal.toLowerCase();
+                                  if (remLower.includes('gcash') || remLower.includes('e-wallet') || remLower.includes('ewallet') || remLower.includes('ref')) {
+                                    rowPaymentMethod = 'ewallet';
+                                    const match = colRemarksVal.match(/(?:ref\s*[:#]?\s*|gcash\s*[:#]?\s*)?(\d{4,})/i);
+                                    if (match && match[1]) {
+                                      rowReferenceNumber = match[1];
+                                    }
+                                  }
+                                }
+
+                                // Fallback: Check any cell beyond Amount column for a 4+ digit reference number or GCash tag
+                                if (!rowReferenceNumber) {
+                                  for (let c = 8; c < row.length; c++) {
+                                    const cellStr = String(row[c] || '').trim();
+                                    if (!cellStr) continue;
+                                    if (/^\d{4,15}$/.test(cellStr) || /^ref\s*[:#]?\s*\d+/i.test(cellStr) || /^gcash\s*[:#]?\s*\d+/i.test(cellStr)) {
+                                      rowPaymentMethod = 'ewallet';
+                                      rowReferenceNumber = cellStr.replace(/^(?:ref|gcash)\s*[:#]?\s*/i, '').trim();
+                                      break;
+                                    }
+                                  }
+                                }
+
                                 const matched = mapSpreadsheetItemToProductForImport(itemName, amountVal, qnty, size, course);
 
                                 const item = {
@@ -4907,7 +4980,8 @@ export const SalesPage: React.FC = () => {
                                     walkInMembershipStatus: 'none',
                                     items: [item],
                                     totalAmount: amountVal,
-                                    paymentMethod: importSettings.defaultPaymentMethod,
+                                    paymentMethod: rowPaymentMethod,
+                                    referenceNumber: rowReferenceNumber,
                                     receiptNo: receiptIdStr,
                                     status: 'completed',
                                     createdAt: dateObj.toISOString(),
@@ -4919,6 +4993,12 @@ export const SalesPage: React.FC = () => {
                                   if (currentTransaction) {
                                     currentTransaction.items.push(item);
                                     currentTransaction.totalAmount += amountVal;
+                                    if (rowPaymentMethod === 'ewallet') {
+                                      currentTransaction.paymentMethod = 'ewallet';
+                                      if (rowReferenceNumber) {
+                                        currentTransaction.referenceNumber = rowReferenceNumber;
+                                      }
+                                    }
                                   } else {
                                     currentTransaction = {
                                       isWalkIn: true,
@@ -4927,7 +5007,8 @@ export const SalesPage: React.FC = () => {
                                       walkInMembershipStatus: 'none',
                                       items: [item],
                                       totalAmount: amountVal,
-                                      paymentMethod: importSettings.defaultPaymentMethod,
+                                      paymentMethod: rowPaymentMethod,
+                                      referenceNumber: rowReferenceNumber,
                                       receiptNo: `TR-TEMP-${Date.now()}-${sheetName.toUpperCase()}`,
                                       status: 'completed',
                                       createdAt: dateObj.toISOString(),
@@ -5010,15 +5091,16 @@ export const SalesPage: React.FC = () => {
                     </div>
                     <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-[280px] overflow-y-auto">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold sticky top-0">
-                          <tr>
-                            <th className="px-4 py-2">Receipt No</th>
-                            <th className="px-4 py-2">Date</th>
-                            <th className="px-4 py-2">Client / Course</th>
-                            <th className="px-4 py-2">Items</th>
-                            <th className="px-4 py-2 text-right">Amount</th>
-                            <th className="px-4 py-2 text-center">Status</th>
-                            <th className="px-4 py-2 text-center">Action</th>
+                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                          <tr className="bg-slate-100">
+                            <th className="px-4 py-2.5 bg-slate-100">Receipt No</th>
+                            <th className="px-4 py-2.5 bg-slate-100">Date</th>
+                            <th className="px-4 py-2.5 bg-slate-100">Client / Course</th>
+                            <th className="px-4 py-2.5 bg-slate-100">Items</th>
+                            <th className="px-4 py-2.5 bg-slate-100 text-right">Amount</th>
+                            <th className="px-4 py-2.5 bg-slate-100 text-center">Payment</th>
+                            <th className="px-4 py-2.5 bg-slate-100 text-center">Status</th>
+                            <th className="px-4 py-2.5 bg-slate-100 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -5042,6 +5124,16 @@ export const SalesPage: React.FC = () => {
                                 </div>
                               </td>
                               <td className="px-4 py-2 text-right font-bold text-slate-900">₱{t.totalAmount.toLocaleString()}</td>
+                              <td className="px-4 py-2 text-center">
+                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                  t.paymentMethod === 'ewallet' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                                }`}>
+                                  {t.paymentMethod === 'ewallet' ? 'GCASH' : 'CASH'}
+                                </span>
+                                {t.paymentMethod === 'ewallet' && t.referenceNumber && (
+                                  <div className="text-[9px] text-slate-500 font-mono mt-0.5">Ref: {t.referenceNumber}</div>
+                                )}
+                              </td>
                               <td className="px-4 py-2 text-center">
                                 {t.isDuplicate ? (
                                   <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${importSettings.skipDuplicates ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
