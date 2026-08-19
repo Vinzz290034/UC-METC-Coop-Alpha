@@ -310,6 +310,69 @@ export const ReportsPage: React.FC = () => {
       return formatProductName(rawName, options, unitPrice);
     };
 
+    const resolveVariantFullPrice = (item: any, matchedProduct: any, variantName: string, unitPrice: number): number => {
+      const normVariant = (variantName || '').toLowerCase();
+      const rawItemName = String(item?.productName || item?.product_name || item?.name || '').toLowerCase();
+      const combined = `${normVariant} ${rawItemName}`;
+
+      // 1. Check if price is explicitly in the variant name or item string e.g. "(₱2,950)" or "(₱2,700)"
+      const priceMatch = combined.match(/\(₱\s*([0-9,]+(?:\.\d+)?)\)/i) || combined.match(/₱\s*([0-9,]+(?:\.\d+)?)/i);
+      if (priceMatch) {
+        const parsed = parseFloat(priceMatch[1].replace(/,/g, ''));
+        if (!isNaN(parsed) && parsed > 500) {
+          return parsed;
+        }
+      }
+
+      // 2. Specific Course rules for Type A & B Uniform
+      if (combined.includes('type a') || combined.includes('type b') || combined.includes('uniform')) {
+        if (combined.includes('bsmt') || combined.includes('bsmare') || combined.includes('maritime')) {
+          return 2950;
+        }
+        if (combined.includes('shs') || combined.includes('stem')) {
+          return 2700;
+        }
+        if (combined.includes('bsname')) {
+          return 3150;
+        }
+      }
+
+      // 3. Gala Bundles
+      if (combined.includes('gala')) {
+        if (combined.includes('bundle a')) return 1200;
+        if (combined.includes('bundle b')) return 1700;
+        if (combined.includes('bundle c')) return 2030;
+        if (combined.includes('bundle d')) return 2180;
+        if (combined.includes('bundle e')) return 2710;
+        if (combined.includes('bundle f')) return 2230;
+        if (combined.includes('bundle g')) return 2550;
+        if (combined.includes('bundle h')) return 1980;
+        if (combined.includes('bundle i')) return 1450;
+      }
+
+      // 4. Check matched product options choices if available
+      if (matchedProduct?.options && Array.isArray(matchedProduct.options)) {
+        for (const opt of matchedProduct.options) {
+          if (opt.choices && Array.isArray(opt.choices)) {
+            for (const choice of opt.choices) {
+              const choiceStr = String(choice).toLowerCase();
+              const choiceLabel = choiceStr.split('(')[0].trim();
+              if (choiceLabel && (combined.includes(choiceLabel))) {
+                const optPriceMatch = choiceStr.match(/₱\s*([0-9,]+(?:\.\d+)?)/i);
+                if (optPriceMatch) {
+                  const p = parseFloat(optPriceMatch[1].replace(/,/g, ''));
+                  if (!isNaN(p) && p > 0) return p;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 5. Fallback to matched product price or unitPrice
+      return matchedProduct?.price || unitPrice;
+    };
+
     selectedSales.forEach(s => {
       const isBalanceOrder = (s.receipt_no && s.receipt_no.startsWith('BAL-')) ||
                              (s.receiptNo && s.receiptNo.startsWith('BAL-')) ||
@@ -344,25 +407,23 @@ export const ReportsPage: React.FC = () => {
             // Detailed Variant Mode: Group by specific variant name & payment type & price point
             const variantName = getItemVariantName(item, matchedProduct);
             const mapKey = `${variantName.toLowerCase().trim()}::${paymentType}::${unitPrice}`;
+            const fullPrice = resolveVariantFullPrice(item, matchedProduct, variantName, unitPrice);
 
             if (!pMap[mapKey]) {
-              pMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku, paymentType, fullPrice: catalogPrice || unitPrice };
+              pMap[mapKey] = { name: variantName, category, unitsSold: 0, revenue: 0, price: unitPrice, sku, paymentType, fullPrice };
             }
-            if (!isBalanceOrder) {
-              pMap[mapKey].unitsSold += qty;
-            }
+            pMap[mapKey].unitsSold += qty;
             pMap[mapKey].revenue += itemSubtotal;
           } else {
             // General Mode: Group strictly by base product name and payment type
             const generalName = getGeneralProductName(item, matchedProduct);
             const mapKey = `${generalName.toLowerCase().trim()}::${paymentType}`;
+            const fullPrice = resolveVariantFullPrice(item, matchedProduct, generalName, unitPrice);
 
             if (!pMap[mapKey]) {
-              pMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, sku, paymentType, fullPrice: catalogPrice || unitPrice };
+              pMap[mapKey] = { name: generalName, category, unitsSold: 0, revenue: 0, price: matchedProduct?.price || unitPrice, sku, paymentType, fullPrice };
             }
-            if (!isBalanceOrder) {
-              pMap[mapKey].unitsSold += qty;
-            }
+            pMap[mapKey].unitsSold += qty;
             pMap[mapKey].revenue += itemSubtotal;
             if (matchedProduct?.price && paymentType === 'full') {
               pMap[mapKey].price = matchedProduct.price;
@@ -1474,7 +1535,7 @@ export const ReportsPage: React.FC = () => {
                                   </td>
                                   <td className="py-3.5 px-4 text-center max-w-[180px]">
                                     <div className="font-extrabold text-slate-900 text-sm">
-                                      {prod.unitsSold.toLocaleString()} units
+                                      {prod.unitsSold.toLocaleString()} {prod.paymentType === 'balance' ? 'settlements' : 'units'}
                                     </div>
                                     <div className="w-full bg-slate-100 rounded-full h-1.5 mt-1 overflow-hidden">
                                       <div className={`h-full rounded-full transition-all duration-500 ${prod.paymentType === 'downpayment' ? 'bg-amber-500' : prod.paymentType === 'balance' ? 'bg-emerald-500' : 'bg-purple-600'}`} style={{ width: `${unitPercent}%` }} />

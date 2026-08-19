@@ -1902,9 +1902,7 @@ interface StockIntakeItem {
                 revenue: 0 
               };
             }
-            if (!isBalancePayment) {
-              productsSold[itemKey].quantity += (parseInt(String(item.quantity || 1), 10) || 1);
-            }
+            productsSold[itemKey].quantity += (parseInt(String(item.quantity || 1), 10) || 1);
             productsSold[itemKey].revenue += parseFloat(String(item.subtotal || (item.quantity * (price || 0)) || 0)) || 0;
           });
         }
@@ -5705,26 +5703,18 @@ interface StockIntakeItem {
                             )}
                           </td>
                           <td className="px-6 py-4 text-sm text-right">
-                            {data.paymentType === 'balance' ? (
-                              <button
-                                onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
-                                className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 border border-emerald-200 shadow-2xs"
-                                title="Click to view balance settlement orders"
-                              >
-                                Balance Settlements
-                              </button>
-                            ) : (
-                              <button
-                                onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
-                                className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 shadow-2xs ${
-                                  data.paymentType === 'downpayment'
-                                    ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-                                    : 'bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200/50'
-                                }`}
-                              >
-                                {data.quantity} units
-                              </button>
-                            )}
+                            <button
+                              onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
+                              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 shadow-2xs ${
+                                data.paymentType === 'downpayment'
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                                  : data.paymentType === 'balance'
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200/50'
+                              }`}
+                            >
+                              {data.quantity} {data.paymentType === 'balance' ? 'settlements' : 'units'}
+                            </button>
                           </td>
                           <td className="px-6 py-4 text-sm text-right font-black text-slate-900">
                             ₱{data.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
