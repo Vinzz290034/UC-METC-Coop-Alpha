@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -133,13 +133,23 @@ export const SalesPage: React.FC = () => {
   };
   const [hardboundSearchQuery, setHardboundSearchQuery] = useState<string>('');
   const [hardboundFilterDate, setHardboundFilterDate] = useState<string>('');
+  const [hardboundStatusFilter, setHardboundStatusFilter] = useState<'all' | 'submitted' | 'pending_submission'>('all');
   const [hardboundCurrentPage, setHardboundCurrentPage] = useState<number>(1);
   const [hardboundRowsPerPage, setHardboundRowsPerPage] = useState<number>(15);
+  const [notifiedHardboundOrders, setNotifiedHardboundOrders] = useState<Record<string, { submittedAt: string; notifiedBy?: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('coop_notified_hardbound_submitted');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
+  const [isNotifyingHardbound, setIsNotifyingHardbound] = useState<string | null>(null);
 
   // Reset pagination when search query or filter date changes
   useEffect(() => {
     setHardboundCurrentPage(1);
-  }, [hardboundSearchQuery, hardboundFilterDate]);
+  }, [hardboundSearchQuery, hardboundFilterDate, hardboundStatusFilter]);
 
   const [swimmingSearchQuery, setSwimmingSearchQuery] = useState<string>('');
   const [swimmingFilterDate, setSwimmingFilterDate] = useState<string>('');
@@ -1173,6 +1183,60 @@ export const SalesPage: React.FC = () => {
       setHardboundOrders(hardboundOrdersFiltered);
     } catch (err) {
       console.error('Failed to load hardbound orders:', err);
+    }
+  };
+
+  const handleNotifyHardboundSubmitted = async (order: any) => {
+    if (isNotifyingHardbound) return;
+    try {
+      setIsNotifyingHardbound(order.id);
+      const customerName = formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Valued Student';
+      const targetEmail = (order.email && order.email.includes('@') && !order.email.includes('@uc-metc-walkin.com'))
+        ? order.email
+        : (allUsers.find((u: any) => u.id === order.user_id)?.email || '');
+
+      const hardboundItem = order.items?.find((item: any) => {
+        const name = (item.productName || item.product_name || '').toLowerCase();
+        return name.includes('hard bound') || name.includes('hardbound');
+      });
+
+      const researchTitle = hardboundItem?.selectedOptions?.researchTitle || order.selectedOptions?.researchTitle || 'Research Project';
+      const leadResearcher = hardboundItem?.selectedOptions?.leadResearcher || order.selectedOptions?.leadResearcher || customerName;
+
+      const subject = `Your Hardbound Book Has Been Submitted to the Research Office! - Receipt #${order.receipt_no}`;
+      const body = `Hello ${customerName},\n\nGood news! Your Hardbound research book (Receipt #${order.receipt_no}) has been processed and officially submitted to the UC METC Research Office.\n\nResearch Details:\n• Research Title: "${researchTitle}"\n• Lead Researcher: ${leadResearcher}\n\nYour hardbound is now with the Research Office for review, recording, and final endorsement. You no longer need to check personally at the Coop Office.\n\nBest regards,\nUC METC Multipurpose Cooperative (Coop Office)`;
+
+      if (targetEmail && targetEmail.includes('@') && !targetEmail.includes('@uc-metc-walkin.com')) {
+        await apiClient.sendEmail({
+          to: targetEmail,
+          subject,
+          body
+        });
+        showNotification(`Notification sent to ${customerName} (${targetEmail})!`, 'success');
+      } else {
+        showNotification(`Hardbound marked as submitted to Research Office for ${customerName}!`, 'success');
+      }
+
+      setNotifiedHardboundOrders(prev => {
+        const updated = {
+          ...prev,
+          [order.id]: {
+            submittedAt: new Date().toISOString(),
+            notifiedBy: user?.first_name ? `${user.first_name} ${user.last_name || ''}`.trim() : 'Coop Staff'
+          }
+        };
+        try {
+          localStorage.setItem('coop_notified_hardbound_submitted', JSON.stringify(updated));
+        } catch (e) {
+          console.error('Failed to save hardbound notification state', e);
+        }
+        return updated;
+      });
+    } catch (err) {
+      console.error('Failed to send hardbound submission notification:', err);
+      showNotification('Failed to send submission notification', 'error');
+    } finally {
+      setIsNotifyingHardbound(null);
     }
   };
 
@@ -4258,20 +4322,26 @@ export const SalesPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-bold mb-1">Hardbound Research Portal</h3>
-                  <p className="text-purple-100 text-sm mt-1">Manage and track hardbound book orders, research titles, and authors</p>
-                  <div className="flex gap-4 mt-4 text-xs font-semibold text-purple-100">
-                    <span className="bg-white/15 px-3 py-1 rounded-full">
-                      {(() => {
-                        const filteredByDateCount = hardboundOrders.filter((order: any) => {
-                          const orderDateObj = new Date(order.created_at);
-                          const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
-                          return !hardboundFilterDate || orderDateString === hardboundFilterDate;
-                        }).length;
-                        return hardboundFilterDate 
-                          ? `Completed on ${new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'medium' })}: ${filteredByDateCount}` 
-                          : `Completed: ${hardboundOrders.length}`;
-                      })()}
+                  <p className="text-purple-100 text-sm mt-1">Manage and track hardbound book orders, research titles, and research office submissions</p>
+                  
+                  {/* Status Badges Header Counter */}
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-4 text-xs font-semibold">
+                    <span className="bg-white/15 px-3 py-1.5 rounded-full">
+                      Total Orders: {hardboundOrders.length}
                     </span>
+                    <span className="bg-emerald-500/30 border border-emerald-300/30 text-emerald-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                      <CheckCircle size={13} className="text-emerald-300" />
+                      Submitted to RO: {hardboundOrders.filter((o: any) => !!notifiedHardboundOrders[o.id]).length}
+                    </span>
+                    <span className="bg-amber-500/30 border border-amber-300/30 text-amber-100 px-3 py-1.5 rounded-full flex items-center gap-1.5">
+                      <Clock size={13} className="text-amber-300" />
+                      Pending Submission: {hardboundOrders.filter((o: any) => !notifiedHardboundOrders[o.id]).length}
+                    </span>
+                    {hardboundFilterDate && (
+                      <span className="bg-white/20 px-3 py-1.5 rounded-full">
+                        Filter Date: {new Date(hardboundFilterDate).toLocaleDateString('en-US', { dateStyle: 'medium' })}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <div className="bg-white/20 p-4 rounded-full hidden sm:block">
@@ -4285,11 +4355,24 @@ export const SalesPage: React.FC = () => {
               <div className="p-6 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-semibold text-slate-900">Hardbound Order Log</h3>
-                  <p className="text-sm text-slate-600 mt-1">View research titles and lead researchers for all orders</p>
+                  <p className="text-sm text-slate-600 mt-1">View research titles, authors, and manage submissions to the Research Office</p>
                 </div>
                 
-                {/* Controls (Date Filter & Search Bar) */}
+                {/* Controls (Status Filter, Date Filter & Search Bar) */}
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto">
+                  {/* Submission Status Filter Dropdown */}
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={hardboundStatusFilter}
+                      onChange={(e) => setHardboundStatusFilter(e.target.value as any)}
+                      className="w-full sm:w-48 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm bg-white text-slate-800 font-semibold shadow-xs"
+                    >
+                      <option value="all">All Submissions</option>
+                      <option value="pending_submission">Pending Submission</option>
+                      <option value="submitted">Submitted to Research Office</option>
+                    </select>
+                  </div>
+
                   {/* Date Filter */}
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <label htmlFor="hb-date-filter" className="text-xs font-semibold text-slate-600 whitespace-nowrap">
@@ -4338,12 +4421,19 @@ export const SalesPage: React.FC = () => {
                       if (orderDateString !== hardboundFilterDate) return false;
                     }
 
+                    // Filter by submission status
+                    const isSubmitted = !!notifiedHardboundOrders[order.id];
+                    if (hardboundStatusFilter === 'submitted' && !isSubmitted) return false;
+                    if (hardboundStatusFilter === 'pending_submission' && isSubmitted) return false;
+
                     const query = hardboundSearchQuery.toLowerCase().trim();
                     if (!query) return true;
                     if (order.receipt_no?.toLowerCase().includes(query)) return true;
                     const fullName = `${order.first_name || ''} ${order.last_name || ''}`.toLowerCase();
                     if (fullName.includes(query)) return true;
+                    if (order.walk_in_name?.toLowerCase().includes(query)) return true;
                     if (order.id_number?.toLowerCase().includes(query)) return true;
+                    if (order.walk_in_id_number?.toLowerCase().includes(query)) return true;
                     return order.items?.some((item: any) => {
                       const title = item.selectedOptions?.researchTitle || '';
                       const researcher = item.selectedOptions?.leadResearcher || '';
@@ -4355,7 +4445,8 @@ export const SalesPage: React.FC = () => {
                     return (
                       <div className="text-center py-12">
                         <Package size={48} className="mx-auto text-slate-300 mb-4" />
-                        <p className="text-slate-600 text-lg">No hardbound orders found</p>
+                        <p className="text-slate-600 text-lg font-medium">No hardbound orders match the selected filters</p>
+                        <p className="text-slate-400 text-sm mt-1">Try clearing your search query or adjusting the submission filter</p>
                       </div>
                     );
                   }
@@ -4372,98 +4463,161 @@ export const SalesPage: React.FC = () => {
                     <div className="space-y-6">
                       {/* Paginated Hardbound Cards List */}
                       <div className="space-y-6">
-                        {paginatedOrders.map((order: any) => (
-                          <div
-                             key={order.id}
-                             className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
-                          >
-                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
-                              <div>
-                                <div className="flex flex-wrap items-center gap-3 mb-1.5">
-                                  <h4 className="font-semibold text-slate-900 text-base">
-                                    {formatFullName(order.first_name, order.last_name)}
-                                  </h4>
-                                  <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
-                                    order.status === 'pending'
-                                      ? 'bg-amber-100 text-amber-700'
-                                      : order.status === 'completed'
-                                      ? 'bg-green-100 text-green-700'
-                                      : order.status === 'released'
-                                      ? 'bg-purple-100 text-purple-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}>
-                                    {order.status.toUpperCase()}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-slate-500 font-medium">
-                                  Student ID: {order.id_number || 'N/A'} • Email: {order.email}
-                                </p>
-                              </div>
-                              <div className="text-left md:text-right">
-                                <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
-                                <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
-                              </div>
-                            </div>
+                        {paginatedOrders.map((order: any) => {
+                          const isSubmitted = !!notifiedHardboundOrders[order.id];
+                          const submissionData = notifiedHardboundOrders[order.id];
 
-                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                              {/* Research Metadata */}
-                              <div className="lg:col-span-8 space-y-3">
-                                {order.items?.map((item: any, idx: number) => {
-                                  const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
-                                  if (!isHardbound) return null;
-                                  return (
-                                    <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-                                      <div className="flex items-center gap-2 text-purple-600 mb-2">
-                                        <BookOpen size={16} />
-                                        <span className="text-xs font-bold uppercase tracking-wider">Research Metadata</span>
-                                      </div>
-                                      <div className="space-y-2.5">
-                                        <div>
-                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Research Title</p>
-                                          <p className="text-sm font-semibold text-slate-800 leading-snug">
-                                            {item.selectedOptions?.researchTitle || 'N/A'}
-                                          </p>
+                          return (
+                            <div
+                               key={order.id}
+                               className="border border-slate-200 rounded-xl p-6 hover:shadow-md transition-shadow bg-slate-50/30"
+                            >
+                              <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4 pb-4 border-b border-slate-100">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-3 mb-1.5">
+                                    <h4 className="font-semibold text-slate-900 text-base">
+                                      {formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Walk-in Student'}
+                                    </h4>
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                      order.status === 'pending'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : order.status === 'completed'
+                                        ? 'bg-green-100 text-green-700'
+                                        : order.status === 'released'
+                                        ? 'bg-purple-100 text-purple-700'
+                                        : 'bg-red-100 text-red-700'
+                                    }`}>
+                                      {order.status.toUpperCase()}
+                                    </span>
+                                    {isSubmitted && (
+                                      <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 flex items-center gap-1">
+                                        <CheckCircle size={12} className="text-emerald-600" />
+                                        SUBMITTED TO RO
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-slate-500 font-medium">
+                                    Student ID: {order.id_number || order.walk_in_id_number || 'N/A'} • Email: {order.email || 'N/A'}
+                                  </p>
+                                </div>
+                                <div className="text-left md:text-right">
+                                  <p className="text-xs text-slate-500 font-medium">Receipt No: <span className="font-semibold text-slate-700">{order.receipt_no}</span></p>
+                                  <p className="text-xs text-slate-500 mt-1">Date: {new Date(order.created_at).toLocaleDateString()}</p>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                                {/* Research Metadata */}
+                                <div className="lg:col-span-8 space-y-3">
+                                  {order.items?.map((item: any, idx: number) => {
+                                    const isHardbound = (item.productName || item.product_name || '').toLowerCase().includes('hard bound') || (item.productName || item.product_name || '').toLowerCase().includes('hardbound');
+                                    if (!isHardbound) return null;
+                                    return (
+                                      <div key={idx} className="bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                        <div className="flex items-center gap-2 text-purple-600 mb-2">
+                                          <BookOpen size={16} />
+                                          <span className="text-xs font-bold uppercase tracking-wider">Research Metadata</span>
                                         </div>
-                                        <div>
-                                          <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Lead Researcher</p>
-                                          <div className="flex items-center gap-1.5 mt-0.5">
-                                            <User size={14} className="text-slate-400" />
-                                            <p className="text-sm font-medium text-slate-800">
-                                              {item.selectedOptions?.leadResearcher || 'N/A'}
+                                        <div className="space-y-2.5">
+                                          <div>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Research Title</p>
+                                            <p className="text-sm font-semibold text-slate-800 leading-snug">
+                                              {item.selectedOptions?.researchTitle || 'N/A'}
                                             </p>
+                                          </div>
+                                          <div>
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-wide font-bold">Lead Researcher</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                              <User size={14} className="text-slate-400" />
+                                              <p className="text-sm font-medium text-slate-800">
+                                                {item.selectedOptions?.leadResearcher || 'N/A'}
+                                              </p>
+                                            </div>
                                           </div>
                                         </div>
                                       </div>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Payment Summary & Actions */}
-                              <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
-                                <div>
-                                  <p className="text-xs text-slate-500 mb-1">Amount:</p>
-                                  <p className="text-2xl font-bold text-slate-900 mb-2">
-                                    ₱{(order.items || [])
-                                      .filter((item: any) => {
-                                        const productName = item.productName || item.product_name || '';
-                                        return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
-                                      })
-                                      .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
-                                      .toLocaleString()}
-                                  </p>
-                                  <div className="text-xs text-slate-500 font-medium">
-                                    Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
-                                    {order.payment_method === 'ewallet' && order.reference_number && (
-                                      <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
-                                    )}
-                                  </div>
+                                    );
+                                  })}
                                 </div>
 
+                                {/* Payment Summary & Actions */}
+                                <div className="lg:col-span-4 flex flex-col justify-between h-full bg-white border border-slate-200 rounded-lg p-4 shadow-sm">
+                                  <div>
+                                    <p className="text-xs text-slate-500 mb-1">Amount:</p>
+                                    <p className="text-2xl font-bold text-slate-900 mb-2">
+                                      ₱{(order.items || [])
+                                        .filter((item: any) => {
+                                          const productName = item.productName || item.product_name || '';
+                                          return productName.toLowerCase().includes('hard bound') || productName.toLowerCase().includes('hardbound');
+                                        })
+                                        .reduce((sum: number, item: any) => sum + parseFloat(item.subtotal || 0), 0)
+                                        .toLocaleString()}
+                                    </p>
+                                    <div className="text-xs text-slate-500 font-medium">
+                                      Payment Method: <span className="font-semibold text-slate-700">{formatPaymentMethod(order.payment_method)}</span>
+                                      {order.payment_method === 'ewallet' && order.reference_number && (
+                                        <p className="mt-0.5 text-slate-500">Ref: <span className="font-mono">{order.reference_number}</span></p>
+                                      )}
+                                    </div>
+
+                                    {/* Submission to Research Office Status Badge */}
+                                    {isSubmitted ? (
+                                      <div className="mt-3.5 p-2.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+                                        <div className="flex items-center gap-1.5 text-emerald-800 font-bold text-xs">
+                                          <CheckCircle size={14} className="text-emerald-600 shrink-0" />
+                                          <span>Submitted to Research Office</span>
+                                        </div>
+                                        <p className="text-[11px] text-emerald-700 mt-1">
+                                          Student Notified: {new Date(submissionData.submittedAt).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <div className="mt-3.5 p-2.5 bg-amber-50 border border-amber-200 rounded-lg">
+                                        <div className="flex items-center gap-1.5 text-amber-800 font-bold text-xs">
+                                          <Clock size={14} className="text-amber-600 shrink-0" />
+                                          <span>Pending Submission to RO</span>
+                                        </div>
+                                        <p className="text-[11px] text-amber-700 mt-1">
+                                          In processing at Coop Office
+                                        </p>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Notification / Submission Trigger Button */}
+                                  <div className="mt-4 pt-3 border-t border-slate-100">
+                                    <button
+                                      onClick={() => handleNotifyHardboundSubmitted(order)}
+                                      disabled={isNotifyingHardbound === order.id}
+                                      className={`w-full flex items-center justify-center gap-2 px-3.5 py-2.5 rounded-lg text-xs font-bold transition-all shadow-xs ${
+                                        isSubmitted
+                                          ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300 active:scale-[0.98]'
+                                          : 'bg-purple-600 text-white hover:bg-purple-700 active:scale-[0.98]'
+                                      }`}
+                                    >
+                                      {isNotifyingHardbound === order.id ? (
+                                        <>
+                                          <Clock size={14} className="animate-spin text-purple-400" />
+                                          <span>Sending Notification...</span>
+                                        </>
+                                      ) : isSubmitted ? (
+                                        <>
+                                          <Send size={13} />
+                                          <span>Resend Notification</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Send size={13} />
+                                          <span>Notify: Submitted to RO</span>
+                                        </>
+                                      )}
+                                    </button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Pagination Controls Footer */}
