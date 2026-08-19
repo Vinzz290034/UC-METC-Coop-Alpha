@@ -13,7 +13,7 @@ const STORAGE_KEY = 'silms_locker_maintenance_state';
 const DEFAULT_LOCKER_MAINTENANCE_STATE: LockerMaintenanceState = {
   enabled: false,
   title: 'Locker Rentals Temporarily Unavailable',
-  message: 'The Locker Management team is currently finalizing locker allocations, maintenance inspections, and inventory audits. Locker applications and reservations are temporarily unavailable as of now. Please check back soon or visit the UC-METC Coop Office.',
+  message: 'We are currently finalizing locker allocations, maintenance inspections, and inventory audits. Locker applications and reservations are temporarily unavailable as of now. Please check back soon or visit the UC-METC Coop Office.',
   eta: 'Finalizing Lockers',
   updatedAt: '1970-01-01T00:00:00.000Z'
 };

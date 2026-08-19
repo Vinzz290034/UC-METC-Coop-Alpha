@@ -242,7 +242,7 @@ router.post('/system-status', async (req: Request, res: Response) => {
 let inMemoryLockerMaintenanceState = {
   enabled: false,
   title: 'Locker Rentals Temporarily Unavailable',
-  message: 'The Locker Management team is currently finalizing locker allocations, maintenance inspections, and inventory audits. Locker applications and reservations are temporarily unavailable as of now. Please check back soon or visit the UC-METC Coop Office.',
+  message: 'We are currently finalizing locker allocations, maintenance inspections, and inventory audits. Locker applications and reservations are temporarily unavailable as of now. Please check back soon or visit the UC-METC Coop Office.',
   eta: 'Finalizing Lockers',
   updatedAt: new Date().toISOString()
 };
