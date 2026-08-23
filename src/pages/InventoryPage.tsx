@@ -7318,7 +7318,7 @@ interface StockIntakeItem {
           }}
         >
           <div
-            className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in"
+            className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-scale-in"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -7406,39 +7406,39 @@ interface StockIntakeItem {
                 }
 
                 return (
-                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm">
-                    <table className="w-full text-sm">
+                  <div className="border border-slate-200 rounded-xl overflow-x-auto shadow-sm">
+                    <table className="w-full min-w-[700px] text-sm">
                       <thead className="bg-slate-50 border-b border-slate-200">
                         <tr>
-                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Date</th>
-                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Receipt No.</th>
-                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Name</th>
-                          <th className="text-left py-3 px-6 font-semibold text-slate-900">Course & Year</th>
-                          <th className="text-center py-3 px-6 font-semibold text-slate-900">Payment Stage</th>
-                          <th className="text-center py-3 px-6 font-semibold text-slate-900">Quantity</th>
-                          <th className="text-right py-3 px-6 font-semibold text-slate-900">Amount</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-900">Date</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-900">Receipt No.</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-900">Name</th>
+                          <th className="text-left py-3 px-4 font-semibold text-slate-900">Course & Year</th>
+                          <th className="text-center py-3 px-4 font-semibold text-slate-900">Payment Stage</th>
+                          <th className="text-center py-3 px-4 font-semibold text-slate-900">Quantity</th>
+                          <th className="text-right py-3 px-4 font-semibold text-slate-900">Amount</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 bg-white">
                         {filteredPurchases.map((purchase, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="py-4 px-6 text-slate-600 whitespace-nowrap">
+                            <td className="py-3.5 px-4 text-slate-600 whitespace-nowrap text-xs">
                               {new Date(purchase.date).toLocaleDateString('en-US', {
                                 month: 'short',
                                 day: 'numeric',
                                 year: 'numeric',
                               }) || 'N/A'}
                             </td>
-                            <td className="py-4 px-6 font-mono text-slate-500 text-xs">
+                            <td className="py-3.5 px-4 font-mono text-slate-500 text-xs">
                               {purchase.receipt_no}
                             </td>
-                            <td className="py-4 px-6 font-semibold text-slate-900">
+                            <td className="py-3.5 px-4 font-semibold text-slate-900 text-xs">
                               {purchase.name}
                             </td>
-                            <td className="py-4 px-6 text-slate-700">
+                            <td className="py-3.5 px-4 text-slate-700 text-xs">
                               {purchase.courseYear}
                             </td>
-                            <td className="py-4 px-6 text-center whitespace-nowrap">
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap">
                               {purchase.paymentType === 'downpayment' ? (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
                                   DOWNPAYMENT
@@ -7453,10 +7453,10 @@ interface StockIntakeItem {
                                 </span>
                               )}
                             </td>
-                            <td className="py-4 px-6 text-center font-medium text-slate-800">
+                            <td className="py-3.5 px-4 text-center font-medium text-slate-800 text-xs">
                               {purchase.paymentType === 'balance' ? '-' : purchase.quantity}
                             </td>
-                            <td className="py-4 px-6 text-right font-bold text-green-700 whitespace-nowrap">
+                            <td className="py-3.5 px-4 text-right font-black text-green-700 whitespace-nowrap text-xs">
                               ₱{purchase.subtotal.toFixed(2)}
                             </td>
                           </tr>
