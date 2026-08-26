@@ -424,13 +424,17 @@ export const SalesPage: React.FC = () => {
           if (rows.length < 2) return { valid: false, reason: 'Too few rows' };
 
           // Look for a header row containing the key columns within the first 10 rows
-          const salesHeaders = ['date', 'tr no', 'client', 'item', 'amount'];
+          const salesHeaders = [
+            'date', 'tr no', 'tr #', 'tr.', 'receipt', 'or no', 'or #', 'trans',
+            'client', 'student', 'name', 'buyer', 'payor', 'payer', 'customer',
+            'item', 'product', 'particular', 'amount', 'price', 'total'
+          ];
           for (let i = 0; i < Math.min(10, rows.length); i++) {
             const row = rows[i];
             if (!row) continue;
             const cellValues = row.map(c => String(c || '').toLowerCase().trim());
             const matchCount = salesHeaders.filter(h => cellValues.some(c => c.includes(h))).length;
-            if (matchCount >= 4) {
+            if (matchCount >= 3) {
               return { valid: true };
             }
           }
@@ -806,22 +810,28 @@ export const SalesPage: React.FC = () => {
 
         let isWalkIn = true;
         let userId = undefined;
-        const cleanName = t.walkInName.toLowerCase().trim();
+        const cleanName = (t.walkInName || '').toLowerCase().trim();
         
-        const matchedUser = allUsers?.find((u: any) => {
-          const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().trim();
-          return fullName === cleanName || u.name?.toLowerCase().trim() === cleanName;
-        });
+        if (cleanName && cleanName !== 'walk-in student') {
+          const matchedUser = allUsers?.find((u: any) => {
+            const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase().trim();
+            const reverseFullName = `${u.lastName || ''} ${u.firstName || ''}`.toLowerCase().trim();
+            const commaFullName = `${u.lastName || ''}, ${u.firstName || ''}`.toLowerCase().trim();
+            const uname = (u.name || '').toLowerCase().trim();
+            const idMatch = t.walkInIdNumber && (u.id_number === t.walkInIdNumber || u.idNumber === t.walkInIdNumber || u.studentId === t.walkInIdNumber);
+            return idMatch || fullName === cleanName || reverseFullName === cleanName || commaFullName === cleanName || uname === cleanName;
+          });
 
-        if (matchedUser) {
-          isWalkIn = false;
-          userId = matchedUser.id;
+          if (matchedUser) {
+            isWalkIn = false;
+            userId = matchedUser.id;
+          }
         }
 
         const orderData = {
           isWalkIn,
           walkInName: isWalkIn ? t.walkInName : undefined,
-          walkInIdNumber: undefined,
+          walkInIdNumber: isWalkIn ? (t.walkInIdNumber || undefined) : undefined,
           walkInCourse: isWalkIn ? t.walkInCourse : undefined,
           walkInMembershipStatus: isWalkIn ? t.walkInMembershipStatus : undefined,
           userId,
@@ -5423,16 +5433,58 @@ export const SalesPage: React.FC = () => {
                               let currentTransaction: any = null;
 
                               // Detect column indices from header row if present
-                              let colDate = 0;
-                              let colTrNo = 1;
-                              let colClient = 2;
-                              let colCourse = 3;
-                              let colItem = 4;
-                              let colQty = 5;
-                              let colSize = 6;
-                              let colAmount = 7;
-                              let colRemarks = 8;
-                              let colGCash = 9;
+                              let colDate = -1;
+                              let colTrNo = -1;
+                              let colClient = -1;
+                              let colFirstName = -1;
+                              let colLastName = -1;
+                              let colIdNo = -1;
+                              let colCourse = -1;
+                              let colItem = -1;
+                              let colQty = -1;
+                              let colSize = -1;
+                              let colAmount = -1;
+                              let colRemarks = -1;
+                              let colGCash = -1;
+
+                              const isItemHeader = (text: string) => {
+                                return (
+                                  text.includes('item') ||
+                                  text.includes('product') ||
+                                  text.includes('particular') ||
+                                  text.includes('description') ||
+                                  text.includes('merchandise') ||
+                                  text.includes('uniform') ||
+                                  text.includes('article')
+                                );
+                              };
+
+                              const isIdHeader = (text: string) => {
+                                return (
+                                  text.includes('id no') ||
+                                  text.includes('id #') ||
+                                  text.includes('id num') ||
+                                  text.includes('student id') ||
+                                  text.includes('id_number') ||
+                                  text.includes('edp') ||
+                                  text.includes('school id') ||
+                                  text === 'id'
+                                );
+                              };
+
+                              const isStaffOrOtherHeader = (text: string) => {
+                                return (
+                                  text.includes('instructor') ||
+                                  text.includes('teacher') ||
+                                  text.includes('prof') ||
+                                  text.includes('faculty') ||
+                                  text.includes('cashier') ||
+                                  text.includes('encoder') ||
+                                  text.includes('checker') ||
+                                  text.includes('prepared') ||
+                                  text.includes('signature')
+                                );
+                              };
 
                               // Scan first 15 rows for header row
                               for (let i = 0; i < Math.min(15, rows.length); i++) {
@@ -5440,57 +5492,128 @@ export const SalesPage: React.FC = () => {
                                 if (!r) continue;
                                 const cells = r.map(c => String(c || '').toLowerCase().trim());
                                 const hasDate = cells.some(c => c.includes('date'));
-                                const hasTr = cells.some(c => c.includes('tr no') || c.includes('tr #') || c.includes('tr.') || c.includes('receipt'));
-                                const hasClient = cells.some(c => c.includes('client') || c.includes('student') || c.includes('name') || c.includes('customer'));
-                                const hasItem = cells.some(c => c.includes('item') || c.includes('product') || c.includes('particular'));
-                                const hasAmount = cells.some(c => c.includes('amount') || c.includes('price') || c.includes('total'));
+                                const hasTr = cells.some(c => c.includes('tr no') || c.includes('tr #') || c.includes('tr.') || c.includes('receipt') || c.includes('or no') || c.includes('or #') || c.includes('trans'));
+                                const hasClient = cells.some(c => 
+                                  !isItemHeader(c) && !isStaffOrOtherHeader(c) && !isIdHeader(c) &&
+                                  (c.includes('client') || c.includes('student') || c.includes('name') || c.includes('customer') || c.includes('buyer') || c.includes('payor') || c.includes('payer') || c.includes('cadet') || c.includes('midshipman') || c.includes('member'))
+                                );
+                                const hasItem = cells.some(c => isItemHeader(c));
+                                const hasAmount = cells.some(c => c.includes('amount') || c.includes('price') || c.includes('total') || c.includes('subtotal') || c.includes('cost'));
 
                                 if ((hasDate || hasTr) && (hasClient || hasItem) && (hasItem || hasAmount)) {
                                   cells.forEach((headerText, idx) => {
-                                    if (headerText.includes('date')) colDate = idx;
-                                    else if (headerText.includes('tr no') || headerText.includes('tr #') || headerText.includes('tr.') || headerText.includes('receipt')) colTrNo = idx;
-                                    else if (headerText.includes('client') || headerText.includes('student') || headerText.includes('name') || headerText.includes('customer')) colClient = idx;
-                                    else if (headerText.includes('course') || headerText.includes('program') || headerText.includes('dept')) colCourse = idx;
-                                    else if (headerText.includes('item') || headerText.includes('product') || headerText.includes('particular') || headerText.includes('description')) colItem = idx;
-                                    else if (headerText.includes('qnty') || headerText.includes('qty') || headerText.includes('quantity')) colQty = idx;
-                                    else if (headerText.includes('size')) colSize = idx;
-                                    else if (headerText.includes('amount') || headerText.includes('price') || headerText.includes('total')) colAmount = idx;
-                                    else if (headerText.includes('remark') || headerText.includes('note')) colRemarks = idx;
-                                    else if (headerText.includes('gcash') || headerText.includes('ref') || headerText.includes('reference') || headerText.includes('e-wallet') || headerText.includes('ewallet')) colGCash = idx;
+                                    if (!headerText) return;
+
+                                    if (headerText.includes('date')) {
+                                      colDate = idx;
+                                    } else if (headerText.includes('tr no') || headerText.includes('tr #') || headerText.includes('tr.') || headerText.includes('receipt') || headerText.includes('or no') || headerText.includes('or #') || headerText.includes('trans')) {
+                                      colTrNo = idx;
+                                    } else if (isIdHeader(headerText)) {
+                                      colIdNo = idx;
+                                    } else if (headerText.includes('first name') || headerText.includes('firstname') || headerText.includes('given name')) {
+                                      colFirstName = idx;
+                                    } else if (headerText.includes('last name') || headerText.includes('lastname') || headerText.includes('surname') || headerText.includes('family name')) {
+                                      colLastName = idx;
+                                    } else if (isItemHeader(headerText)) {
+                                      // Checked BEFORE general name matching
+                                      colItem = idx;
+                                    } else if (headerText.includes('course') || headerText.includes('program') || headerText.includes('dept') || headerText.includes('section') || headerText.includes('yr') || headerText.includes('year')) {
+                                      colCourse = idx;
+                                    } else if (headerText.includes('qnty') || headerText.includes('qty') || headerText.includes('quantity') || headerText.includes('pcs') || headerText.includes('count')) {
+                                      colQty = idx;
+                                    } else if (headerText.includes('size')) {
+                                      colSize = idx;
+                                    } else if (headerText.includes('amount') || headerText.includes('price') || headerText.includes('total') || headerText.includes('subtotal') || headerText.includes('cost')) {
+                                      colAmount = idx;
+                                    } else if (headerText.includes('remark') || headerText.includes('note') || headerText.includes('comment')) {
+                                      colRemarks = idx;
+                                    } else if (headerText.includes('gcash') || headerText.includes('ref') || headerText.includes('reference') || headerText.includes('e-wallet') || headerText.includes('ewallet')) {
+                                      colGCash = idx;
+                                    } else if (!isStaffOrOtherHeader(headerText) && (
+                                      headerText.includes('client') ||
+                                      headerText.includes('student') ||
+                                      headerText.includes('customer') ||
+                                      headerText.includes('buyer') ||
+                                      headerText.includes('payor') ||
+                                      headerText.includes('payer') ||
+                                      headerText.includes('cadet') ||
+                                      headerText.includes('midshipman') ||
+                                      headerText.includes('member') ||
+                                      headerText.includes('full name') ||
+                                      headerText.includes('fullname') ||
+                                      headerText.includes('name')
+                                    )) {
+                                      colClient = idx;
+                                    }
                                   });
                                   break;
                                 }
                               }
 
+                              // Sensible fallback defaults
+                              if (colDate === -1) colDate = 0;
+                              if (colTrNo === -1) colTrNo = 1;
+                              if (colClient === -1 && colFirstName === -1 && colLastName === -1) colClient = 2;
+                              if (colCourse === -1) colCourse = 3;
+                              if (colItem === -1) colItem = 4;
+                              if (colQty === -1) colQty = 5;
+                              if (colSize === -1) colSize = 6;
+                              if (colAmount === -1) colAmount = 7;
+                              if (colRemarks === -1) colRemarks = 8;
+                              if (colGCash === -1) colGCash = 9;
+
                               for (let r = 0; r < rows.length; r++) {
                                 const row = rows[r];
                                 if (!row || row.length === 0) continue;
 
-                                const colA = String(row[colDate] || '').trim();
-                                const colB = String(row[colTrNo] || '').trim();
-                                const colC = String(row[colClient] || '').trim();
-                                const colD = String(row[colCourse] || '').trim();
-                                const colE = String(row[colItem] || '').trim();
-                                const colF = String(row[colQty] || '').trim();
-                                const colG = String(row[colSize] || '').trim();
-                                const colH = String(row[colAmount] || '').trim();
-                                const colRemarksVal = String(row[colRemarks] || '').trim();
-                                const colGCashVal = String(row[colGCash] || '').trim();
+                                const colA = colDate !== -1 ? String(row[colDate] || '').trim() : '';
+                                const colB = colTrNo !== -1 ? String(row[colTrNo] || '').trim() : '';
+                                
+                                let rawClientName = '';
+                                if (colFirstName !== -1 && colLastName !== -1) {
+                                  const fn = String(row[colFirstName] || '').trim();
+                                  const ln = String(row[colLastName] || '').trim();
+                                  if (fn && ln) rawClientName = `${ln}, ${fn}`;
+                                  else rawClientName = fn || ln;
+                                } else if (colClient !== -1) {
+                                  rawClientName = String(row[colClient] || '').trim();
+                                }
 
-                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.' || colB.toLowerCase() === 'tr no' || colC.toLowerCase() === 'client') {
+                                // Dynamic fallback: if rawClientName is still empty, look across candidate text columns between colTrNo and colItem
+                                if (!rawClientName) {
+                                  for (let c = Math.max(0, colTrNo + 1); c < Math.min(row.length, colItem !== -1 ? colItem : 5); c++) {
+                                    if (c === colCourse || c === colIdNo || c === colDate || c === colAmount || c === colQty || c === colSize) continue;
+                                    const cellVal = String(row[c] || '').trim();
+                                    if (cellVal && isNaN(Number(cellVal)) && !cellVal.includes('/') && !cellVal.includes('-') && cellVal.length > 1) {
+                                      rawClientName = cellVal;
+                                      break;
+                                    }
+                                  }
+                                }
+
+                                const colD = colCourse !== -1 ? String(row[colCourse] || '').trim() : '';
+                                const colE = colItem !== -1 ? String(row[colItem] || '').trim() : '';
+                                const colF = colQty !== -1 ? String(row[colQty] || '').trim() : '';
+                                const colG = colSize !== -1 ? String(row[colSize] || '').trim() : '';
+                                const colH = colAmount !== -1 ? String(row[colAmount] || '').trim() : '';
+                                const colRemarksVal = colRemarks !== -1 ? String(row[colRemarks] || '').trim() : '';
+                                const colGCashVal = colGCash !== -1 ? String(row[colGCash] || '').trim() : '';
+                                const colIdVal = colIdNo !== -1 ? String(row[colIdNo] || '').trim() : '';
+
+                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.' || colB.toLowerCase() === 'tr no' || rawClientName.toLowerCase() === 'client' || rawClientName.toLowerCase() === 'name') {
                                   continue;
                                 }
 
-                                if (colC && !colE && !colH) {
+                                if (rawClientName && !colE && !colH) {
                                   const hasMonthName = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
-                                    .some(m => colC.toLowerCase().includes(m));
+                                    .some(m => rawClientName.toLowerCase().includes(m));
                                   if (hasMonthName) {
-                                    currentHeaderDate = colC;
+                                    currentHeaderDate = rawClientName;
                                     continue;
                                   }
                                 }
 
-                                if (!colC && !colE && colH) {
+                                if (!rawClientName && !colE && colH) {
                                   continue;
                                 }
 
@@ -5508,8 +5631,9 @@ export const SalesPage: React.FC = () => {
                                 }
 
                                 const trNo = colB;
-                                const clientName = colC || (currentTransaction ? currentTransaction.walkInName : 'Walk-in Student');
-                                const course = colD || (currentTransaction ? currentTransaction.walkInCourse : '');
+                                const clientName = rawClientName || (trNo ? '' : (currentTransaction ? currentTransaction.walkInName : '')) || 'Walk-in Student';
+                                const course = colD || (trNo ? '' : (currentTransaction ? currentTransaction.walkInCourse : '')) || '';
+                                const idNumber = colIdVal || (trNo ? '' : (currentTransaction ? currentTransaction.walkInIdNumber : '')) || undefined;
                                 const itemName = colE;
                                 const qnty = parseInt(colF) || 1;
                                 const size = colG;
@@ -5572,6 +5696,7 @@ export const SalesPage: React.FC = () => {
                                   currentTransaction = {
                                     isWalkIn: true,
                                     walkInName: clientName,
+                                    walkInIdNumber: idNumber || undefined,
                                     walkInCourse: course,
                                     walkInMembershipStatus: 'none',
                                     items: [item],
@@ -5599,6 +5724,7 @@ export const SalesPage: React.FC = () => {
                                     currentTransaction = {
                                       isWalkIn: true,
                                       walkInName: clientName,
+                                      walkInIdNumber: idNumber || undefined,
                                       walkInCourse: course,
                                       walkInMembershipStatus: 'none',
                                       items: [item],
