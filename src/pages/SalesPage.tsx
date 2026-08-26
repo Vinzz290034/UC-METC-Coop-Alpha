@@ -5447,15 +5447,36 @@ export const SalesPage: React.FC = () => {
                               let colRemarks = -1;
                               let colGCash = -1;
 
+                              const isPaymentOrRefOrRemarks = (text: string) => {
+                                return (
+                                  text.includes('remark') ||
+                                  text.includes('note') ||
+                                  text.includes('comment') ||
+                                  text.includes('gcash') ||
+                                  text.includes('ref') ||
+                                  text.includes('reference') ||
+                                  text.includes('e-wallet') ||
+                                  text.includes('ewallet') ||
+                                  text.includes('payment') ||
+                                  text.includes('paid') ||
+                                  text.includes('balance') ||
+                                  text.includes('change')
+                                );
+                              };
+
                               const isItemHeader = (text: string) => {
+                                if (isPaymentOrRefOrRemarks(text)) return false;
                                 return (
                                   text.includes('item') ||
                                   text.includes('product') ||
                                   text.includes('particular') ||
                                   text.includes('description') ||
                                   text.includes('merchandise') ||
-                                  text.includes('uniform') ||
-                                  text.includes('article')
+                                  text.includes('article') ||
+                                  text === 'uniform' ||
+                                  text === 'uniform set' ||
+                                  text === 'orders' ||
+                                  text === 'order'
                                 );
                               };
 
@@ -5486,6 +5507,34 @@ export const SalesPage: React.FC = () => {
                                 );
                               };
 
+                              const isCourseHeader = (text: string) => {
+                                if (isPaymentOrRefOrRemarks(text)) return false;
+                                return (
+                                  text.includes('course') ||
+                                  text.includes('program') ||
+                                  text.includes('dept') ||
+                                  text.includes('department') ||
+                                  text.includes('section') ||
+                                  text === 'yr' ||
+                                  text === 'year' ||
+                                  text === 'course/yr' ||
+                                  text === 'course/year' ||
+                                  text === 'course & year'
+                                );
+                              };
+
+                              const isAmountHeader = (text: string) => {
+                                if (text.includes('ref') || text.includes('gcash') || text.includes('number') || text.includes('no.')) return false;
+                                return (
+                                  text.includes('amount') ||
+                                  text.includes('total') ||
+                                  text.includes('price') ||
+                                  text.includes('subtotal') ||
+                                  text.includes('cost') ||
+                                  text === 'amt'
+                                );
+                              };
+
                               // Scan first 15 rows for header row
                               for (let i = 0; i < Math.min(15, rows.length); i++) {
                                 const r = rows[i];
@@ -5494,42 +5543,42 @@ export const SalesPage: React.FC = () => {
                                 const hasDate = cells.some(c => c.includes('date'));
                                 const hasTr = cells.some(c => c.includes('tr no') || c.includes('tr #') || c.includes('tr.') || c.includes('receipt') || c.includes('or no') || c.includes('or #') || c.includes('trans'));
                                 const hasClient = cells.some(c => 
-                                  !isItemHeader(c) && !isStaffOrOtherHeader(c) && !isIdHeader(c) &&
+                                  !isItemHeader(c) && !isStaffOrOtherHeader(c) && !isIdHeader(c) && !isPaymentOrRefOrRemarks(c) &&
                                   (c.includes('client') || c.includes('student') || c.includes('name') || c.includes('customer') || c.includes('buyer') || c.includes('payor') || c.includes('payer') || c.includes('cadet') || c.includes('midshipman') || c.includes('member'))
                                 );
                                 const hasItem = cells.some(c => isItemHeader(c));
-                                const hasAmount = cells.some(c => c.includes('amount') || c.includes('price') || c.includes('total') || c.includes('subtotal') || c.includes('cost'));
+                                const hasAmount = cells.some(c => isAmountHeader(c));
 
                                 if ((hasDate || hasTr) && (hasClient || hasItem) && (hasItem || hasAmount)) {
                                   cells.forEach((headerText, idx) => {
                                     if (!headerText) return;
 
-                                    if (headerText.includes('date')) {
+                                    if (headerText.includes('date') && colDate === -1) {
                                       colDate = idx;
-                                    } else if (headerText.includes('tr no') || headerText.includes('tr #') || headerText.includes('tr.') || headerText.includes('receipt') || headerText.includes('or no') || headerText.includes('or #') || headerText.includes('trans')) {
+                                    } else if ((headerText.includes('tr no') || headerText.includes('tr #') || headerText.includes('tr.') || headerText.includes('receipt') || headerText.includes('or no') || headerText.includes('or #') || headerText.includes('trans')) && colTrNo === -1) {
                                       colTrNo = idx;
-                                    } else if (isIdHeader(headerText)) {
+                                    } else if (isIdHeader(headerText) && colIdNo === -1) {
                                       colIdNo = idx;
-                                    } else if (headerText.includes('first name') || headerText.includes('firstname') || headerText.includes('given name')) {
+                                    } else if ((headerText.includes('first name') || headerText.includes('firstname') || headerText.includes('given name')) && colFirstName === -1) {
                                       colFirstName = idx;
-                                    } else if (headerText.includes('last name') || headerText.includes('lastname') || headerText.includes('surname') || headerText.includes('family name')) {
+                                    } else if ((headerText.includes('last name') || headerText.includes('lastname') || headerText.includes('surname') || headerText.includes('family name')) && colLastName === -1) {
                                       colLastName = idx;
-                                    } else if (isItemHeader(headerText)) {
-                                      // Checked BEFORE general name matching
+                                    } else if (isItemHeader(headerText) && colItem === -1) {
+                                      // First matching item column
                                       colItem = idx;
-                                    } else if (headerText.includes('course') || headerText.includes('program') || headerText.includes('dept') || headerText.includes('section') || headerText.includes('yr') || headerText.includes('year')) {
+                                    } else if (isCourseHeader(headerText) && colCourse === -1) {
                                       colCourse = idx;
-                                    } else if (headerText.includes('qnty') || headerText.includes('qty') || headerText.includes('quantity') || headerText.includes('pcs') || headerText.includes('count')) {
+                                    } else if ((headerText.includes('qnty') || headerText.includes('qty') || headerText.includes('quantity') || headerText.includes('pcs') || headerText.includes('count')) && colQty === -1) {
                                       colQty = idx;
-                                    } else if (headerText.includes('size')) {
+                                    } else if (headerText.includes('size') && colSize === -1) {
                                       colSize = idx;
-                                    } else if (headerText.includes('amount') || headerText.includes('price') || headerText.includes('total') || headerText.includes('subtotal') || headerText.includes('cost')) {
+                                    } else if (isAmountHeader(headerText) && colAmount === -1) {
                                       colAmount = idx;
-                                    } else if (headerText.includes('remark') || headerText.includes('note') || headerText.includes('comment')) {
+                                    } else if ((headerText.includes('remark') || headerText.includes('note') || headerText.includes('comment')) && colRemarks === -1) {
                                       colRemarks = idx;
-                                    } else if (headerText.includes('gcash') || headerText.includes('ref') || headerText.includes('reference') || headerText.includes('e-wallet') || headerText.includes('ewallet')) {
+                                    } else if ((headerText.includes('gcash') || headerText.includes('ref') || headerText.includes('reference') || headerText.includes('e-wallet') || headerText.includes('ewallet')) && colGCash === -1) {
                                       colGCash = idx;
-                                    } else if (!isStaffOrOtherHeader(headerText) && (
+                                    } else if (colClient === -1 && !isStaffOrOtherHeader(headerText) && !isPaymentOrRefOrRemarks(headerText) && (
                                       headerText.includes('client') ||
                                       headerText.includes('student') ||
                                       headerText.includes('customer') ||
