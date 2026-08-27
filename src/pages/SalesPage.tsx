@@ -1106,6 +1106,8 @@ export const SalesPage: React.FC = () => {
     else if (nameLower.includes('type a') || nameLower.includes('type b') || nameLower.includes('type a & b')) standardName = 'Type A & B Uniform';
     else if (nameLower.includes('type c')) standardName = 'Type C Uniform';
     else if (nameLower.includes('locker')) standardName = 'Locker Rent';
+    else if (nameLower.includes('toga')) standardName = 'Toga Rent';
+    else if (nameLower.includes('bonggo')) standardName = 'Income from Bonggo';
     else standardName = itemName; // default to whatever was in the sheet if no match
 
     // Find the product in store
@@ -1119,6 +1121,17 @@ export const SalesPage: React.FC = () => {
           name: 'Locker Rent',
           sku: 'SRV-001',
           price: 150, // default locker rent price
+          category: 'service',
+          available: true,
+          stock: 999,
+          createdAt: new Date().toISOString()
+        };
+      } else if (standardName === 'Toga Rent') {
+        matchedProduct = {
+          id: 'prod-toga-rent',
+          name: 'Toga Rent',
+          sku: 'SRV-002',
+          price: 300, // default toga rent price
           category: 'service',
           available: true,
           stock: 999,
@@ -1217,6 +1230,9 @@ export const SalesPage: React.FC = () => {
       const hasLockerItem = parsedTransactions.some(t => 
         t.items.some((item: any) => item.productName === 'Locker Rent')
       );
+      const hasTogaItem = parsedTransactions.some(t => 
+        t.items.some((item: any) => item.productName === 'Toga Rent')
+      );
       
       let dbProducts = [...products];
       if (hasLockerItem && !dbProducts.some(p => p.name.toLowerCase() === 'locker rent')) {
@@ -1240,6 +1256,31 @@ export const SalesPage: React.FC = () => {
         } catch (prodErr: any) {
           console.error('Failed to create Locker Rent product:', prodErr);
           logs.push(`WARNING: Failed to auto-create Locker Rent product: ${prodErr.message || prodErr}. Using temp fallback.`);
+          setImportLogs([...logs]);
+        }
+      }
+
+      if (hasTogaItem && !dbProducts.some(p => p.name.toLowerCase() === 'toga rent')) {
+        logs.push('Toga Rent product not found in database. Auto-creating Toga Rent service product...');
+        setImportLogs([...logs]);
+        try {
+          const newProd = await apiClient.createProduct({
+            name: 'Toga Rent',
+            sku: 'SRV-002',
+            price: 300,
+            category: 'service',
+            stock: 9999,
+            available: true,
+            image: '🎓'
+          });
+          logs.push(`Successfully created Toga Rent product: ${newProd.id}`);
+          setImportLogs([...logs]);
+          
+          await AppDataSync.loadProductsFromAPI();
+          dbProducts = useAppStore.getState().products;
+        } catch (prodErr: any) {
+          console.error('Failed to create Toga Rent product:', prodErr);
+          logs.push(`WARNING: Failed to auto-create Toga Rent product: ${prodErr.message || prodErr}. Using temp fallback.`);
           setImportLogs([...logs]);
         }
       }
@@ -6348,7 +6389,29 @@ export const SalesPage: React.FC = () => {
                                   continue;
                                 }
 
-                                if (!colE || !colH) {
+                                let effectiveItemName = colE;
+                                let effectiveClientName = rawClientName;
+
+                                // If Item column is blank but Client column actually holds a service/item (e.g. "Toga Rent", "Locker Rent")
+                                const clientLower = rawClientName.toLowerCase().trim();
+                                const isClientServiceOrItem = clientLower.includes('toga') ||
+                                  clientLower.includes('locker') ||
+                                  clientLower.includes('bonggo') ||
+                                  clientLower.includes('rent') ||
+                                  clientLower.includes('patch') ||
+                                  clientLower.includes('lanyard') ||
+                                  clientLower.includes('shirt') ||
+                                  clientLower.includes('pants') ||
+                                  clientLower.includes('cloth');
+
+                                if (!effectiveItemName && rawClientName && colH) {
+                                  if (isClientServiceOrItem || colB) {
+                                    effectiveItemName = rawClientName;
+                                    effectiveClientName = 'Walk-in Student';
+                                  }
+                                }
+
+                                if (!effectiveItemName || !colH) {
                                   continue;
                                 }
 
@@ -6362,10 +6425,10 @@ export const SalesPage: React.FC = () => {
                                 }
 
                                 const trNo = colB;
-                                const clientName = rawClientName || (trNo ? '' : (currentTransaction ? currentTransaction.walkInName : '')) || 'Walk-in Student';
+                                const clientName = effectiveClientName || (trNo ? '' : (currentTransaction ? currentTransaction.walkInName : '')) || 'Walk-in Student';
                                 const course = colD || (trNo ? '' : (currentTransaction ? currentTransaction.walkInCourse : '')) || '';
                                 const idNumber = colIdVal || (trNo ? '' : (currentTransaction ? currentTransaction.walkInIdNumber : '')) || undefined;
-                                const itemName = colE;
+                                const itemName = effectiveItemName;
                                 const qnty = parseInt(colF) || 1;
                                 const size = colG;
                                 const amountVal = parseFloat(colH.replace(/,/g, '')) || 0;
