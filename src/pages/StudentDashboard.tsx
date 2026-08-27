@@ -277,7 +277,7 @@ export const StudentDashboard: React.FC = () => {
   const [expandedActivityIds, setExpandedActivityIds] = useState<Record<string, boolean>>({});
 
   const ringhopActivity = recentActivitiesList.find((a: any) => a.title?.toLowerCase().includes('ringhop'));
-  const ringhopImage = ringhopActivity?.galleryImages?.[0] || 'https://res.cloudinary.com/doas4qcdo/image/upload/v1786039310/uc_coop/announcements/rkwg9fx9tdnvrpp8tztc.png';
+  const ringhopImage = ringhopActivity?.galleryImages?.[0] || GALLERY_IMAGE_URLS[18];
 
   const banners = [
     {
@@ -349,7 +349,7 @@ export const StudentDashboard: React.FC = () => {
             colorTheme: item.color_theme || item.colorTheme || 'emerald',
             galleryImages: (() => {
               const raw = Array.isArray(item.gallery_images) ? item.gallery_images : (typeof item.gallery_images === 'string' ? JSON.parse(item.gallery_images || '[]') : []);
-              const clean = raw.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg'));
+              const clean = raw.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg') && !url.includes('doas4qcdo'));
               return clean.length > 0 ? clean : GALLERY_IMAGE_URLS;
             })(),
           }));

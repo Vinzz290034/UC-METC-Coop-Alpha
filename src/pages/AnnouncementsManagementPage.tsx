@@ -301,7 +301,7 @@ export const AnnouncementsManagementPage: React.FC = () => {
           color_theme: item.color_theme || item.colorTheme || 'emerald',
           gallery_images: (() => {
             const raw = Array.isArray(item.gallery_images) ? item.gallery_images : (typeof item.gallery_images === 'string' ? JSON.parse(item.gallery_images || '[]') : []);
-            const clean = raw.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg'));
+            const clean = raw.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg') && !url.includes('doas4qcdo'));
             return clean.length > 0 ? clean : [...GALLERY_IMAGE_URLS];
           })(),
         }));

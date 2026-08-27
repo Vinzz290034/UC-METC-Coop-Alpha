@@ -4,9 +4,9 @@ This file contains all local assets that need to be uploaded to Cloudinary.
 
 ## Upload Instructions:
 1. Go to https://cloudinary.com/console
-2. Select your cloud (doas4qcdo)
+2. Select your cloud (fncjex7d)
 3. Upload all images from `src/assets/` folder
-4. For each image, copy the Cloudinary URL (use format: `https://res.cloudinary.com/doas4qcdo/image/upload/f_auto,q_auto,w_800/{image-path}`)
+4. For each image, copy the Cloudinary URL (use format: `https://res.cloudinary.com/fncjex7d/image/upload/f_auto,q_auto,w_800/{image-path}`)
 
 ## Assets List:
 

@@ -220,7 +220,7 @@ export const CommunityPage: React.FC = () => {
             const rawImages = Array.isArray(item.gallery_images)
               ? item.gallery_images
               : (typeof item.gallery_images === 'string' ? JSON.parse(item.gallery_images || '[]') : []);
-            const cleanImages = rawImages.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg'));
+            const cleanImages = rawImages.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg') && !url.includes('doas4qcdo'));
 
             return {
               id: item.id,
