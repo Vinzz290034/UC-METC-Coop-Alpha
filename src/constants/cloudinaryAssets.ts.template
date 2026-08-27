@@ -3,7 +3,8 @@
  */
 
 // Core Assets
-export const COOP_LOGO_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1779411919/Coop_tfalpj.jpg';
+export const COOP_LOGO_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787851225/uc_coop/assets/favicon_circle.png';
+export const STUDENT_DASHBOARD_BANNER_IMAGE = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787855777/uc_coop/products/uc_metc.jpg';
 export const BACKGROUND_IMAGE_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1779411910/Background2_yiha6h.jpg';
 export const BENEFITS_IMAGE_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1779411910/90_b3jepj.jpg';
 
