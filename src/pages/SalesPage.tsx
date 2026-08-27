@@ -3381,8 +3381,13 @@ export const SalesPage: React.FC = () => {
                 <p className="text-3xl font-bold">
                   ₱{dailyOrders
                     .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
-                    .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
-                    .toLocaleString()}
+                    .reduce((sum, o) => {
+                      if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+                        return sum + o.items.reduce((iSum: number, item: any) => iSum + (parseFloat(item.subtotal || item.total || (item.price * item.quantity)) || 0), 0);
+                      }
+                      return sum + (parseFloat(o.total_amount) || 0);
+                    }, 0)
+                    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm opacity-75 mt-1">today</p>
               </div>
@@ -3815,7 +3820,12 @@ export const SalesPage: React.FC = () => {
                 <p className="text-3xl font-bold">
                   ₱{remittanceOrders
                     .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
-                    .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
+                    .reduce((sum, o) => {
+                      if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+                        return sum + o.items.reduce((iSum: number, item: any) => iSum + (parseFloat(item.subtotal || item.total || (item.price * item.quantity)) || 0), 0);
+                      }
+                      return sum + (parseFloat(o.total_amount) || 0);
+                    }, 0)
                     .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm opacity-75 mt-1">on this day</p>
@@ -4035,8 +4045,13 @@ export const SalesPage: React.FC = () => {
                 <p className="text-3xl font-bold">
                   ₱{historyOrders
                     .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
-                    .reduce((sum, o) => sum + parseFloat(o.total_amount), 0)
-                    .toLocaleString()}
+                    .reduce((sum, o) => {
+                      if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+                        return sum + o.items.reduce((iSum: number, item: any) => iSum + (parseFloat(item.subtotal || item.total || (item.price * item.quantity)) || 0), 0);
+                      }
+                      return sum + (parseFloat(o.total_amount) || 0);
+                    }, 0)
+                    .toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
                 </p>
                 <p className="text-sm opacity-75 mt-1">that day</p>
               </div>
