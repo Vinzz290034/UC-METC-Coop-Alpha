@@ -277,7 +277,7 @@ export const StudentDashboard: React.FC = () => {
   const [expandedActivityIds, setExpandedActivityIds] = useState<Record<string, boolean>>({});
 
   const ringhopActivity = recentActivitiesList.find((a: any) => a.title?.toLowerCase().includes('ringhop'));
-  const ringhopImage = ringhopActivity?.galleryImages?.[0] || RINGHOP_GALLERY_URLS[0];
+  const ringhopImage = RINGHOP_GALLERY_URLS[3] || ringhopActivity?.galleryImages?.[3] || RINGHOP_GALLERY_URLS[0];
 
   const banners = [
     {
