@@ -38,6 +38,29 @@ export const GALLERY_IMAGE_URLS: readonly string[] = [
   'https://res.cloudinary.com/fncjex7d/image/upload/v1787849745/uc_coop/gallery/gallery_78.jpg',
 ];
 
+export const RINGHOP_GALLERY_URLS: readonly string[] = [
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851228/uc_coop/ringhop/ringhop_1.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851233/uc_coop/ringhop/ringhop_2.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851237/uc_coop/ringhop/ringhop_3.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851242/uc_coop/ringhop/ringhop_4.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851247/uc_coop/ringhop/ringhop_5.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851252/uc_coop/ringhop/ringhop_6.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851257/uc_coop/ringhop/ringhop_7.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851260/uc_coop/ringhop/ringhop_8.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851264/uc_coop/ringhop/ringhop_9.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851268/uc_coop/ringhop/ringhop_10.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851273/uc_coop/ringhop/ringhop_11.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851276/uc_coop/ringhop/ringhop_12.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851279/uc_coop/ringhop/ringhop_13.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851282/uc_coop/ringhop/ringhop_14.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851286/uc_coop/ringhop/ringhop_15.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851289/uc_coop/ringhop/ringhop_16.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851293/uc_coop/ringhop/ringhop_17.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851296/uc_coop/ringhop/ringhop_18.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851301/uc_coop/ringhop/ringhop_19.jpg',
+  'https://res.cloudinary.com/fncjex7d/image/upload/v1787851304/uc_coop/ringhop/ringhop_20.jpg',
+];
+
 /** Indices in GALLERY_IMAGE_URLS: 2=5.png, 1=4.png, 11=24.png, 16=39.png */
 const COMMUNITY_GA_INDICES = [2, 1, 11, 16] as const;
 
@@ -45,3 +68,4 @@ const COMMUNITY_GA_INDICES = [2, 1, 11, 16] as const;
 export const COMMUNITY_GA_GALLERY_URLS: readonly string[] = COMMUNITY_GA_INDICES.map(
   (i) => GALLERY_IMAGE_URLS[i]
 );
+

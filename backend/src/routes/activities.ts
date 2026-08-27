@@ -100,6 +100,29 @@ const ensureActivitiesTable = async () => {
       'https://res.cloudinary.com/fncjex7d/image/upload/v1787849745/uc_coop/gallery/gallery_78.jpg'
     ];
 
+    const defaultRinghopPhotos = [
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851228/uc_coop/ringhop/ringhop_1.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851233/uc_coop/ringhop/ringhop_2.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851237/uc_coop/ringhop/ringhop_3.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851242/uc_coop/ringhop/ringhop_4.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851247/uc_coop/ringhop/ringhop_5.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851252/uc_coop/ringhop/ringhop_6.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851257/uc_coop/ringhop/ringhop_7.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851260/uc_coop/ringhop/ringhop_8.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851264/uc_coop/ringhop/ringhop_9.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851268/uc_coop/ringhop/ringhop_10.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851273/uc_coop/ringhop/ringhop_11.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851276/uc_coop/ringhop/ringhop_12.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851279/uc_coop/ringhop/ringhop_13.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851282/uc_coop/ringhop/ringhop_14.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851286/uc_coop/ringhop/ringhop_15.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851289/uc_coop/ringhop/ringhop_16.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851293/uc_coop/ringhop/ringhop_17.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851296/uc_coop/ringhop/ringhop_18.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851301/uc_coop/ringhop/ringhop_19.jpg',
+      'https://res.cloudinary.com/fncjex7d/image/upload/v1787851304/uc_coop/ringhop/ringhop_20.jpg',
+    ];
+
     // Check if table is empty
     const checkResult = await pool.query('SELECT COUNT(*) FROM recent_activities');
     if (parseInt(checkResult.rows[0].count, 10) === 0) {
@@ -123,13 +146,39 @@ const ensureActivitiesTable = async () => {
           'emerald'
         ]
       );
+      await pool.query(
+        `INSERT INTO recent_activities (
+          id, title, subtitle, date, time, short_description, full_description, photographers, editor, gallery_images, color_theme, created_at, updated_at
+        ) VALUES (
+          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW()
+        )`,
+        [
+          'act-default-2',
+          'RINGHOP CEREMONY 2026',
+          'Honoring Academic Dedication and Professional Excellence',
+          'June 30, 2026',
+          '3:00 PM - 6:00 PM',
+          'Celebrating the achievements and academic milestone of our maritime students as they receive their official rings.',
+          'The Ringhop Ceremony 2026 marks a memorable milestone for maritime students at UC METC. Graduating cadets and members gather to receive their official rings in a grand celebration honoring academic perseverance, discipline, and professional excellence.',
+          JSON.stringify(['Xela Elaine Murro', 'Vince Andrew Santoya']),
+          'Vince Andrew Santoya',
+          JSON.stringify(defaultRinghopPhotos),
+          'blue'
+        ]
+      );
     } else {
-      // Auto-update existing default activity if it holds outdated Cloudinary URLs
+      // Auto-update existing default activities if they hold outdated Cloudinary URLs
       await pool.query(
         `UPDATE recent_activities 
          SET gallery_images = $1 
-         WHERE gallery_images::text LIKE '%dph4hxexg%' OR id = 'act-default-1'`,
+         WHERE id = 'act-default-1' OR (title ILIKE '%assembly%' AND (gallery_images::text LIKE '%doas4qcdo%' OR gallery_images::text LIKE '%dph4hxexg%'))`,
         [JSON.stringify(defaultGaPhotos)]
+      );
+      await pool.query(
+        `UPDATE recent_activities 
+         SET gallery_images = $1 
+         WHERE id = 'act-default-2' OR (title ILIKE '%ringhop%' AND (gallery_images::text LIKE '%doas4qcdo%' OR gallery_images::text LIKE '%dph4hxexg%'))`,
+        [JSON.stringify(defaultRinghopPhotos)]
       );
       activitiesTableEnsured = true;
     }

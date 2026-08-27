@@ -22,7 +22,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { GlobalSearch } from '../components/GlobalSearch';
 import { WelcomeTour } from '../components/WelcomeTour';
 import { InsuranceModal } from '../components/InsuranceModal';
-import { GALLERY_IMAGE_URLS, COMMUNITY_GA_GALLERY_URLS } from '../constants/cloudinaryGallery';
+import { GALLERY_IMAGE_URLS, COMMUNITY_GA_GALLERY_URLS, RINGHOP_GALLERY_URLS } from '../constants/cloudinaryGallery';
 import { STUDENT_DASHBOARD_BANNER_IMAGE } from '../constants/cloudinaryAssets';
 
 export const StudentDashboard: React.FC = () => {
@@ -267,9 +267,9 @@ export const StudentDashboard: React.FC = () => {
         </>
       ),
       image: true,
-      photographers: ['Vince Andrew Santoya', 'Staff Support'],
+      photographers: ['Xela Elaine Murro', 'Vince Andrew Santoya'],
       editor: 'Vince Andrew Santoya',
-      galleryImages: [GALLERY_IMAGE_URLS[18], GALLERY_IMAGE_URLS[26], GALLERY_IMAGE_URLS[13], GALLERY_IMAGE_URLS[21]],
+      galleryImages: RINGHOP_GALLERY_URLS,
     },
   ];
 
@@ -277,7 +277,7 @@ export const StudentDashboard: React.FC = () => {
   const [expandedActivityIds, setExpandedActivityIds] = useState<Record<string, boolean>>({});
 
   const ringhopActivity = recentActivitiesList.find((a: any) => a.title?.toLowerCase().includes('ringhop'));
-  const ringhopImage = ringhopActivity?.galleryImages?.[0] || GALLERY_IMAGE_URLS[18];
+  const ringhopImage = ringhopActivity?.galleryImages?.[0] || RINGHOP_GALLERY_URLS[0];
 
   const banners = [
     {
@@ -350,7 +350,8 @@ export const StudentDashboard: React.FC = () => {
             galleryImages: (() => {
               const raw = Array.isArray(item.gallery_images) ? item.gallery_images : (typeof item.gallery_images === 'string' ? JSON.parse(item.gallery_images || '[]') : []);
               const clean = raw.filter((url: string) => url && typeof url === 'string' && !url.includes('dph4hxexg') && !url.includes('doas4qcdo'));
-              return clean.length > 0 ? clean : GALLERY_IMAGE_URLS;
+              if (clean.length > 0) return clean;
+              return item.title?.toLowerCase().includes('ringhop') ? RINGHOP_GALLERY_URLS : GALLERY_IMAGE_URLS;
             })(),
           }));
           setRecentActivitiesList(transformed);
