@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, ArrowUpDown, Check, X, RotateCcw, SlidersHorizontal } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -9,7 +9,298 @@ import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
 import * as XLSX from 'xlsx';
 
+interface SpreadsheetColumnHeaderProps {
+  columnKey: string;
+  label: string;
+  align?: 'left' | 'center' | 'right';
+  allRows: any[];
+  activeFilters: Record<string, string[]>;
+  onFilterChange: (columnKey: string, selectedValues: string[] | null) => void;
+  sortColumn: string | null;
+  sortDirection: 'asc' | 'desc' | null;
+  onSortChange: (columnKey: string, direction: 'asc' | 'desc' | null) => void;
+  activeDropdown: string | null;
+  setActiveDropdown: (key: string | null) => void;
+  alignRight?: boolean;
+  type?: 'text' | 'number' | 'date';
+}
 
+const SpreadsheetColumnHeader: React.FC<SpreadsheetColumnHeaderProps> = ({
+  columnKey,
+  label,
+  align = 'left',
+  allRows,
+  activeFilters,
+  onFilterChange,
+  sortColumn,
+  sortDirection,
+  onSortChange,
+  activeDropdown,
+  setActiveDropdown,
+  alignRight = false,
+  type = 'text',
+}) => {
+  const isOpen = activeDropdown === columnKey;
+  const isSorted = sortColumn === columnKey;
+  const isFiltered = Array.isArray(activeFilters[columnKey]) && activeFilters[columnKey].length > 0;
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Extract distinct values & counts from all rows
+  const valueCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    allRows.forEach((row) => {
+      let val = row[columnKey];
+      if (val === undefined || val === null || val === '') {
+        val = '(Blanks)';
+      } else {
+        val = String(val);
+      }
+      counts.set(val, (counts.get(val) || 0) + 1);
+    });
+    return Array.from(counts.entries()).sort((a, b) => {
+      if (a[0] === '(Blanks)') return 1;
+      if (b[0] === '(Blanks)') return -1;
+      return a[0].localeCompare(b[0], undefined, { numeric: true });
+    });
+  }, [allRows, columnKey]);
+
+  // Filtered list of values based on search input inside dropdown
+  const filteredValueList = useMemo(() => {
+    if (!searchTerm.trim()) return valueCounts;
+    const lower = searchTerm.toLowerCase();
+    return valueCounts.filter(([val]) => val.toLowerCase().includes(lower));
+  }, [valueCounts, searchTerm]);
+
+  const currentlySelected = activeFilters[columnKey]; // undefined if all selected
+
+  const isValueSelected = (val: string) => {
+    if (!currentlySelected) return true; // all selected by default
+    return currentlySelected.includes(val);
+  };
+
+  const toggleValue = (val: string) => {
+    const allVals = valueCounts.map(([v]) => v);
+    let nextSelected: string[];
+
+    if (!currentlySelected) {
+      // currently all are selected, so unchecking this one leaves all others
+      nextSelected = allVals.filter((v) => v !== val);
+    } else {
+      if (currentlySelected.includes(val)) {
+        nextSelected = currentlySelected.filter((v) => v !== val);
+      } else {
+        nextSelected = [...currentlySelected, val];
+      }
+    }
+
+    if (nextSelected.length === allVals.length) {
+      onFilterChange(columnKey, null); // reset to null (no filter)
+    } else {
+      onFilterChange(columnKey, nextSelected);
+    }
+  };
+
+  const handleSelectAll = () => {
+    onFilterChange(columnKey, null);
+  };
+
+  const handleClearAll = () => {
+    onFilterChange(columnKey, []);
+  };
+
+  const alignClass =
+    align === 'center'
+      ? 'justify-center text-center'
+      : align === 'right'
+      ? 'justify-end text-right'
+      : 'justify-start text-left';
+
+  return (
+    <th
+      className={`relative py-3.5 px-4 font-semibold text-slate-900 select-none ${
+        align === 'center' ? 'text-center' : align === 'right' ? 'text-right' : 'text-left'
+      }`}
+    >
+      <div className={`inline-flex items-center gap-1.5 ${alignClass} group`}>
+        <span
+          onClick={() => {
+            if (isSorted) {
+              if (sortDirection === 'asc') onSortChange(columnKey, 'desc');
+              else if (sortDirection === 'desc') onSortChange(columnKey, null);
+            } else {
+              onSortChange(columnKey, 'asc');
+            }
+          }}
+          className="cursor-pointer hover:text-purple-600 transition-colors font-semibold"
+        >
+          {label}
+        </span>
+
+        {/* Sort indicator if active */}
+        {isSorted && (
+          <span className="text-purple-600 text-xs font-bold">
+            {sortDirection === 'asc' ? '↑' : '↓'}
+          </span>
+        )}
+
+        {/* Filter Trigger Button */}
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setActiveDropdown(isOpen ? null : columnKey);
+            setSearchTerm('');
+          }}
+          className={`spreadsheet-filter-trigger p-1 rounded transition-all ${
+            isFiltered
+              ? 'bg-purple-600 text-white shadow-sm ring-2 ring-purple-300'
+              : isOpen
+              ? 'bg-purple-100 text-purple-700'
+              : 'text-slate-400 hover:text-slate-700 hover:bg-slate-200/70'
+          }`}
+          title={`Filter / Sort ${label}`}
+        >
+          <Filter size={13} className={isFiltered ? 'fill-white stroke-white' : ''} />
+        </button>
+      </div>
+
+      {/* Filter Popover Dropdown */}
+      {isOpen && (
+        <div
+          onClick={(e) => e.stopPropagation()}
+          className={`spreadsheet-filter-popover absolute z-50 mt-2 w-64 rounded-xl bg-white p-3 shadow-2xl border border-slate-200 text-slate-800 text-xs font-normal normal-case text-left ${
+            alignRight ? 'right-0' : 'left-0'
+          }`}
+          style={{ minWidth: '220px' }}
+        >
+          {/* Header */}
+          <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
+            <span className="font-bold text-slate-800 text-xs flex items-center gap-1">
+              <Filter size={12} className="text-purple-600" />
+              Filter {label}
+            </span>
+            <button
+              onClick={() => setActiveDropdown(null)}
+              className="text-slate-400 hover:text-slate-600 p-0.5 rounded-md hover:bg-slate-100"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          {/* Quick Sort Options */}
+          <div className="flex items-center gap-1 mb-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                onSortChange(columnKey, 'asc');
+              }}
+              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                isSorted && sortDirection === 'asc'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <ArrowUp size={12} />
+              {type === 'number' ? 'Low → High' : type === 'date' ? 'Oldest First' : 'A → Z'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onSortChange(columnKey, 'desc');
+              }}
+              className={`flex-1 py-1 px-2 rounded-lg border text-[11px] font-semibold flex items-center justify-center gap-1 transition-all ${
+                isSorted && sortDirection === 'desc'
+                  ? 'bg-purple-50 border-purple-300 text-purple-700'
+                  : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <ArrowDown size={12} />
+              {type === 'number' ? 'High → Low' : type === 'date' ? 'Newest First' : 'Z → A'}
+            </button>
+          </div>
+
+          {/* Search Box inside dropdown */}
+          <div className="relative mb-2">
+            <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder={`Search ${label.toLowerCase()}...`}
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-7 pr-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:ring-1 focus:ring-purple-500 focus:bg-white"
+            />
+          </div>
+
+          {/* Select All / Clear */}
+          <div className="flex items-center justify-between text-[11px] px-1 py-1 mb-1 text-slate-500 border-b border-slate-100">
+            <button
+              type="button"
+              onClick={handleSelectAll}
+              className="hover:text-purple-600 font-medium hover:underline"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={handleClearAll}
+              className="hover:text-purple-600 font-medium hover:underline"
+            >
+              Clear
+            </button>
+          </div>
+
+          {/* Values Checklist */}
+          <div className="max-h-44 overflow-y-auto space-y-0.5 py-1 scrollbar-thin">
+            {filteredValueList.length === 0 ? (
+              <div className="text-center py-3 text-slate-400 text-[11px]">No matching values</div>
+            ) : (
+              filteredValueList.map(([val, count]) => {
+                const checked = isValueSelected(val);
+                return (
+                  <label
+                    key={val}
+                    className="flex items-center justify-between px-2 py-1 rounded-md hover:bg-slate-50 cursor-pointer transition-colors text-xs"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden mr-2">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => toggleValue(val)}
+                        className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-3.5 h-3.5 cursor-pointer"
+                      />
+                      <span className="truncate text-slate-700" title={val}>
+                        {val}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 font-mono bg-slate-100 px-1.5 py-0.2 rounded-full flex-shrink-0">
+                      {count}
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+
+          {/* Footer Reset button if filtered */}
+          {isFiltered && (
+            <div className="pt-2 mt-2 border-t border-slate-100 flex justify-between items-center">
+              <span className="text-[10px] text-purple-600 font-semibold">
+                {currentlySelected?.length || 0} of {valueCounts.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => onFilterChange(columnKey, null)}
+                className="text-[11px] text-red-600 hover:text-red-700 font-semibold flex items-center gap-1 hover:underline"
+              >
+                Reset filter
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+    </th>
+  );
+};
 
 // Helper function to check if an order contains a Class Ring
 const isClassRingOrder = (order: any): boolean => {
@@ -113,6 +404,217 @@ export const SalesPage: React.FC = () => {
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [historySearchQuery, setHistorySearchQuery] = useState<string>('');
+
+  // Spreadsheet Column Filters & Sort for Daily Sales
+  const [dailyColumnFilters, setDailyColumnFilters] = useState<Record<string, string[]>>({});
+  const [dailySortColumn, setDailySortColumn] = useState<string | null>(null);
+  const [dailySortDirection, setDailySortDirection] = useState<'asc' | 'desc' | null>(null);
+  const [dailyActiveDropdown, setDailyActiveDropdown] = useState<string | null>(null);
+
+  // Spreadsheet Column Filters & Sort for History Sales
+  const [historyColumnFilters, setHistoryColumnFilters] = useState<Record<string, string[]>>({});
+  const [historySortColumn, setHistorySortColumn] = useState<string | null>(null);
+  const [historySortDirection, setHistorySortDirection] = useState<'asc' | 'desc' | null>(null);
+  const [historyActiveDropdown, setHistoryActiveDropdown] = useState<string | null>(null);
+
+  // Close dropdowns when clicking outside
+  useEffect(() => {
+    const handleDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('.spreadsheet-filter-popover') && !target.closest('.spreadsheet-filter-trigger')) {
+        setDailyActiveDropdown(null);
+        setHistoryActiveDropdown(null);
+      }
+    };
+    document.addEventListener('mousedown', handleDocClick);
+    return () => document.removeEventListener('mousedown', handleDocClick);
+  }, []);
+
+  const handleDailyFilterChange = (columnKey: string, selectedValues: string[] | null) => {
+    setDailyColumnFilters((prev) => {
+      const next = { ...prev };
+      if (!selectedValues) {
+        delete next[columnKey];
+      } else {
+        next[columnKey] = selectedValues;
+      }
+      return next;
+    });
+  };
+
+  const handleDailySortChange = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+    setDailySortColumn(direction ? columnKey : null);
+    setDailySortDirection(direction);
+  };
+
+  const handleHistoryFilterChange = (columnKey: string, selectedValues: string[] | null) => {
+    setHistoryColumnFilters((prev) => {
+      const next = { ...prev };
+      if (!selectedValues) {
+        delete next[columnKey];
+      } else {
+        next[columnKey] = selectedValues;
+      }
+      return next;
+    });
+  };
+
+  const handleHistorySortChange = (columnKey: string, direction: 'asc' | 'desc' | null) => {
+    setHistorySortColumn(direction ? columnKey : null);
+    setHistorySortDirection(direction);
+  };
+
+  // Flatten orders into individual display rows with normalized keys
+  const flattenOrdersToRows = (orders: any[]) => {
+    const rows: any[] = [];
+    orders.forEach((order) => {
+      const items = order?.items || [];
+      const courseYear = order?.course && order?.year 
+        ? `${order.course} - ${order.year}` 
+        : order?.course || order?.year || 'N/A';
+      const customerName = order?.first_name 
+        ? `${order?.first_name} ${order?.last_name || ''}`.trim() 
+        : order?.walk_in_name || 'N/A';
+      const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
+      const dateFormatted = displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
+      const dateTimestamp = displayDate ? new Date(displayDate).getTime() : 0;
+      const statusFormatted = order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED';
+      const paymentFormatted = formatPaymentMethod(order?.payment_method);
+      const receiptNo = order?.receipt_no || order?.receiptNo || 'N/A';
+
+      if (items.length > 0) {
+        items.forEach((item: any, itemIdx: number) => {
+          const productName = formatProductNameWithVariants(item);
+          const qty = item?.quantity || 0;
+          const amount = parseFloat(item?.subtotal || 0);
+
+          rows.push({
+            rowId: `${order?.id}-${itemIdx}`,
+            orderId: order?.id,
+            receipt: receiptNo,
+            displayReceipt: itemIdx === 0 ? receiptNo : '',
+            customerName,
+            courseYear,
+            product: productName,
+            quantity: qty,
+            amount,
+            payment: paymentFormatted,
+            rawPaymentMethod: order?.payment_method,
+            referenceNumber: order?.reference_number || '',
+            status: statusFormatted,
+            rawStatus: order?.status,
+            date: dateFormatted,
+            rawDate: dateTimestamp,
+            itemIdx,
+            isFirstItem: itemIdx === 0,
+            rawOrder: order,
+            rawItem: item
+          });
+        });
+      } else {
+        rows.push({
+          rowId: `${order?.id || Math.random()}-0`,
+          orderId: order?.id,
+          receipt: receiptNo,
+          displayReceipt: receiptNo,
+          customerName,
+          courseYear,
+          product: 'Multiple Items',
+          quantity: 1,
+          amount: parseFloat(order?.total_amount || 0),
+          payment: paymentFormatted,
+          rawPaymentMethod: order?.payment_method,
+          referenceNumber: order?.reference_number || '',
+          status: statusFormatted,
+          rawStatus: order?.status,
+          date: dateFormatted,
+          rawDate: dateTimestamp,
+          itemIdx: 0,
+          isFirstItem: true,
+          rawOrder: order,
+          rawItem: null
+        });
+      }
+    });
+    return rows;
+  };
+
+  const getFilteredAndSortedRows = (
+    rows: any[],
+    columnFilters: Record<string, string[]>,
+    sortCol: string | null,
+    sortDir: 'asc' | 'desc' | null,
+    search: string,
+    statFilter: string
+  ) => {
+    const result = rows.filter((row) => {
+      // Top status filter
+      if (statFilter !== 'all' && row.rawStatus !== statFilter) {
+        return false;
+      }
+      // Top search query
+      if (search.trim()) {
+        const q = search.toLowerCase().trim();
+        const matches =
+          row.customerName.toLowerCase().includes(q) ||
+          row.receipt.toLowerCase().includes(q) ||
+          row.product.toLowerCase().includes(q) ||
+          row.courseYear.toLowerCase().includes(q);
+        if (!matches) return false;
+      }
+      // Column filters
+      for (const [key, allowedVals] of Object.entries(columnFilters)) {
+        if (!allowedVals) continue;
+        let rowVal = row[key];
+        if (rowVal === undefined || rowVal === null || rowVal === '') {
+          rowVal = '(Blanks)';
+        } else {
+          rowVal = String(rowVal);
+        }
+        if (!allowedVals.includes(rowVal)) {
+          return false;
+        }
+      }
+      return true;
+    });
+
+    // Sorting
+    if (sortCol && sortDir) {
+      result.sort((a, b) => {
+        let valA: any = a[sortCol];
+        let valB: any = b[sortCol];
+
+        if (sortCol === 'amount' || sortCol === 'quantity') {
+          valA = Number(valA) || 0;
+          valB = Number(valB) || 0;
+        } else if (sortCol === 'date') {
+          valA = a.rawDate || 0;
+          valB = b.rawDate || 0;
+        } else {
+          valA = String(valA || '').toLowerCase();
+          valB = String(valB || '').toLowerCase();
+        }
+
+        if (valA < valB) return sortDir === 'asc' ? -1 : 1;
+        if (valA > valB) return sortDir === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return result;
+  };
+
+  const dailyRows = useMemo(() => flattenOrdersToRows(dailyOrders), [dailyOrders]);
+  const filteredDailyRows = useMemo(
+    () => getFilteredAndSortedRows(dailyRows, dailyColumnFilters, dailySortColumn, dailySortDirection, searchQuery, statusFilter),
+    [dailyRows, dailyColumnFilters, dailySortColumn, dailySortDirection, searchQuery, statusFilter]
+  );
+
+  const historyRows = useMemo(() => flattenOrdersToRows(historyOrders), [historyOrders]);
+  const filteredHistoryRows = useMemo(
+    () => getFilteredAndSortedRows(historyRows, historyColumnFilters, historySortColumn, historySortDirection, historySearchQuery, historyStatusFilter),
+    [historyRows, historyColumnFilters, historySortColumn, historySortDirection, historySearchQuery, historyStatusFilter]
+  );
   const [preOrderOrders, setPreOrderOrders] = useState<any[]>([]);
   const [downpaymentOrders, setDownpaymentOrders] = useState<any[]>([]);
   const [fullPaymentOrders, setFullPaymentOrders] = useState<any[]>([]);
@@ -174,6 +676,7 @@ export const SalesPage: React.FC = () => {
   });
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
+  const [restoreInventoryStock, setRestoreInventoryStock] = useState<boolean>(true);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
@@ -949,6 +1452,7 @@ export const SalesPage: React.FC = () => {
 
   const handleDeleteOrder = (orderId: string, receiptNo: string) => {
     setOrderToDelete({ id: orderId, receiptNo });
+    setRestoreInventoryStock(true);
   };
 
   const confirmDeleteOrder = async () => {
@@ -956,8 +1460,11 @@ export const SalesPage: React.FC = () => {
     
     setIsDeleting(true);
     try {
-      await apiClient.deleteOrderAsAdmin(orderToDelete.id, user?.id || '');
-      showNotification(`Order #${orderToDelete.receiptNo} deleted successfully`, 'success');
+      await apiClient.deleteOrderAsAdmin(orderToDelete.id, user?.id || '', restoreInventoryStock);
+      showNotification(
+        `Order #${orderToDelete.receiptNo} deleted successfully${restoreInventoryStock ? ' (inventory stock restored)' : ' (stock not restored)'}`,
+        'success'
+      );
       setOrderToDelete(null);
       
       // Reload summaries to update the tables and stats immediately
@@ -2554,13 +3061,42 @@ export const SalesPage: React.FC = () => {
                 </p>
               </div>
 
+              {/* Stock Restoration Option */}
+              <div className="mx-6 mb-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl transition-all">
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={restoreInventoryStock}
+                    onChange={(e) => setRestoreInventoryStock(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                  />
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-slate-800 text-sm">
+                        Restore inventory stock
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        restoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {restoreInventoryStock ? 'Yes, restore' : 'Do not restore'}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-1">
+                      {restoreInventoryStock
+                        ? 'Quantities from this order will be added back to product inventory stocks.'
+                        : 'Inventory counts will remain unchanged after deleting this order.'}
+                    </p>
+                  </div>
+                </label>
+              </div>
+
               {/* Warning box */}
-              <div className="mx-6 p-4 bg-amber-50 border border-amber-200 rounded-lg text-amber-800 text-xs flex items-start gap-2.5">
+              <div className="mx-6 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2.5">
                 <span className="text-base mt-0.5">⚠️</span>
                 <div>
                   <p className="font-semibold">Important Notice:</p>
                   <p className="mt-0.5 leading-relaxed text-amber-700">
-                    This action is permanent and cannot be undone. All items associated with this receipt will be deleted, and the inventory stock will be automatically restored.
+                    This action is permanent and cannot be undone. All items associated with this receipt will be deleted{restoreInventoryStock ? ', and the inventory stock will be restored.' : ', and inventory stock will NOT be restored.'}
                   </p>
                 </div>
               </div>
@@ -2650,249 +3186,320 @@ export const SalesPage: React.FC = () => {
                       })}
                     </p>
                   </div>
-                </div>
-                
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-4">
-                    <div className="text-sm text-slate-600">
-                      Filter by status:
+                      {dailyRows.length > 0 && (
+                        <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                          Showing <span className="font-bold text-purple-600">{filteredDailyRows.length}</span> of <span className="font-bold text-slate-700">{dailyRows.length}</span> records
+                        </div>
+                      )}
                     </div>
                     
-                    {/* Filter Buttons */}
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => setStatusFilter('all')}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                          statusFilter === 'all'
-                            ? 'bg-purple-600 text-white shadow-md'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        All
-                      </button>
-                      <button
-                        onClick={() => setStatusFilter('completed')}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                          statusFilter === 'completed'
-                            ? 'bg-green-600 text-white shadow-md'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        Completed
-                      </button>
-                      <button
-                        onClick={() => setStatusFilter('cancelled')}
-                        className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-                          statusFilter === 'cancelled'
-                            ? 'bg-red-600 text-white shadow-md'
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                        }`}
-                      >
-                        Cancelled
-                      </button>
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                      <div className="flex flex-wrap items-center gap-4">
+                        <div className="text-sm text-slate-600">
+                          Filter by status:
+                        </div>
+                        
+                        {/* Filter Buttons */}
+                        <div className="flex items-center space-x-2">
+                          <button
+                            onClick={() => setStatusFilter('all')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                              statusFilter === 'all'
+                                ? 'bg-purple-600 text-white shadow-md'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            All
+                          </button>
+                          <button
+                            onClick={() => setStatusFilter('completed')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                              statusFilter === 'completed'
+                                ? 'bg-green-600 text-white shadow-md'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            Completed
+                          </button>
+                          <button
+                            onClick={() => setStatusFilter('cancelled')}
+                            className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
+                              statusFilter === 'cancelled'
+                                ? 'bg-red-600 text-white shadow-md'
+                                : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            }`}
+                          >
+                            Cancelled
+                          </button>
+                        </div>
+
+                        {/* Clear All Filters Button */}
+                        {(Object.keys(dailyColumnFilters).length > 0 || dailySortColumn || searchQuery || statusFilter !== 'all') && (
+                          <button
+                            onClick={() => {
+                              setDailyColumnFilters({});
+                              setDailySortColumn(null);
+                              setDailySortDirection(null);
+                              setSearchQuery('');
+                              setStatusFilter('all');
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-semibold transition-all"
+                            title="Reset all search, sorting, and column filters"
+                          >
+                            <RotateCcw size={13} />
+                            Reset All Filters
+                            {Object.keys(dailyColumnFilters).length > 0 && (
+                              <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.2 rounded-full ml-0.5">
+                                {Object.keys(dailyColumnFilters).length}
+                              </span>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                      
+                      {/* Search Bar */}
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                        <input
+                          type="text"
+                          placeholder="Search customer, receipt, product..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm w-72"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery('')}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                          >
+                            <X size={14} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                   
-                  {/* Search Bar */}
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                    <input
-                      type="text"
-                      placeholder="Search by customer name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"
-                    />
-                  </div>
-                </div>
-              </div>
-              
-              {dailyOrders.filter(order => {
-                const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-                const customerName = `${order?.first_name || ''} ${order?.last_name || ''}`.trim().toLowerCase();
-                const matchesSearch = searchQuery === '' || customerName.includes(searchQuery.toLowerCase());
-                return matchesStatus && matchesSearch;
-              }).length === 0 ? (
-                <div className="text-center py-12">
-                  <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
-                  <p className="text-slate-600">
-                    {searchQuery 
-                      ? `No orders found for "${searchQuery}"` 
-                      : statusFilter === 'all' 
-                        ? 'No orders processed today' 
-                        : `No ${statusFilter} orders today`}
-                  </p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-slate-300 bg-slate-50">
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Receipt</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Customer Name</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Course & Year</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Product</th>
-                        <th className="text-center py-4 px-6 font-semibold text-slate-900">Quantity</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Amount</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Date</th>
-                        <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dailyOrders.filter(order => {
-                        const matchesStatus = statusFilter === 'all' || order.status === statusFilter;
-                        const customerName = `${order?.first_name || ''} ${order?.last_name || ''}`.trim().toLowerCase();
-                        const matchesSearch = searchQuery === '' || customerName.includes(searchQuery.toLowerCase());
-                        return matchesStatus && matchesSearch;
-                      }).map((order) => {
-                        const items = order?.items || [];
-                        const courseYear = order?.course && order?.year 
-                          ? `${order.course} - ${order.year}` 
-                          : order?.course || order?.year || 'N/A';
-                        
-                        if (items.length > 0) {
-                          return items.map((item: any, itemIdx: number) => (
+                  {filteredDailyRows.length === 0 ? (
+                    <div className="text-center py-12">
+                      <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
+                      <p className="text-slate-600 font-medium">
+                        {searchQuery || Object.keys(dailyColumnFilters).length > 0
+                          ? `No records match current search or filters` 
+                          : statusFilter === 'all' 
+                            ? 'No orders processed today' 
+                            : `No ${statusFilter} orders today`}
+                      </p>
+                      {(searchQuery || Object.keys(dailyColumnFilters).length > 0 || statusFilter !== 'all') && (
+                        <button
+                          onClick={() => {
+                            setDailyColumnFilters({});
+                            setDailySortColumn(null);
+                            setDailySortDirection(null);
+                            setSearchQuery('');
+                            setStatusFilter('all');
+                          }}
+                          className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 transition-colors"
+                        >
+                          <RotateCcw size={14} />
+                          Clear all filters
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b-2 border-slate-300 bg-slate-50">
+                            <SpreadsheetColumnHeader
+                              columnKey="receipt"
+                              label="Receipt"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="customerName"
+                              label="Customer Name"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="courseYear"
+                              label="Course & Year"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="product"
+                              label="Product"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="quantity"
+                              label="Quantity"
+                              align="center"
+                              type="number"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="amount"
+                              label="Amount"
+                              type="number"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="payment"
+                              label="Payment"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="status"
+                              label="Status"
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <SpreadsheetColumnHeader
+                              columnKey="date"
+                              label="Date"
+                              type="date"
+                              alignRight={true}
+                              allRows={dailyRows}
+                              activeFilters={dailyColumnFilters}
+                              onFilterChange={handleDailyFilterChange}
+                              sortColumn={dailySortColumn}
+                              sortDirection={dailySortDirection}
+                              onSortChange={handleDailySortChange}
+                              activeDropdown={dailyActiveDropdown}
+                              setActiveDropdown={setDailyActiveDropdown}
+                            />
+                            <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredDailyRows.map((row) => (
                             <tr
-                              key={`${order?.id}-${itemIdx}`}
+                              key={row.rowId}
                               className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
                             >
                               <td className="py-4 px-6 font-mono text-slate-900 text-xs">
-                                {itemIdx === 0 ? (order?.receipt_no || 'N/A') : ''}
+                                {row.displayReceipt || (Object.keys(dailyColumnFilters).length > 0 ? row.receipt : '')}
+                              </td>
+                              <td className="py-4 px-6 text-slate-900 font-medium">
+                                {row.customerName}
                               </td>
                               <td className="py-4 px-6 text-slate-900">
-                                {order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A'}
+                                {row.courseYear}
                               </td>
                               <td className="py-4 px-6 text-slate-900">
-                                {courseYear}
+                                {row.product}
                               </td>
-                              <td className="py-4 px-6 text-slate-900">
-                                {formatProductNameWithVariants(item)}
-                              </td>
-                              <td className="py-4 px-6 text-center text-slate-900">
-                                {item?.quantity || 0}
+                              <td className="py-4 px-6 text-center text-slate-900 font-semibold">
+                                {row.quantity}
                               </td>
                               <td className="py-4 px-6 font-semibold text-green-700">
-                                ₱{Number(item?.subtotal || 0).toFixed(2)}
+                                ₱{Number(row.amount).toFixed(2)}
                               </td>
-                               <td className="py-4 px-6">
+                              <td className="py-4 px-6">
                                 <div className="flex items-center gap-1.5 flex-wrap">
                                   <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    order?.payment_method?.toLowerCase() === 'ewallet' 
+                                    row.rawPaymentMethod?.toLowerCase() === 'ewallet' 
                                       ? 'bg-purple-100 text-purple-800' 
                                       : 'bg-blue-100 text-blue-800'
                                   }`}>
-                                    {formatPaymentMethod(order?.payment_method)}
+                                    {row.payment}
                                   </span>
-                                  {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
+                                  {row.rawPaymentMethod?.toLowerCase() === 'ewallet' && row.referenceNumber && (
                                     <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
-                                      Ref: {order.reference_number}
+                                      Ref: {row.referenceNumber}
                                     </span>
                                   )}
                                 </div>
                               </td>
                               <td className="py-4 px-6">
                                 <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  order?.status === 'completed' 
+                                  row.rawStatus === 'completed' 
                                     ? 'bg-green-100 text-green-800' 
-                                    : order?.status === 'released'
+                                    : row.rawStatus === 'released'
                                     ? 'bg-blue-100 text-blue-800'
                                     : 'bg-red-100 text-red-800'
-                                  }`}>
-                                  {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
+                                }`}>
+                                  {row.status}
                                 </span>
                               </td>
                               <td className="py-4 px-6 text-slate-700 text-xs">
-                                {(() => {
-                                  const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
-                                  return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
-                                })()}
+                                {row.date}
                               </td>
                               <td className="py-4 px-6 text-center">
-                                {itemIdx === 0 ? (
+                                {row.isFirstItem && (
                                   <button
-                                    onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                    onClick={() => handleDeleteOrder(row.orderId, row.receipt)}
                                     className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
                                     title="Delete Order completely"
                                   >
                                     <Trash2 size={16} />
                                   </button>
-                                ) : null}
+                                )}
                               </td>
                             </tr>
-                          ));
-                        }
-                        
-                        return (
-                          <tr
-                            key={order?.id || Math.random()}
-                            className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="py-4 px-6 font-mono text-slate-900 text-xs">{order?.receipt_no || 'N/A'}</td>
-                            <td className="py-4 px-6 text-slate-900">
-                              {order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A'}
-                            </td>
-                            <td className="py-4 px-6 text-slate-900">
-                              {courseYear}
-                            </td>
-                            <td className="py-4 px-6 text-slate-500">Multiple Items</td>
-                            <td className="py-4 px-6 text-center text-slate-500">-</td>
-                            <td className="py-4 px-6 font-semibold text-green-700">
-                              ₱{Number(order?.total_amount || 0).toFixed(2)}
-                            </td>
-                             <td className="py-4 px-6">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  order?.payment_method?.toLowerCase() === 'ewallet' 
-                                    ? 'bg-purple-100 text-purple-800' 
-                                    : 'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {formatPaymentMethod(order?.payment_method)}
-                                </span>
-                                {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
-                                  <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
-                                    Ref: {order.reference_number}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-6">
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                order?.status === 'completed' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : order?.status === 'released'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-red-100 text-red-800'
-                              }`}>
-                                {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
-                              </span>
-                            </td>
-                             <td className="py-4 px-6 text-slate-700 text-xs">
-                               {(() => {
-                                 const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
-                                 return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
-                               })()}
-                             </td>
-                            <td className="py-4 px-6 text-center">
-                              <button
-                                onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
-                                className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
-                                title="Delete Order completely"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
         {/* Remittance Tab */}
         {activeTab === 'remittance' && (
@@ -3223,8 +3830,15 @@ export const SalesPage: React.FC = () => {
               <div className="p-6 border-b border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-slate-900">Detailed Records</h3>
-                  
-                  <div className="flex items-center space-x-4">
+                  {historyRows.length > 0 && (
+                    <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                      Showing <span className="font-bold text-purple-600">{filteredHistoryRows.length}</span> of <span className="font-bold text-slate-700">{historyRows.length}</span> records
+                    </div>
+                  )}
+                </div>
+                
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     {/* Filter Buttons */}
                     <div className="flex items-center space-x-2">
                       <button
@@ -3258,199 +3872,267 @@ export const SalesPage: React.FC = () => {
                         Cancelled
                       </button>
                     </div>
-                    
-                    {/* Search Bar */}
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={20} />
-                      <input
-                        type="text"
-                        placeholder="Search by customer name..."
-                        value={historySearchQuery}
-                        onChange={(e) => setHistorySearchQuery(e.target.value)}
-                        className="pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent w-64"
-                      />
-                    </div>
+
+                    {/* Clear All Filters Button */}
+                    {(Object.keys(historyColumnFilters).length > 0 || historySortColumn || historySearchQuery || historyStatusFilter !== 'all') && (
+                      <button
+                        onClick={() => {
+                          setHistoryColumnFilters({});
+                          setHistorySortColumn(null);
+                          setHistorySortDirection(null);
+                          setHistorySearchQuery('');
+                          setHistoryStatusFilter('all');
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 rounded-lg text-xs font-semibold transition-all"
+                        title="Reset all search, sorting, and column filters"
+                      >
+                        <RotateCcw size={13} />
+                        Reset All Filters
+                        {Object.keys(historyColumnFilters).length > 0 && (
+                          <span className="bg-purple-600 text-white text-[10px] px-1.5 py-0.2 rounded-full ml-0.5">
+                            {Object.keys(historyColumnFilters).length}
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* Search Bar */}
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400" size={18} />
+                    <input
+                      type="text"
+                      placeholder="Search customer, receipt, product..."
+                      value={historySearchQuery}
+                      onChange={(e) => setHistorySearchQuery(e.target.value)}
+                      className="pl-9 pr-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm w-72"
+                    />
+                    {historySearchQuery && (
+                      <button
+                        onClick={() => setHistorySearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 rounded-full"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
               
-              {historyOrders.filter(order => {
-                const matchesStatus = historyStatusFilter === 'all' || order.status === historyStatusFilter;
-                const customerName = `${order?.first_name || ''} ${order?.last_name || ''}`.trim().toLowerCase();
-                const matchesSearch = historySearchQuery === '' || customerName.includes(historySearchQuery.toLowerCase());
-                return matchesStatus && matchesSearch;
-              }).length === 0 ? (
+              {filteredHistoryRows.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar size={48} className="mx-auto text-slate-300 mb-4" />
-                  <p className="text-slate-600">
-                    {historySearchQuery 
-                      ? `No orders found for "${historySearchQuery}"` 
+                  <p className="text-slate-600 font-medium">
+                    {historySearchQuery || Object.keys(historyColumnFilters).length > 0
+                      ? `No records match current search or filters` 
                       : historyStatusFilter === 'all' 
                         ? 'No orders found for this date' 
                         : `No ${historyStatusFilter} orders for this date`}
                   </p>
+                  {(historySearchQuery || Object.keys(historyColumnFilters).length > 0 || historyStatusFilter !== 'all') && (
+                    <button
+                      onClick={() => {
+                        setHistoryColumnFilters({});
+                        setHistorySortColumn(null);
+                        setHistorySortDirection(null);
+                        setHistorySearchQuery('');
+                        setHistoryStatusFilter('all');
+                      }}
+                      className="mt-3 inline-flex items-center gap-1.5 px-4 py-2 bg-purple-600 text-white rounded-lg text-xs font-semibold hover:bg-purple-700 transition-colors"
+                    >
+                      <RotateCcw size={14} />
+                      Clear all filters
+                    </button>
+                  )}
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b-2 border-slate-300 bg-slate-50">
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Receipt</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Customer Name</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Course & Year</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Product</th>
-                        <th className="text-center py-4 px-6 font-semibold text-slate-900">Quantity</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Amount</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Payment</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Status</th>
-                        <th className="text-left py-4 px-6 font-semibold text-slate-900">Date</th>
+                        <SpreadsheetColumnHeader
+                          columnKey="receipt"
+                          label="Receipt"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="customerName"
+                          label="Customer Name"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="courseYear"
+                          label="Course & Year"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="product"
+                          label="Product"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="quantity"
+                          label="Quantity"
+                          align="center"
+                          type="number"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="amount"
+                          label="Amount"
+                          type="number"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="payment"
+                          label="Payment"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="status"
+                          label="Status"
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
+                        <SpreadsheetColumnHeader
+                          columnKey="date"
+                          label="Date"
+                          type="date"
+                          alignRight={true}
+                          allRows={historyRows}
+                          activeFilters={historyColumnFilters}
+                          onFilterChange={handleHistoryFilterChange}
+                          sortColumn={historySortColumn}
+                          sortDirection={historySortDirection}
+                          onSortChange={handleHistorySortChange}
+                          activeDropdown={historyActiveDropdown}
+                          setActiveDropdown={setHistoryActiveDropdown}
+                        />
                         <th className="text-center py-4 px-6 font-semibold text-slate-900">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {historyOrders.filter(order => {
-                        const matchesStatus = historyStatusFilter === 'all' || order.status === historyStatusFilter;
-                        const customerName = `${order?.first_name || ''} ${order?.last_name || ''}`.trim().toLowerCase();
-                        const matchesSearch = historySearchQuery === '' || customerName.includes(historySearchQuery.toLowerCase());
-                        return matchesStatus && matchesSearch;
-                      }).map((order) => {
-                        const items = order?.items || [];
-                        const courseYear = order?.course && order?.year 
-                          ? `${order.course} - ${order.year}` 
-                          : order?.course || order?.year || 'N/A';
-                        
-                        if (items.length > 0) {
-                          return items.map((item: any, itemIdx: number) => (
-                            <tr
-                              key={`${order?.id}-${itemIdx}`}
-                              className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
-                            >
-                              <td className="py-4 px-6 font-mono text-slate-900 text-xs">{itemIdx === 0 ? (order?.receipt_no || 'N/A') : ''}</td>
-                              <td className="py-4 px-6 text-slate-900">
-                                {order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A'}
-                              </td>
-                              <td className="py-4 px-6 text-slate-900">
-                                {courseYear}
-                              </td>
-                              <td className="py-4 px-6 text-slate-900">
-                                {formatProductNameWithVariants(item)}
-                              </td>
-                              <td className="py-4 px-6 text-center text-slate-900">
-                                {item?.quantity || 0}
-                              </td>
-                              <td className="py-4 px-6 font-semibold text-green-700">
-                                ₱{Number(item?.subtotal || 0).toFixed(2)}
-                              </td>
-                              <td className="py-4 px-6">
-                                <div className="flex items-center gap-1.5 flex-wrap">
-                                  <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                    order?.payment_method?.toLowerCase() === 'ewallet' 
-                                      ? 'bg-purple-100 text-purple-800' 
-                                      : 'bg-blue-100 text-blue-800'
-                                  }`}>
-                                    {formatPaymentMethod(order?.payment_method)}
-                                  </span>
-                                  {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
-                                    <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
-                                      Ref: {order.reference_number}
-                                    </span>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="py-4 px-6">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  order?.status === 'completed' 
-                                    ? 'bg-green-100 text-green-800' 
-                                    : order?.status === 'released'
-                                    ? 'bg-blue-100 text-blue-800'
-                                    : 'bg-red-100 text-red-800'
-                                }`}>
-                                  {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
-                                </span>
-                              </td>
-                               <td className="py-4 px-6 text-slate-700 text-xs">
-                                {(() => {
-                                  const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
-                                  return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
-                                })()}
-                              </td>
-                              <td className="py-4 px-6 text-center">
-                                {itemIdx === 0 ? (
-                                  <button
-                                    onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
-                                    className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
-                                    title="Delete Order completely"
-                                  >
-                                    <Trash2 size={16} />
-                                  </button>
-                                ) : null}
-                              </td>
-                            </tr>
-                          ));
-                        }
-                        
-                        return (
-                          <tr
-                            key={order?.id || Math.random()}
-                            className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
-                          >
-                            <td className="py-4 px-6 font-mono text-slate-900 text-xs">{order?.receipt_no || 'N/A'}</td>
-                            <td className="py-4 px-6 text-slate-900">
-                              {order?.first_name ? `${order?.first_name} ${order?.last_name || ''}`.trim() : 'N/A'}
-                            </td>
-                            <td className="py-4 px-6 text-slate-900">
-                              {courseYear}
-                            </td>
-                            <td className="py-4 px-6 text-slate-500">Multiple Items</td>
-                            <td className="py-4 px-6 text-center text-slate-500">-</td>
-                            <td className="py-4 px-6 font-semibold text-green-700">
-                              ₱{Number(order?.total_amount || 0).toFixed(2)}
-                            </td>
-                            <td className="py-4 px-6">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                  order?.payment_method?.toLowerCase() === 'ewallet' 
-                                    ? 'bg-purple-100 text-purple-800' 
-                                    : 'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {formatPaymentMethod(order?.payment_method)}
-                                </span>
-                                {order?.payment_method?.toLowerCase() === 'ewallet' && order?.reference_number && (
-                                  <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
-                                    Ref: {order.reference_number}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-4 px-6">
+                      {filteredHistoryRows.map((row) => (
+                        <tr
+                          key={row.rowId}
+                          className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="py-4 px-6 font-mono text-slate-900 text-xs">
+                            {row.displayReceipt || (Object.keys(historyColumnFilters).length > 0 ? row.receipt : '')}
+                          </td>
+                          <td className="py-4 px-6 text-slate-900 font-medium">
+                            {row.customerName}
+                          </td>
+                          <td className="py-4 px-6 text-slate-900">
+                            {row.courseYear}
+                          </td>
+                          <td className="py-4 px-6 text-slate-900">
+                            {row.product}
+                          </td>
+                          <td className="py-4 px-6 text-center text-slate-900 font-semibold">
+                            {row.quantity}
+                          </td>
+                          <td className="py-4 px-6 font-semibold text-green-700">
+                            ₱{Number(row.amount).toFixed(2)}
+                          </td>
+                          <td className="py-4 px-6">
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                order?.status === 'completed' 
-                                  ? 'bg-green-100 text-green-800' 
-                                  : order?.status === 'released'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : 'bg-red-100 text-red-800'
+                                row.rawPaymentMethod?.toLowerCase() === 'ewallet' 
+                                  ? 'bg-purple-100 text-purple-800' 
+                                  : 'bg-blue-100 text-blue-800'
                               }`}>
-                                {order?.status === 'completed' ? 'COMPLETED' : order?.status === 'released' ? 'RELEASED' : 'CANCELLED'}
+                                {row.payment}
                               </span>
-                            </td>
-                            <td className="py-4 px-6 text-slate-700 text-xs">
-                              {(() => {
-                                const displayDate = (order?.status === 'completed' || order?.status === 'released') && order?.completed_at ? order.completed_at : order?.created_at;
-                                return displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
-                              })()}
-                            </td>
-                            <td className="py-4 px-6 text-center">
+                              {row.rawPaymentMethod?.toLowerCase() === 'ewallet' && row.referenceNumber && (
+                                <span className="text-[10px] text-slate-600 font-semibold font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 whitespace-nowrap">
+                                  Ref: {row.referenceNumber}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-4 px-6">
+                            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                              row.rawStatus === 'completed' 
+                                ? 'bg-green-100 text-green-800' 
+                                : row.rawStatus === 'released'
+                                ? 'bg-blue-100 text-blue-800'
+                                : 'bg-red-100 text-red-800'
+                            }`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="py-4 px-6 text-slate-700 text-xs">
+                            {row.date}
+                          </td>
+                          <td className="py-4 px-6 text-center">
+                            {row.isFirstItem && (
                               <button
-                                onClick={() => handleDeleteOrder(order.id, order.receipt_no)}
+                                onClick={() => handleDeleteOrder(row.orderId, row.receipt)}
                                 className="p-2 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105 duration-200"
                                 title="Delete Order completely"
                               >
                                 <Trash2 size={16} />
                               </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
+                            )}
+                          </td>
+                        </tr>
+                      ))}
                     </tbody>
                   </table>
                 </div>

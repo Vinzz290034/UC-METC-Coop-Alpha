@@ -477,8 +477,8 @@ class ApiClient {
     }, userId);
   }
 
-  async deleteOrderAsAdmin(orderId: string, userId: string) {
-    return this.request<any>(`/orders/admin/${orderId}`, {
+  async deleteOrderAsAdmin(orderId: string, userId: string, restoreStock: boolean = true) {
+    return this.request<any>(`/orders/admin/${orderId}?restoreStock=${restoreStock}`, {
       method: 'DELETE',
     }, userId);
   }

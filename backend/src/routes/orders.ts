@@ -674,6 +674,7 @@ router.delete('/admin/:id', authMiddleware, async (req: Request, res: Response) 
   try {
     const { id } = req.params;
     const userId = req.user!.id;
+    const shouldRestoreStock = req.query.restoreStock !== 'false' && req.body?.restoreStock !== false;
 
     // Verify user is admin or staff
     const userResult = await pool.query('SELECT role FROM users WHERE id = $1', [userId]);
@@ -699,8 +700,8 @@ router.delete('/admin/:id', authMiddleware, async (req: Request, res: Response) 
 
       const order = orderResult.rows[0];
 
-      // If the order was COMPLETED or RELEASED, restore the stock of items
-      if ((order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance') {
+      // If the order was COMPLETED or RELEASED and shouldRestoreStock is true, restore the stock of items
+      if (shouldRestoreStock && (order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance') {
         const itemsResult = await client.query(
           `SELECT product_id, quantity, selected_options FROM order_items WHERE order_id = $1`,
           [id]
