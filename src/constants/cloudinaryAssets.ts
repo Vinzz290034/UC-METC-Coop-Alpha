@@ -4,9 +4,9 @@
 // Core Assets
 export const COOP_LOGO_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787851225/uc_coop/assets/favicon_circle.png';
 export const BACKGROUND_IMAGE_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787849749/uc_coop/assets/background.jpg';
-export const BENEFITS_IMAGE_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787851225/uc_coop/assets/favicon_circle.png';
+export const BENEFITS_IMAGE_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787855678/uc_coop/products/90.jpg';
 export const UC_METC_LOGO_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787849751/uc_coop/assets/uc_metc_logo.jpg';
-export const I_CARD_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787851225/uc_coop/assets/favicon_circle.png';
+export const I_CARD_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787855731/uc_coop/products/i_card.jpg';
 export const GCASH_URL = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787849753/uc_coop/assets/gcash.jpg';
 export const STUDENT_DASHBOARD_BANNER_IMAGE = 'https://res.cloudinary.com/fncjex7d/image/upload/v1787855777/uc_coop/products/uc_metc.jpg';
 
