@@ -5694,27 +5694,14 @@ export const SalesPage: React.FC = () => {
 
                                 if (colGCashVal) {
                                   rowPaymentMethod = 'ewallet';
-                                  rowReferenceNumber = colGCashVal.replace(/^ref\s*[:#]?\s*/i, '').trim();
+                                  rowReferenceNumber = colGCashVal.replace(/^(?:ref|gcash)\s*[:#]?\s*/i, '').trim();
                                 } else if (colRemarksVal) {
                                   const remLower = colRemarksVal.toLowerCase();
-                                  if (remLower.includes('gcash') || remLower.includes('e-wallet') || remLower.includes('ewallet') || remLower.includes('ref')) {
+                                  if (remLower.includes('gcash') || remLower.includes('e-wallet') || remLower.includes('ewallet')) {
                                     rowPaymentMethod = 'ewallet';
-                                    const match = colRemarksVal.match(/(?:ref\s*[:#]?\s*|gcash\s*[:#]?\s*)?(\d{4,})/i);
+                                    const match = colRemarksVal.match(/(?:ref\s*[:#]?\s*|gcash\s*[:#]?\s*)(\d{4,})/i);
                                     if (match && match[1]) {
                                       rowReferenceNumber = match[1];
-                                    }
-                                  }
-                                }
-
-                                // Fallback: Check any cell beyond Amount column for a 4+ digit reference number or GCash tag
-                                if (!rowReferenceNumber) {
-                                  for (let c = 8; c < row.length; c++) {
-                                    const cellStr = String(row[c] || '').trim();
-                                    if (!cellStr) continue;
-                                    if (/^\d{4,15}$/.test(cellStr) || /^ref\s*[:#]?\s*\d+/i.test(cellStr) || /^gcash\s*[:#]?\s*\d+/i.test(cellStr)) {
-                                      rowPaymentMethod = 'ewallet';
-                                      rowReferenceNumber = cellStr.replace(/^(?:ref|gcash)\s*[:#]?\s*/i, '').trim();
-                                      break;
                                     }
                                   }
                                 }
