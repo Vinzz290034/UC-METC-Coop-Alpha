@@ -6138,7 +6138,7 @@ export const SalesPage: React.FC = () => {
               const grandTotalCollected = totalGcashSales + totalGcashFees;
 
               return (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
                   {/* Card 1: Completed Transactions */}
                   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
@@ -6151,21 +6151,7 @@ export const SalesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Card 2: Merchandise Sales (Matches Reports Page) */}
-                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Merchandise Sales</p>
-                      <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">
-                        ₱{totalGcashSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </p>
-                      <p className="text-xs text-emerald-600/80 mt-0.5 font-medium">Official store revenue</p>
-                    </div>
-                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
-                      <DollarSign size={26} />
-                    </div>
-                  </div>
-
-                  {/* Card 3: Service Charges Collected */}
+                  {/* Card 2: Service Charges Collected */}
                   <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
                     <div>
                       <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">GCash Service Charges</p>
@@ -6179,14 +6165,16 @@ export const SalesPage: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Card 4: Total Amount Inflow */}
+                  {/* Card 3: GCash Sales Revenue (Matches Reports Page) */}
                   <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-5 text-white shadow-md flex items-center justify-between">
                     <div>
-                      <p className="text-xs font-bold uppercase text-emerald-100 tracking-wider">Total Received</p>
+                      <p className="text-xs font-bold uppercase text-emerald-100 tracking-wider">GCash Sales Revenue</p>
                       <p className="text-2xl sm:text-3xl font-black text-white mt-1">
-                        ₱{grandTotalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        ₱{totalGcashSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       </p>
-                      <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">Sales + Service Fees</p>
+                      <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">
+                        + ₱{totalGcashFees.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} fee = ₱{grandTotalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} total received
+                      </p>
                     </div>
                     <div className="p-3 bg-white/20 rounded-xl">
                       <TrendingUp size={26} />
