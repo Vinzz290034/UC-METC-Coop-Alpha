@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, ArrowUpDown, Check, X, RotateCcw, SlidersHorizontal } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, ArrowUpDown, Check, X, RotateCcw, SlidersHorizontal, Smartphone, CreditCard } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -7,6 +7,7 @@ import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
+import { GCASH_URL } from '../constants/cloudinaryAssets';
 import * as XLSX from 'xlsx';
 
 interface SpreadsheetColumnHeaderProps {
@@ -395,10 +396,57 @@ export const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring' | 'gcash'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
+  const [gcashOrders, setGcashOrders] = useState<any[]>([]);
+  const [gcashSearchQuery, setGcashSearchQuery] = useState<string>('');
+  const [gcashFilterDate, setGcashFilterDate] = useState<string>('');
+  const [gcashStatusFilter, setGcashStatusFilter] = useState<string>('all');
+  const [gcashCurrentPage, setGcashCurrentPage] = useState<number>(1);
+  const [gcashRowsPerPage, setGcashRowsPerPage] = useState<number>(10);
+
+  useEffect(() => {
+    setGcashCurrentPage(1);
+  }, [gcashSearchQuery, gcashFilterDate, gcashStatusFilter]);
+
+  // Calculate GCash service charge based on standard tier ranges
+  const calculateEWalletFee = (amount: number): number => {
+    if (amount <= 0) return 0;
+    if (amount >= 1 && amount <= 200) return 10;
+    if (amount >= 201 && amount <= 500) return 15;
+    if (amount >= 501 && amount <= 1000) return 20;
+    if (amount >= 1001 && amount <= 1500) return 30;
+    if (amount >= 1501 && amount <= 2000) return 40;
+    if (amount >= 2001 && amount <= 2500) return 50;
+    if (amount >= 2501 && amount <= 3000) return 60;
+    if (amount >= 3001 && amount <= 3500) return 70;
+    if (amount >= 3501 && amount <= 4000) return 80;
+    if (amount >= 4001 && amount <= 4500) return 90;
+    if (amount >= 4501 && amount <= 5000) return 100;
+    if (amount >= 5001 && amount <= 5500) return 110;
+    if (amount >= 5501 && amount <= 6000) return 120;
+    if (amount >= 6001 && amount <= 6500) return 130;
+    if (amount >= 6501 && amount <= 7000) return 140;
+    if (amount >= 7001 && amount <= 7500) return 150;
+    if (amount >= 7501 && amount <= 8000) return 160;
+    if (amount >= 8001 && amount <= 8500) return 170;
+    if (amount >= 8501 && amount <= 9000) return 180;
+    if (amount >= 9001 && amount <= 9500) return 190;
+    if (amount >= 9501 && amount <= 10000) return 200;
+    if (amount >= 10001 && amount <= 10500) return 210;
+    if (amount >= 10501 && amount <= 11000) return 215;
+    if (amount >= 11001 && amount <= 11500) return 230;
+    if (amount >= 11501 && amount <= 12000) return 240;
+    if (amount >= 12001 && amount <= 12500) return 250;
+    if (amount >= 12501 && amount <= 13000) return 260;
+    if (amount >= 13001 && amount <= 13500) return 270;
+    if (amount >= 13501 && amount <= 14000) return 280;
+    if (amount >= 14001 && amount <= 14500) return 290;
+    if (amount >= 14501 && amount <= 15000) return 300;
+    return 300;
+  };
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(new Date().setDate(new Date().getDate() - 1))); // Default to yesterday
    const [statusFilter, setStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
   const [historyStatusFilter, setHistoryStatusFilter] = useState<'all' | 'completed' | 'cancelled'>('all');
@@ -832,6 +880,19 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab]);
 
+  // Load orders for GCash service charges tab
+  useEffect(() => {
+    if (user?.id && activeTab === 'gcash') {
+      loadGcashOrders();
+      
+      const interval = setInterval(() => {
+        loadGcashOrders();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab]);
+
   const [allUsers, setAllUsers] = useState<any[]>([]);
   // Excel / CSV Importer States
   const [showImportExcelModal, setShowImportExcelModal] = useState<boolean>(false);
@@ -893,6 +954,7 @@ export const SalesPage: React.FC = () => {
     else if (activeTab === 'hardbound') await loadHardboundOrders();
     else if (activeTab === 'swimming') await loadSwimmingOrders();
     else if (activeTab === 'classring') await loadClassRingOrders();
+    else if (activeTab === 'gcash') await loadGcashOrders();
   };
 
   // Excel / CSV Importer Helper Functions
@@ -1588,6 +1650,21 @@ export const SalesPage: React.FC = () => {
       }
     } catch (err) {
       console.error('Failed to load Class Ring orders:', err);
+    }
+  };
+
+  const loadGcashOrders = async () => {
+    try {
+      const allTransactions = await apiClient.getAllTransactions(user?.id || '') as any[];
+      if (Array.isArray(allTransactions)) {
+        const gcashList = allTransactions.filter((order: any) => {
+          const method = String(order?.payment_method || '').toLowerCase();
+          return method === 'ewallet' || method === 'gcash';
+        });
+        setGcashOrders(gcashList);
+      }
+    } catch (err) {
+      console.error('Failed to load GCash orders:', err);
     }
   };
 
@@ -2695,6 +2772,95 @@ export const SalesPage: React.FC = () => {
       showNotification('Class Ring orders report exported successfully!', 'success');
       return;
     }
+
+    if (activeTab === 'gcash') {
+      const filtered = gcashOrders.filter(order => {
+        const matchesStatus = gcashStatusFilter === 'all' || order.status === gcashStatusFilter;
+        const matchesDate = !gcashFilterDate || (() => {
+          const d = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
+          const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          return dateStr === gcashFilterDate;
+        })();
+        const customerName = (order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || '').toLowerCase();
+        const receiptNo = (order.receipt_no || order.receiptNo || '').toLowerCase();
+        const refNo = (order.reference_number || '').toLowerCase();
+        const matchesSearch = !gcashSearchQuery || customerName.includes(gcashSearchQuery.toLowerCase()) || receiptNo.includes(gcashSearchQuery.toLowerCase()) || refNo.includes(gcashSearchQuery.toLowerCase());
+        return matchesStatus && matchesDate && matchesSearch;
+      });
+
+      const rows = filtered.map(order => {
+        const orderAmount = parseFloat(order.total_amount || 0);
+        const serviceFee = calculateEWalletFee(orderAmount);
+        const totalPaid = orderAmount + serviceFee;
+        const customerName = order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || 'N/A';
+        const courseYear = order.course && order.year ? `${order.course} - ${order.year}` : order.course || order.year || order.walk_in_course || 'N/A';
+        const dateStr = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at).toLocaleDateString();
+
+        return {
+          receiptNo: order.receipt_no || order.receiptNo || 'N/A',
+          customerName,
+          courseYear,
+          referenceNumber: order.reference_number || 'N/A',
+          orderAmount,
+          serviceFee,
+          totalPaid,
+          status: (order.status || 'pending').toUpperCase(),
+          date: dateStr
+        };
+      });
+
+      const totalSalesVal = rows.reduce((sum, r) => sum + (r.status === 'COMPLETED' || r.status === 'RELEASED' ? r.orderAmount : 0), 0);
+      const totalServiceFeesVal = rows.reduce((sum, r) => sum + (r.status === 'COMPLETED' || r.status === 'RELEASED' ? r.serviceFee : 0), 0);
+      const grandTotalVal = totalSalesVal + totalServiceFeesVal;
+
+      const tableHeader = `
+        <tr style="background-color: #0284c7; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left;">Customer Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Course / Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">GCash Ref #</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">Order Amount (Sales)</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">Service Charge (GCash)</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right;">Total Paid</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Status</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center;">Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f0f9ff';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; font-family: Consolas, monospace;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">${row.customerName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.courseYear}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-family: Consolas, monospace; font-weight: bold; color: #0284c7;">${row.referenceNumber}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.orderAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #d97706;">₱${row.serviceFee.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.status}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.date}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = getExcelHtmlWrapper(
+        'GCash Service Charge & Transaction Report',
+        'Official GCash Transaction Fee Log',
+        [
+          { label: 'Total GCash Orders', value: rows.length.toString(), bg: '#eff6ff', border: '#93c5fd', color: '#1d4ed8' },
+          { label: 'Total Merchandise Sales', value: `₱${totalSalesVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
+          { label: 'Total Service Charges', value: `₱${totalServiceFeesVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#fffbeb', border: '#fde047', color: '#b45309' },
+          { label: 'Grand Total Collected', value: `₱${grandTotalVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `gcash_service_charges_${formatLocalDate(new Date())}`);
+      showNotification('GCash service charges report exported successfully!', 'success');
+      return;
+    }
   };
 
   return (
@@ -2719,8 +2885,8 @@ export const SalesPage: React.FC = () => {
               <span>Import Excel/CSV</span>
             </button>
 
-            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, and Class Ring tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring') && (
+            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, Class Ring, and GCash tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring' || activeTab === 'gcash') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
@@ -2844,6 +3010,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               Class Ring
+            </button>
+            <button
+              onClick={() => setActiveTab('gcash')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'gcash'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              GCash Service Charge
             </button>
           </div>
         </div>
@@ -5923,6 +6099,370 @@ export const SalesPage: React.FC = () => {
                   );
                 })()}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* GCash Service Charge Tab */}
+        {activeTab === 'gcash' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-emerald-600 via-green-600 to-teal-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8 pointer-events-none">
+                <Smartphone size={160} />
+              </div>
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-bold tracking-wide uppercase">
+                    <span>E-Wallet Service Fee Management</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">GCash Service Charges</h2>
+                  <p className="text-emerald-100 text-xs sm:text-sm max-w-2xl font-medium leading-relaxed">
+                    E-wallet convenience fees are segregated from official store sales revenue. View, audit, and reconcile GCash transaction charges collected here.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 self-start sm:self-center">
+                  <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl border border-white/20 text-center">
+                    <p className="text-[11px] text-emerald-200 uppercase font-semibold">Total GCash Logs</p>
+                    <p className="text-2xl font-black text-white">{gcashOrders.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Metrics Cards */}
+            {(() => {
+              const completedGcash = gcashOrders.filter(o => o.status === 'completed' || o.status === 'released');
+              const totalGcashSales = completedGcash.reduce((sum, o) => sum + parseFloat(o.total_amount || 0), 0);
+              const totalGcashFees = completedGcash.reduce((sum, o) => sum + calculateEWalletFee(parseFloat(o.total_amount || 0)), 0);
+              const grandTotalCollected = totalGcashSales + totalGcashFees;
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {/* Card 1: Completed Transactions */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Completed Orders</p>
+                      <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{completedGcash.length}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">GCash transactions</p>
+                    </div>
+                    <div className="p-3 bg-blue-50 text-blue-600 rounded-xl border border-blue-100">
+                      <Smartphone size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 2: Merchandise Sales (Excluding Fee) */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Merchandise Sales</p>
+                      <p className="text-2xl sm:text-3xl font-black text-emerald-600 mt-1">
+                        ₱{totalGcashSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-emerald-600/80 mt-0.5 font-medium">Pure store revenue</p>
+                    </div>
+                    <div className="p-3 bg-emerald-50 text-emerald-600 rounded-xl border border-emerald-100">
+                      <DollarSign size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 3: Service Charges Collected */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">GCash Service Charges</p>
+                      <p className="text-2xl sm:text-3xl font-black text-amber-600 mt-1">
+                        ₱{totalGcashFees.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-amber-600/80 mt-0.5 font-medium">Segregated fee pool</p>
+                    </div>
+                    <div className="p-3 bg-amber-50 text-amber-600 rounded-xl border border-amber-100">
+                      <CreditCard size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 4: Total Amount Inflow */}
+                  <div className="bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl p-5 text-white shadow-md flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-emerald-100 tracking-wider">Total Received</p>
+                      <p className="text-2xl sm:text-3xl font-black text-white mt-1">
+                        ₱{grandTotalCollected.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-emerald-100/90 mt-0.5 font-medium">Sales + Service Fees</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl">
+                      <TrendingUp size={26} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Records Card */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Controls Bar */}
+              <div className="p-6 border-b border-slate-200 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">GCash Transactions & Service Charges</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">List of all orders placed or settled via GCash with their corresponding convenience fee</p>
+                  </div>
+                  
+                  {/* Jump to Date Filter */}
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="gcash-date-filter" className="text-xs font-bold text-slate-600 whitespace-nowrap">Filter Date:</label>
+                    <input
+                      id="gcash-date-filter"
+                      type="date"
+                      value={gcashFilterDate}
+                      onChange={(e) => setGcashFilterDate(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                    />
+                    {gcashFilterDate && (
+                      <button
+                        onClick={() => setGcashFilterDate('')}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors"
+                        title="Clear date filter"
+                      >
+                        All Dates
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter and Search Controls */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+                  {/* Status Pills */}
+                  <div className="flex items-center gap-2 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0">
+                    <span className="text-xs text-slate-500 font-semibold mr-1">Status:</span>
+                    {(['all', 'completed', 'released', 'pending', 'cancelled'] as const).map((st) => (
+                      <button
+                        key={st}
+                        onClick={() => setGcashStatusFilter(st)}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold capitalize transition-all whitespace-nowrap ${
+                          gcashStatusFilter === st
+                            ? 'bg-purple-600 text-white shadow-sm'
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                      >
+                        {st}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full sm:w-72">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search customer, receipt, ref #..."
+                      value={gcashSearchQuery}
+                      onChange={(e) => setGcashSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                    />
+                    {gcashSearchQuery && (
+                      <button
+                        onClick={() => setGcashSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              {(() => {
+                const filtered = gcashOrders.filter(order => {
+                  const matchesStatus = gcashStatusFilter === 'all' || order.status === gcashStatusFilter;
+                  const matchesDate = !gcashFilterDate || (() => {
+                    const d = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    return dateStr === gcashFilterDate;
+                  })();
+                  const customerName = (order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || '').toLowerCase();
+                  const receiptNo = (order.receipt_no || order.receiptNo || '').toLowerCase();
+                  const refNo = (order.reference_number || '').toLowerCase();
+                  const matchesSearch = !gcashSearchQuery || customerName.includes(gcashSearchQuery.toLowerCase()) || receiptNo.includes(gcashSearchQuery.toLowerCase()) || refNo.includes(gcashSearchQuery.toLowerCase());
+                  return matchesStatus && matchesDate && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-12 text-center">
+                      <div className="w-16 h-16 bg-purple-50 rounded-full flex items-center justify-center mx-auto mb-4 text-purple-600">
+                        <Smartphone size={32} />
+                      </div>
+                      <h4 className="text-base font-bold text-slate-800">No GCash Transactions Found</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        No transactions match the selected filters. Change the date range or clear the search filters above.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const totalItems = filtered.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / gcashRowsPerPage));
+                const currentPageClamped = Math.min(gcashCurrentPage, totalPages);
+                const startIndex = (currentPageClamped - 1) * gcashRowsPerPage;
+                const endIndex = Math.min(startIndex + gcashRowsPerPage, totalItems);
+                const paginatedRows = filtered.slice(startIndex, endIndex);
+
+                return (
+                  <div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wider">
+                            <th className="py-3.5 px-4 font-mono">Receipt #</th>
+                            <th className="py-3.5 px-4">Customer Name</th>
+                            <th className="py-3.5 px-4">Course / Year</th>
+                            <th className="py-3.5 px-4">GCash Ref #</th>
+                            <th className="py-3.5 px-4 text-right">Order Amount</th>
+                            <th className="py-3.5 px-4 text-right">Service Charge</th>
+                            <th className="py-3.5 px-4 text-right font-bold text-slate-900">Total Paid</th>
+                            <th className="py-3.5 px-4 text-center">Status</th>
+                            <th className="py-3.5 px-4 text-center">Date</th>
+                            <th className="py-3.5 px-4 text-center">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {paginatedRows.map((order) => {
+                            const orderAmount = parseFloat(order.total_amount || 0);
+                            const serviceFee = calculateEWalletFee(orderAmount);
+                            const totalPaid = orderAmount + serviceFee;
+                            const customerName = order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || 'Walk-in Customer';
+                            const courseYear = order.course && order.year ? `${order.course} - ${order.year}` : order.course || order.year || order.walk_in_course || 'N/A';
+                            const displayDate = (order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at;
+                            const formattedDate = displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
+
+                            return (
+                              <tr key={order.id || order.receipt_no} className="hover:bg-purple-50/40 transition-colors">
+                                <td className="py-3.5 px-4 font-mono text-xs font-bold text-slate-900">
+                                  {order.receipt_no || order.receiptNo || 'N/A'}
+                                </td>
+                                <td className="py-3.5 px-4 font-semibold text-slate-900">
+                                  {customerName}
+                                </td>
+                                <td className="py-3.5 px-4 text-xs text-slate-600">
+                                  {courseYear}
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  {order.reference_number ? (
+                                    <span className="inline-flex items-center font-mono text-xs font-bold px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md">
+                                      Ref: {order.reference_number}
+                                    </span>
+                                  ) : (
+                                    <span className="text-xs text-slate-400 font-mono">None</span>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-bold text-emerald-700">
+                                  ₱{orderAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-bold text-amber-600">
+                                  +₱{serviceFee.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-black text-indigo-700">
+                                  ₱{totalPaid.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <span className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase ${
+                                    order.status === 'completed' 
+                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                                      : order.status === 'released'
+                                      ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                      : order.status === 'cancelled'
+                                      ? 'bg-red-100 text-red-800 border border-red-200'
+                                      : 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  }`}>
+                                    {order.status}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-center text-xs text-slate-500 font-medium">
+                                  {formattedDate}
+                                </td>
+                                <td className="py-3.5 px-4 text-center">
+                                  <button
+                                    onClick={() => handleDeleteOrder(order.id, order.receipt_no || order.receiptNo)}
+                                    className="p-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg transition-all hover:scale-105"
+                                    title="Delete order"
+                                  >
+                                    <Trash2 size={15} />
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalItems > 0 && (
+                      <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-600">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span>Rows per page:</span>
+                            <select
+                              value={gcashRowsPerPage}
+                              onChange={(e) => {
+                                setGcashRowsPerPage(Number(e.target.value));
+                                setGcashCurrentPage(1);
+                              }}
+                              className="px-2.5 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white text-slate-800 font-bold"
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={25}>25</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+                          <span>
+                            Showing {startIndex + 1}–{endIndex} of {totalItems} orders
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setGcashCurrentPage(1)}
+                            disabled={currentPageClamped === 1}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="First Page"
+                          >
+                            « First
+                          </button>
+                          <button
+                            onClick={() => setGcashCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPageClamped === 1}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <ChevronLeft size={14} />
+                            <span>Prev</span>
+                          </button>
+                          <span className="px-3 py-1.5 text-xs font-extrabold text-purple-700 bg-purple-50 rounded-lg border border-purple-200">
+                            Page {currentPageClamped} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() => setGcashCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => setGcashCurrentPage(totalPages)}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="Last Page"
+                          >
+                            Last »
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         )}
