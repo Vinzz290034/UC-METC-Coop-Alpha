@@ -725,6 +725,10 @@ export const SalesPage: React.FC = () => {
   const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
   const [restoreInventoryStock, setRestoreInventoryStock] = useState<boolean>(true);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
+  const [bulkDeleteTarget, setBulkDeleteTarget] = useState<'history' | 'daily'>('history');
+  const [bulkRestoreInventoryStock, setBulkRestoreInventoryStock] = useState<boolean>(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
   const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
   const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
@@ -1582,6 +1586,39 @@ export const SalesPage: React.FC = () => {
       showNotification(error?.message || 'Failed to delete order', 'error');
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteDay = async () => {
+    const ordersToClear = bulkDeleteTarget === 'history' ? historyOrders : dailyOrders;
+    if (!ordersToClear || ordersToClear.length === 0) return;
+
+    const orderIds = ordersToClear.map((o: any) => o.id).filter(Boolean);
+    if (orderIds.length === 0) return;
+
+    setIsBulkDeleting(true);
+    try {
+      const res = await apiClient.bulkDeleteOrdersAsAdmin(
+        orderIds,
+        user?.id || '',
+        bulkRestoreInventoryStock
+      );
+      showNotification(
+        `Successfully cleared ${res?.deletedCount || orderIds.length} orders${
+          bulkRestoreInventoryStock ? ' (inventory stock restored)' : ' (stock not modified)'
+        }`,
+        'success'
+      );
+      setShowBulkDeleteModal(false);
+
+      // Reload summaries immediately
+      await loadDailySummary();
+      await loadHistorySummary();
+    } catch (error: any) {
+      console.error('Failed to bulk delete orders:', error);
+      showNotification(error?.message || 'Failed to bulk delete orders', 'error');
+    } finally {
+      setIsBulkDeleting(false);
     }
   };
 
@@ -3350,6 +3387,130 @@ export const SalesPage: React.FC = () => {
           </div>
         )}
 
+        {/* Friendly Bulk Delete Confirmation Modal */}
+        {showBulkDeleteModal && (() => {
+          const targetOrders = bulkDeleteTarget === 'history' ? historyOrders : dailyOrders;
+          const targetRows = bulkDeleteTarget === 'history' ? historyRows : dailyRows;
+          const dateLabel = bulkDeleteTarget === 'history' 
+            ? selectedDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
+            : `Today (${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})`;
+          
+          const totalRev = targetOrders.reduce((sum: number, o: any) => {
+            if (o.status !== 'completed' && o.status !== 'released') return sum;
+            if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+              return sum + o.items.reduce((iSum: number, item: any) => iSum + (parseFloat(item.subtotal || item.total || (item.price * item.quantity)) || 0), 0);
+            }
+            return sum + (parseFloat(o.total_amount) || 0);
+          }, 0);
+
+          return (
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+              onClick={() => !isBulkDeleting && setShowBulkDeleteModal(false)}
+            >
+              <div
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in overflow-hidden border border-slate-100"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Header */}
+                <div className="p-6 pb-4 flex flex-col items-center text-center">
+                  <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-3 shadow-inner">
+                    <Trash2 size={32} />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900">Clear All Records for Day</h3>
+                  <p className="text-slate-500 mt-1 text-sm">
+                    Target date: <span className="font-semibold text-purple-700">{dateLabel}</span>
+                  </p>
+                </div>
+
+                {/* Summary Info Cards */}
+                <div className="mx-6 mb-4 grid grid-cols-3 gap-3">
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Orders</span>
+                    <span className="text-lg font-bold text-slate-800">{targetOrders.length}</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Line Items</span>
+                    <span className="text-lg font-bold text-slate-800">{targetRows.length}</span>
+                  </div>
+                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 text-center">
+                    <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">Total Amount</span>
+                    <span className="text-lg font-bold text-green-600">₱{totalRev.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                  </div>
+                </div>
+
+                {/* Stock Restoration Option */}
+                <div className="mx-6 mb-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl transition-all">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={bulkRestoreInventoryStock}
+                      onChange={(e) => setBulkRestoreInventoryStock(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800 text-sm">
+                          Restore inventory stock
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          bulkRestoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {bulkRestoreInventoryStock ? 'Yes, restore stock' : 'Do not restore (Recommended for imports)'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {bulkRestoreInventoryStock
+                          ? 'Quantities from all selected orders will be added back into product inventory stock.'
+                          : 'Leave unchecked for spreadsheet imports so current physical inventory is not inflated.'}
+                      </p>
+                    </div>
+                  </label>
+                </div>
+
+                {/* Warning box */}
+                <div className="mx-6 p-3.5 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-start gap-2.5">
+                  <span className="text-base mt-0.5">⚠️</span>
+                  <div>
+                    <p className="font-bold">Permanent Action:</p>
+                    <p className="mt-0.5 leading-relaxed text-red-700">
+                      This will permanently delete all <strong>{targetOrders.length}</strong> orders ({targetRows.length} item records) for this date. You can re-import the clean spreadsheet afterwards.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Actions Footer */}
+                <div className="p-6 flex gap-3">
+                  <button
+                    onClick={() => setShowBulkDeleteModal(false)}
+                    disabled={isBulkDeleting}
+                    className="flex-1 py-3 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleBulkDeleteDay}
+                    disabled={isBulkDeleting || targetOrders.length === 0}
+                    className="flex-1 py-3 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-all duration-200 active:scale-95 shadow-md shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isBulkDeleting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                        Deleting {targetOrders.length} Records...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 size={16} />
+                        Delete All {targetOrders.length} Records
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* Daily Summary Tab */}
         {activeTab === 'daily' && (
           <div className="space-y-6 animate-fade-in">
@@ -3412,12 +3573,28 @@ export const SalesPage: React.FC = () => {
                       })}
                     </p>
                   </div>
-                      {dailyRows.length > 0 && (
-                        <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                          Showing <span className="font-bold text-purple-600">{filteredDailyRows.length}</span> of <span className="font-bold text-slate-700">{dailyRows.length}</span> records
-                        </div>
-                      )}
-                    </div>
+                  <div className="flex items-center gap-3">
+                    {dailyOrders.length > 0 && user && ['admin', 'staff'].includes(user.role) && (
+                      <button
+                        onClick={() => {
+                          setBulkDeleteTarget('daily');
+                          setBulkRestoreInventoryStock(false);
+                          setShowBulkDeleteModal(true);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border border-red-200 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-95"
+                        title="Delete all records for today"
+                      >
+                        <Trash2 size={13} />
+                        Clear All Day's Records ({dailyOrders.length})
+                      </button>
+                    )}
+                    {dailyRows.length > 0 && (
+                      <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                        Showing <span className="font-bold text-purple-600">{filteredDailyRows.length}</span> of <span className="font-bold text-slate-700">{dailyRows.length}</span> records
+                      </div>
+                    )}
+                  </div>
+                </div>
                     
                     <div className="flex flex-wrap items-center justify-between gap-4">
                       <div className="flex flex-wrap items-center gap-4">
@@ -4067,11 +4244,27 @@ export const SalesPage: React.FC = () => {
               <div className="p-6 border-b border-slate-200">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-semibold text-slate-900">Detailed Records</h3>
-                  {historyRows.length > 0 && (
-                    <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                      Showing <span className="font-bold text-purple-600">{filteredHistoryRows.length}</span> of <span className="font-bold text-slate-700">{historyRows.length}</span> records
-                    </div>
-                  )}
+                  <div className="flex items-center gap-3">
+                    {historyOrders.length > 0 && user && ['admin', 'staff'].includes(user.role) && (
+                      <button
+                        onClick={() => {
+                          setBulkDeleteTarget('history');
+                          setBulkRestoreInventoryStock(false);
+                          setShowBulkDeleteModal(true);
+                        }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border border-red-200 rounded-lg text-xs font-semibold transition-all shadow-sm active:scale-95"
+                        title="Delete all records for this selected date"
+                      >
+                        <Trash2 size={13} />
+                        Clear All Day's Records ({historyOrders.length})
+                      </button>
+                    )}
+                    {historyRows.length > 0 && (
+                      <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                        Showing <span className="font-bold text-purple-600">{filteredHistoryRows.length}</span> of <span className="font-bold text-slate-700">{historyRows.length}</span> records
+                      </div>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex flex-wrap items-center justify-between gap-4">

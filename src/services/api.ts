@@ -483,6 +483,13 @@ class ApiClient {
     }, userId);
   }
 
+  async bulkDeleteOrdersAsAdmin(orderIds: string[], userId: string, restoreStock: boolean = false) {
+    return this.request<any>(`/orders/admin/bulk/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ orderIds, restoreStock }),
+    }, userId);
+  }
+
   async getPendingOrders(userId: string) {
     return this.request<any>(`/orders/pending/list`, {}, userId);
   }
