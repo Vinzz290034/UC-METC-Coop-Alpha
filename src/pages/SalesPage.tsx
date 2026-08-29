@@ -6897,19 +6897,25 @@ export const SalesPage: React.FC = () => {
 
                             const normalizeStr = (text: any) => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
-                            const isSummaryOrTotalRow = (rowCells: any[]) => {
-                              const totalKeywords = [
-                                'total', 'grand total', 'sub total', 'sub-total', 'subtotal',
-                                'daily total', 'monthly total', 'overall total', 'sum',
-                                'remittance', 'net amount', 'cash on hand', 'cash count',
-                                'breakdown', 'denominations', 'over / short', 'over/short',
-                                'prepared by', 'approved by', 'checked by', 'received by', 'audited by'
-                              ];
-                              return rowCells.some(cell => {
-                                const s = normalizeStr(cell);
-                                if (!s) return false;
-                                return totalKeywords.some(kw => s === kw || s.startsWith(kw + ' ') || s.endsWith(' ' + kw) || s.includes(kw));
-                              });
+                            const isSummaryOrTotalRow = (rowCells: any[], rawClient: string, colItemVal: string, colAmountVal: string) => {
+                              const cA = normalizeStr(rowCells[0] || '');
+                              const cB = normalizeStr(rowCells[1] || '');
+                              const client = normalizeStr(rawClient);
+                              const item = normalizeStr(colItemVal);
+                              const amt = parseFloat(String(colAmountVal).replace(/[^0-9.-]/g, '')) || 0;
+
+                              // Explicit summary label in Date, TR, Client, or Item column
+                              const isExplicitTotal = (s: string) => /^(total|grand\s*total|sub\s*total|subtotal|daily\s*total|monthly\s*total|overall\s*total|overall|remittance|cash\s*on\s*hand|cash\s*count|summary)$/i.test(s.trim());
+                              if (isExplicitTotal(client) || isExplicitTotal(item) || isExplicitTotal(cA) || isExplicitTotal(cB)) {
+                                return true;
+                              }
+
+                              // Row has amount, but NO TR, NO Client Name, and NO Item Name (bottom total row)
+                              if (amt > 0 && !cB && !client && !item) {
+                                return true;
+                              }
+
+                              return false;
                             };
 
                             sheetsToParse.forEach(sheetName => {
@@ -7112,11 +7118,6 @@ export const SalesPage: React.FC = () => {
                                 const row = rows[r];
                                 if (!row || row.length === 0) continue;
 
-                                // Filter out any summary/total rows (e.g. Grand Total, Daily Total, Balance, etc.)
-                                if (isSummaryOrTotalRow(row)) {
-                                  continue;
-                                }
-
                                 const colA = colDate !== -1 ? String(row[colDate] || '').replace(/\s+/g, ' ').trim() : '';
                                 const colB = colTrNo !== -1 ? String(row[colTrNo] || '').replace(/\s+/g, ' ').trim() : '';
                                 
@@ -7151,16 +7152,17 @@ export const SalesPage: React.FC = () => {
                                 const colGCashVal = colGCash !== -1 ? String(row[colGCash] || '').trim() : '';
                                 const colIdVal = colIdNo !== -1 ? String(row[colIdNo] || '').trim() : '';
 
+                                // Filter out any summary/total rows (e.g. Grand Total, Daily Total, Balance, etc.)
+                                if (isSummaryOrTotalRow(row, rawClientName, colE, colH)) {
+                                  continue;
+                                }
+
                                 const normColA = normalizeStr(colA);
                                 const normColB = normalizeStr(colB);
                                 const normClient = normalizeStr(rawClientName);
                                 const normItem = normalizeStr(colE);
 
-                                if (normColA === 'date' || normColB.includes('tr no') || normColB.includes('tr #') || normClient === 'client' || normClient === 'name' || normClient === 'student') {
-                                  continue;
-                                }
-
-                                if (normClient === 'total' || normItem === 'total' || normColA === 'total' || normColB === 'total') {
+                                if (normColA === 'date' || normColB.includes('tr no') || normColB.includes('tr #') || normClient === 'client' || normClient === 'student') {
                                   continue;
                                 }
 
@@ -7196,7 +7198,13 @@ export const SalesPage: React.FC = () => {
                                   if (isClientServiceOrItem || colB) {
                                     effectiveItemName = rawClientName;
                                     effectiveClientName = 'Walk-in Student';
+                                  } else {
+                                    effectiveItemName = 'General Merchandise';
                                   }
+                                }
+
+                                if (!effectiveItemName && colB && colH) {
+                                  effectiveItemName = 'General Merchandise';
                                 }
 
                                 if (!effectiveItemName || !colH) {
@@ -7217,11 +7225,11 @@ export const SalesPage: React.FC = () => {
                                 const course = colD || (trNo ? '' : (currentTransaction ? currentTransaction.walkInCourse : '')) || '';
                                 const idNumber = colIdVal || (trNo ? '' : (currentTransaction ? currentTransaction.walkInIdNumber : '')) || undefined;
                                 const itemName = effectiveItemName;
-                                const qnty = parseInt(colF) || 1;
+                                const qnty = parseInt(String(colF).replace(/[^0-9]/g, '')) || 1;
                                 const size = colG;
-                                const amountVal = parseFloat(colH.replace(/,/g, '')) || 0;
+                                const amountVal = parseFloat(String(colH).replace(/[^0-9.-]/g, '')) || 0;
 
-                                if (amountVal <= 0) continue;
+                                if (amountVal <= 0 && !trNo && !effectiveItemName) continue;
 
                                 // Payment Method & GCash Ref Detection
                                 let rowPaymentMethod = importSettings.defaultPaymentMethod || 'cash';
@@ -7281,7 +7289,13 @@ export const SalesPage: React.FC = () => {
                                   seenInBatch.add(receiptIdStr.toUpperCase());
                                 }
 
-                                if (trNo) {
+                                const isContinuationOfCurrent = currentTransaction && (
+                                  !rawClientName ||
+                                  normalizeStr(rawClientName) === normalizeStr(currentTransaction.walkInName) ||
+                                  currentTransaction.walkInName === 'Walk-in Student'
+                                );
+
+                                if (trNo || !isContinuationOfCurrent) {
                                   if (currentTransaction) {
                                     allParsed.push(currentTransaction);
                                     sheetTransactionsCount++;
