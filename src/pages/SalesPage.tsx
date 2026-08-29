@@ -7555,36 +7555,58 @@ export const SalesPage: React.FC = () => {
                                   receiptIdStr = `TR-WALKIN-${dateKey}-${cleanClientKey}-${Math.round(amountVal)}-R${r + 1}`;
                                 }
 
-                                const isDuplicate = Boolean(
-                                  existingReceiptNoSet.has(receiptIdStr.toUpperCase()) ||
-                                  (cleanTr && (existingReceiptNoSet.has(cleanTr.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-2026`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-${sheetName.toUpperCase()}-2026`))) ||
-                                  seenInBatch.has(receiptIdStr.toUpperCase()) ||
-                                  (cleanTr && seenInBatch.has(cleanTr.toUpperCase()))
+                                const isContinuationOfCurrent = Boolean(
+                                  currentTransaction && (
+                                    // 1. Explicit same TR number repeated on multiple rows for same student/order (e.g. TR 8 on row 1 and TR 8 on row 2)
+                                    (cleanTr && currentTransaction.rawTr && cleanTr.toUpperCase() === currentTransaction.rawTr.toUpperCase()) ||
+                                    // 2. Multi-item row where TR is blank and customer matches (or customer is blank)
+                                    (!trNo && (!rawClientName || normalizeStr(rawClientName) === normalizeStr(currentTransaction.walkInName) || currentTransaction.walkInName === 'Walk-in Student')) ||
+                                    // 3. Customer matches and previous row had blank TR but this row provides the TR number
+                                    (cleanTr && !currentTransaction.rawTr && rawClientName && normalizeStr(rawClientName) === normalizeStr(currentTransaction.walkInName))
+                                  )
                                 );
 
-                                if (cleanTr) {
-                                  seenInBatch.add(cleanTr.toUpperCase());
-                                  seenInBatch.add(`TR-${cleanTr}`.toUpperCase());
-                                  seenInBatch.add(`TR-${cleanTr}-2026`.toUpperCase());
-                                }
-                                if (receiptIdStr) {
-                                  seenInBatch.add(receiptIdStr.toUpperCase());
-                                }
-
-                                const isContinuationOfCurrent = currentTransaction && (
-                                  !rawClientName ||
-                                  normalizeStr(rawClientName) === normalizeStr(currentTransaction.walkInName) ||
-                                  currentTransaction.walkInName === 'Walk-in Student'
-                                );
-
-                                if (trNo || !isContinuationOfCurrent) {
+                                if (isContinuationOfCurrent && currentTransaction) {
+                                  currentTransaction.items.push(item);
+                                  currentTransaction.totalAmount += amountVal;
+                                  if (rowPaymentMethod === 'ewallet') {
+                                    currentTransaction.paymentMethod = 'ewallet';
+                                    if (rowReferenceNumber) {
+                                      currentTransaction.referenceNumber = rowReferenceNumber;
+                                    }
+                                  }
+                                  // If previous row had a temporary walk-in ID but this continuation row provides the explicit TR number
+                                  if (cleanTr && !currentTransaction.rawTr) {
+                                    currentTransaction.rawTr = cleanTr;
+                                    currentTransaction.receiptNo = `TR-${cleanTr}-2026`;
+                                    seenInBatch.add(`TR-${cleanTr}`.toUpperCase());
+                                    seenInBatch.add(`TR-${cleanTr}-2026`.toUpperCase());
+                                  }
+                                } else {
                                   if (currentTransaction) {
                                     allParsed.push(currentTransaction);
                                     sheetTransactionsCount++;
                                   }
 
+                                  const isDuplicate = Boolean(
+                                    existingReceiptNoSet.has(receiptIdStr.toUpperCase()) ||
+                                    (cleanTr && (existingReceiptNoSet.has(cleanTr.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-2026`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-${sheetName.toUpperCase()}-2026`))) ||
+                                    seenInBatch.has(receiptIdStr.toUpperCase()) ||
+                                    (cleanTr && seenInBatch.has(cleanTr.toUpperCase()))
+                                  );
+
+                                  if (cleanTr) {
+                                    seenInBatch.add(cleanTr.toUpperCase());
+                                    seenInBatch.add(`TR-${cleanTr}`.toUpperCase());
+                                    seenInBatch.add(`TR-${cleanTr}-2026`.toUpperCase());
+                                  }
+                                  if (receiptIdStr) {
+                                    seenInBatch.add(receiptIdStr.toUpperCase());
+                                  }
+
                                   currentTransaction = {
                                     isWalkIn: true,
+                                    rawTr: cleanTr || undefined,
                                     walkInName: clientName,
                                     walkInIdNumber: idNumber || undefined,
                                     walkInCourse: course,
@@ -7600,35 +7622,6 @@ export const SalesPage: React.FC = () => {
                                     isDuplicate,
                                     sheetName
                                   };
-                                } else {
-                                  if (currentTransaction) {
-                                    currentTransaction.items.push(item);
-                                    currentTransaction.totalAmount += amountVal;
-                                    if (rowPaymentMethod === 'ewallet') {
-                                      currentTransaction.paymentMethod = 'ewallet';
-                                      if (rowReferenceNumber) {
-                                        currentTransaction.referenceNumber = rowReferenceNumber;
-                                      }
-                                    }
-                                  } else {
-                                    currentTransaction = {
-                                      isWalkIn: true,
-                                      walkInName: clientName,
-                                      walkInIdNumber: idNumber || undefined,
-                                      walkInCourse: course,
-                                      walkInMembershipStatus: 'none',
-                                      items: [item],
-                                      totalAmount: amountVal,
-                                      paymentMethod: rowPaymentMethod,
-                                      referenceNumber: rowReferenceNumber,
-                                      receiptNo: receiptIdStr,
-                                      status: 'completed',
-                                      createdAt: dateObj.toISOString(),
-                                      completedAt: dateObj.toISOString(),
-                                      isDuplicate,
-                                      sheetName
-                                    };
-                                  }
                                 }
                               }
 
