@@ -915,6 +915,86 @@ export const SalesPage: React.FC = () => {
     skipDuplicates: true
   });
   const [isSheetDropdownOpen, setIsSheetDropdownOpen] = useState(false);
+  const [previewSelectedDate, setPreviewSelectedDate] = useState<string>('all');
+  const [previewSearchQuery, setPreviewSearchQuery] = useState<string>('');
+
+  const uniquePreviewDates = useMemo(() => {
+    const dateMap = new Map<string, { dateKey: string; label: string; count: number; total: number }>();
+    parsedTransactions.forEach(t => {
+      const d = new Date(t.createdAt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateKey = `${y}-${m}-${day}`;
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const existing = dateMap.get(dateKey);
+      if (existing) {
+        existing.count += 1;
+        existing.total += t.totalAmount;
+      } else {
+        dateMap.set(dateKey, { dateKey, label, count: 1, total: t.totalAmount });
+      }
+    });
+    return Array.from(dateMap.values()).sort((a, b) => a.dateKey.localeCompare(b.dateKey));
+  }, [parsedTransactions]);
+
+  const keepOnlyDateInPreview = (targetDateKey: string) => {
+    const countBefore = parsedTransactions.length;
+    const target = uniquePreviewDates.find(d => d.dateKey === targetDateKey);
+    setParsedTransactions(prev => prev.filter(t => {
+      const d = new Date(t.createdAt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const k = `${y}-${m}-${day}`;
+      return k === targetDateKey;
+    }));
+    setPreviewSelectedDate('all');
+    showNotification(`Kept only ${target?.label || targetDateKey} (${target?.count || 0} orders). Removed ${countBefore - (target?.count || 0)} orders from preview.`, 'success');
+  };
+
+  const removeDateFromPreview = (targetDateKey: string) => {
+    const target = uniquePreviewDates.find(d => d.dateKey === targetDateKey);
+    setParsedTransactions(prev => prev.filter(t => {
+      const d = new Date(t.createdAt);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const k = `${y}-${m}-${day}`;
+      return k !== targetDateKey;
+    }));
+    setPreviewSelectedDate('all');
+    showNotification(`Removed all ${target?.count || 0} orders for ${target?.label || targetDateKey} from preview`, 'info');
+  };
+
+  const removeAllDuplicatesFromPreview = () => {
+    const count = parsedTransactions.filter(t => t.isDuplicate).length;
+    setParsedTransactions(prev => prev.filter(t => !t.isDuplicate));
+    showNotification(`Removed ${count} duplicate transactions from preview`, 'info');
+  };
+
+  const filteredPreviewTransactions = useMemo(() => {
+    return parsedTransactions.filter(t => {
+      if (previewSelectedDate !== 'all') {
+        const d = new Date(t.createdAt);
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        const k = `${y}-${m}-${day}`;
+        if (k !== previewSelectedDate) return false;
+      }
+      if (previewSearchQuery.trim()) {
+        const q = previewSearchQuery.toLowerCase().trim();
+        const matchName = String(t.walkInName || '').toLowerCase().includes(q);
+        const matchTr = String(t.receiptNo || '').toLowerCase().includes(q);
+        const matchCourse = String(t.walkInCourse || '').toLowerCase().includes(q);
+        const matchItem = (t.items || []).some((it: any) => String(it.productName || '').toLowerCase().includes(q));
+        if (!matchName && !matchTr && !matchCourse && !matchItem) return false;
+      }
+      return true;
+    });
+  }, [parsedTransactions, previewSelectedDate, previewSearchQuery]);
+
 
   // Load users for excel imports
   useEffect(() => {
@@ -7410,18 +7490,112 @@ export const SalesPage: React.FC = () => {
                   </div>
                 )}
 
-                {/* Preview Table */}
+                {/* Preview Table with Filtering Toolbar */}
                 {parsedTransactions.length > 0 && (
                   <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <p className="text-xs font-bold text-slate-600 uppercase tracking-wider">Transactions Preview</p>
-                      <div className="text-xs text-slate-500 font-medium">
-                        Total Amount: <span className="font-bold text-slate-900">₱{parsedTransactions.reduce((sum, t) => sum + t.totalAmount, 0).toLocaleString()}</span>
+                    {/* Filter & Batch Actions Toolbar */}
+                    <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-3 shadow-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        {/* Date Filter Selector & Actions */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-purple-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                            <span>Filter Date:</span>
+                          </div>
+
+                          <select
+                            value={previewSelectedDate}
+                            onChange={(e) => setPreviewSelectedDate(e.target.value)}
+                            className="text-xs font-semibold px-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 focus:ring-2 focus:ring-purple-500 focus:outline-none shadow-xs cursor-pointer"
+                          >
+                            <option value="all">All Dates ({uniquePreviewDates.length} days, {parsedTransactions.length} txns)</option>
+                            {uniquePreviewDates.map(d => (
+                              <option key={d.dateKey} value={d.dateKey}>
+                                {d.label} ({d.count} orders — ₱{d.total.toLocaleString()})
+                              </option>
+                            ))}
+                          </select>
+
+                          {previewSelectedDate !== 'all' && (
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => keepOnlyDateInPreview(previewSelectedDate)}
+                                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-xs active:scale-95 flex items-center gap-1.5"
+                                title="Delete all other dates from preview and keep only this day's records"
+                              >
+                                <span>Keep Only {uniquePreviewDates.find(d => d.dateKey === previewSelectedDate)?.label}</span>
+                                <span className="bg-purple-800 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                                  {uniquePreviewDates.find(d => d.dateKey === previewSelectedDate)?.count}
+                                </span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => removeDateFromPreview(previewSelectedDate)}
+                                className="px-2.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg text-xs font-semibold transition-all active:scale-95 flex items-center gap-1"
+                                title="Delete this selected date's records from preview"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                                <span>Remove This Date</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Global Batch Controls */}
+                        <div className="flex flex-wrap items-center gap-2">
+                          {parsedTransactions.some(t => t.isDuplicate) && (
+                            <button
+                              type="button"
+                              onClick={removeAllDuplicatesFromPreview}
+                              className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 rounded-lg text-xs font-semibold transition-all active:scale-95 flex items-center gap-1"
+                              title="Remove all duplicate transactions from the preview"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="w-3 h-3 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+                              <span>Remove Duplicates ({parsedTransactions.filter(t => t.isDuplicate).length})</span>
+                            </button>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setParsedTransactions([]);
+                              setPreviewSelectedDate('all');
+                              setPreviewSearchQuery('');
+                            }}
+                            className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-semibold transition-all active:scale-95"
+                            title="Clear all preview transactions"
+                          >
+                            Clear All
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Quick Search & Summary Stats */}
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200/80">
+                        <div className="relative flex-1 min-w-[200px] max-w-xs">
+                          <input
+                            type="text"
+                            placeholder="Search student, receipt, course, item..."
+                            value={previewSearchQuery}
+                            onChange={(e) => setPreviewSearchQuery(e.target.value)}
+                            className="w-full text-xs pl-7 pr-3 py-1.5 bg-white border border-slate-300 rounded-lg text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                          />
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        </div>
+
+                        <div className="text-xs text-slate-500 font-medium">
+                          Showing <span className="font-bold text-slate-900">{filteredPreviewTransactions.length}</span> of <span className="font-bold text-slate-900">{parsedTransactions.length}</span> records
+                          {' • '}
+                          Total: <span className="font-bold text-purple-700">₱{filteredPreviewTransactions.reduce((sum, t) => sum + t.totalAmount, 0).toLocaleString()}</span>
+                        </div>
                       </div>
                     </div>
+
+                    {/* Preview Table */}
                     <div className="border border-slate-200 rounded-xl overflow-hidden shadow-sm max-h-[280px] overflow-y-auto">
                       <table className="w-full text-xs text-left">
-                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-sm border-b border-slate-200">
+                        <thead className="bg-slate-100 text-slate-700 font-bold sticky top-0 z-10 shadow-xs border-b border-slate-200">
                           <tr className="bg-slate-100">
                             <th className="px-4 py-2.5 bg-slate-100">Receipt No</th>
                             <th className="px-4 py-2.5 bg-slate-100">Date</th>
@@ -7434,64 +7608,72 @@ export const SalesPage: React.FC = () => {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                          {parsedTransactions.map((t, idx) => (
-                            <tr key={idx} className={`hover:bg-slate-50 transition-colors ${t.isDuplicate && importSettings.skipDuplicates ? 'opacity-60' : ''}`}>
-                              <td className="px-4 py-2 font-mono font-semibold">{t.receiptNo}</td>
-                              <td className="px-4 py-2 text-slate-600">{new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
-                              <td className="px-4 py-2 font-medium">
-                                <div>{t.walkInName}</div>
-                                <div className="text-[10px] text-slate-500">{t.walkInCourse}</div>
-                              </td>
-                              <td className="px-4 py-2">
-                                <div className="space-y-0.5">
-                                  {t.items.map((it: any, iIdx: number) => (
-                                    <div key={iIdx} className="text-slate-700">
-                                      {it.productName} ({it.quantity}x)
-                                      {it.selectedOptions?.size && <span className="ml-1 text-[10px] bg-slate-100 px-1 py-0.2 rounded text-slate-600">{it.selectedOptions.size}</span>}
-                                      {it.paymentType === 'downpayment' && <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-semibold">Downpayment</span>}
-                                    </div>
-                                  ))}
-                                </div>
-                              </td>
-                              <td className="px-4 py-2 text-right font-bold text-slate-900">₱{t.totalAmount.toLocaleString()}</td>
-                              <td className="px-4 py-2 text-center">
-                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                  t.paymentMethod === 'ewallet' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {t.paymentMethod === 'ewallet' ? 'GCASH' : 'CASH'}
-                                </span>
-                                {t.paymentMethod === 'ewallet' && t.referenceNumber && (
-                                  <div className="text-[9px] text-slate-500 font-mono mt-0.5">Ref: {t.referenceNumber}</div>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                {t.isDuplicate ? (
-                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${importSettings.skipDuplicates ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
-                                    {importSettings.skipDuplicates ? 'Duplicate (Skip)' : 'Duplicate (Overwrite)'}
-                                  </span>
-                                ) : (
-                                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-800">
-                                    New Transaction
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-center">
-                                <button
-                                  title="Remove from import"
-                                  disabled={isImporting}
-                                  onClick={() => setParsedTransactions(prev => prev.filter((_, i) => i !== idx))}
-                                  className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-red-100 hover:border-red-300"
-                                >
-                                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
-                                    <polyline points="3 6 5 6 21 6"/>
-                                    <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-                                    <path d="M10 11v6M14 11v6"/>
-                                    <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
-                                  </svg>
-                                </button>
+                          {filteredPreviewTransactions.length === 0 ? (
+                            <tr>
+                              <td colSpan={8} className="px-4 py-8 text-center text-slate-400 font-medium">
+                                No records match the current filter or search criteria.
                               </td>
                             </tr>
-                          ))}
+                          ) : (
+                            filteredPreviewTransactions.map((t, idx) => (
+                              <tr key={t.receiptNo || idx} className={`hover:bg-slate-50 transition-colors ${t.isDuplicate && importSettings.skipDuplicates ? 'opacity-60' : ''}`}>
+                                <td className="px-4 py-2 font-mono font-semibold">{t.receiptNo}</td>
+                                <td className="px-4 py-2 text-slate-600">{new Date(t.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}</td>
+                                <td className="px-4 py-2 font-medium">
+                                  <div>{t.walkInName}</div>
+                                  <div className="text-[10px] text-slate-500">{t.walkInCourse}</div>
+                                </td>
+                                <td className="px-4 py-2">
+                                  <div className="space-y-0.5">
+                                    {t.items.map((it: any, iIdx: number) => (
+                                      <div key={iIdx} className="text-slate-700">
+                                        {it.productName} ({it.quantity}x)
+                                        {it.selectedOptions?.size && <span className="ml-1 text-[10px] bg-slate-100 px-1 py-0.2 rounded text-slate-600">{it.selectedOptions.size}</span>}
+                                        {it.paymentType === 'downpayment' && <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1 py-0.2 rounded font-semibold">Downpayment</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </td>
+                                <td className="px-4 py-2 text-right font-bold text-slate-900">₱{t.totalAmount.toLocaleString()}</td>
+                                <td className="px-4 py-2 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                    t.paymentMethod === 'ewallet' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    {t.paymentMethod === 'ewallet' ? 'GCASH' : 'CASH'}
+                                  </span>
+                                  {t.paymentMethod === 'ewallet' && t.referenceNumber && (
+                                    <div className="text-[9px] text-slate-500 font-mono mt-0.5">Ref: {t.referenceNumber}</div>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  {t.isDuplicate ? (
+                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold ${importSettings.skipDuplicates ? 'bg-amber-100 text-amber-800' : 'bg-red-100 text-red-800'}`}>
+                                      {importSettings.skipDuplicates ? 'Duplicate (Skip)' : 'Duplicate (Overwrite)'}
+                                    </span>
+                                  ) : (
+                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-100 text-green-800">
+                                      New Transaction
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2 text-center">
+                                  <button
+                                    title="Remove from import"
+                                    disabled={isImporting}
+                                    onClick={() => setParsedTransactions(prev => prev.filter(item => item !== t))}
+                                    className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed border border-red-100 hover:border-red-300"
+                                  >
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                                      <polyline points="3 6 5 6 21 6"/>
+                                      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+                                      <path d="M10 11v6M14 11v6"/>
+                                      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                                    </svg>
+                                  </button>
+                                </td>
+                              </tr>
+                            ))
+                          )}
                         </tbody>
                       </table>
                     </div>
@@ -7501,7 +7683,7 @@ export const SalesPage: React.FC = () => {
               </div>
 
               {/* Modal Footer */}
-              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-between">
+              <div className="p-6 border-t border-slate-200 bg-slate-50 flex justify-between items-center">
                 <button
                   disabled={isImporting}
                   onClick={() => {
@@ -7509,6 +7691,8 @@ export const SalesPage: React.FC = () => {
                     setImportFile(null);
                     setImportWorkbook(null);
                     setParsedTransactions([]);
+                    setPreviewSelectedDate('all');
+                    setPreviewSearchQuery('');
                   }}
                   className="px-4 py-2 border border-slate-300 text-slate-700 font-semibold rounded-lg text-sm hover:bg-slate-100 transition-colors disabled:opacity-50"
                 >
@@ -7518,9 +7702,9 @@ export const SalesPage: React.FC = () => {
                   <button
                     disabled={isImporting}
                     onClick={executeImport}
-                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition-colors text-sm disabled:opacity-50"
+                    className="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg shadow-md transition-colors text-sm disabled:opacity-50 flex items-center gap-2"
                   >
-                    {isImporting ? 'Executing Import...' : `Confirm & Save ${parsedTransactions.length} Transactions`}
+                    <span>{isImporting ? 'Executing Import...' : `Confirm & Save ${parsedTransactions.length} Transactions`}</span>
                   </button>
                 )}
               </div>
