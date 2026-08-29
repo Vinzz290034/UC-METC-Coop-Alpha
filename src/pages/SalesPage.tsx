@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, ArrowUpDown, Check, X, RotateCcw, SlidersHorizontal, Smartphone, CreditCard } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, X, RotateCcw, Smartphone, CreditCard } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -7,7 +7,6 @@ import { useUIStore } from '../store/uiStore';
 import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
-import { GCASH_URL } from '../constants/cloudinaryAssets';
 import * as XLSX from 'xlsx';
 
 interface SpreadsheetColumnHeaderProps {
@@ -997,7 +996,7 @@ export const SalesPage: React.FC = () => {
           for (let i = 0; i < Math.min(10, rows.length); i++) {
             const row = rows[i];
             if (!row) continue;
-            const cellValues = row.map(c => String(c || '').toLowerCase().trim());
+            const cellValues = row.map(c => String(c || '').replace(/\s+/g, ' ').toLowerCase().trim());
             const matchCount = salesHeaders.filter(h => cellValues.some(c => c.includes(h))).length;
             if (matchCount >= 3) {
               return { valid: true };
@@ -1010,10 +1009,12 @@ export const SalesPage: React.FC = () => {
           for (let i = 0; i < Math.min(20, rows.length); i++) {
             const row = rows[i];
             if (!row || row.length < 6) continue;
-            const colA = String(row[0] || '').trim();
-            const colB = String(row[1] || '').trim();
-            const colE = String(row[4] || '').trim() || String(row[5] || '').trim();
-            const colH = String(row[7] || '').trim() || String(row[8] || '').trim();
+            const colA = String(row[0] || '').replace(/\s+/g, ' ').trim();
+            const colB = String(row[1] || '').replace(/\s+/g, ' ').trim();
+            const colE = String(row[4] || '').replace(/\s+/g, ' ').trim() || String(row[5] || '').replace(/\s+/g, ' ').trim();
+            const colH = String(row[7] || '').replace(/\s+/g, ' ').trim() || String(row[8] || '').replace(/\s+/g, ' ').trim();
+            const isTotalRow = [colA, colB, colE].some(c => c.toLowerCase().includes('total') || c.toLowerCase().includes('summary'));
+            if (isTotalRow) continue;
             const hasDate = colA && (colA.includes('-') || colA.includes('/') || !isNaN(Number(colA)));
             const hasTrNo = colB && !isNaN(Number(colB)) && Number(colB) > 100;
             const hasItem = colE && colE.length > 2;
@@ -1059,71 +1060,74 @@ export const SalesPage: React.FC = () => {
 
   const parseDateForImport = (dateStr: string, sheetName: string): Date => {
     const defaultYear = 2026;
+    const months = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
     
-    // Helper to map month name to index (0-11)
     const getMonthIndex = (name: string): number => {
-      const lower = name.toLowerCase();
-      if (lower.includes('jan')) return 0;
-      if (lower.includes('feb')) return 1;
-      if (lower.includes('mar')) return 2;
-      if (lower.includes('apr')) return 3;
-      if (lower.includes('may')) return 4;
-      if (lower.includes('jun')) return 5;
-      if (lower.includes('jul')) return 6;
-      if (lower.includes('aug')) return 7;
-      if (lower.includes('sep')) return 8;
-      if (lower.includes('oct')) return 9;
-      if (lower.includes('nov')) return 10;
-      if (lower.includes('dec')) return 11;
-      return 0; // fallback
+      const lower = (name || '').toLowerCase();
+      const idx = months.findIndex(m => lower.includes(m));
+      return idx !== -1 ? idx : 0;
     };
 
     let targetMonth = getMonthIndex(sheetName);
     let targetDay = 1;
     let targetYear = defaultYear;
 
-    const trimmed = dateStr.trim();
+    const trimmed = (dateStr || '').replace(/\s+/g, ' ').trim();
     if (trimmed) {
-      // Check if it's an Excel serial number (a number above 40000)
       const num = Number(trimmed);
       if (!isNaN(num) && num > 40000) {
+        // Excel serial date number
         const date = new Date((num - 25569) * 86400 * 1000);
-        date.setFullYear(defaultYear);
-        return date;
+        return new Date(defaultYear, date.getUTCMonth(), date.getUTCDate(), 12, 0, 0);
       }
 
-      // Check if it's just a day number (e.g. "12")
       if (!isNaN(num) && num >= 1 && num <= 31) {
         targetDay = Math.floor(num);
       } else {
-        // Try parsing string like "5-Jan" or "5-Jan-2026" or "Jan 5"
-        const parsed = Date.parse(trimmed);
-        if (!isNaN(parsed)) {
-          const date = new Date(parsed);
-          date.setFullYear(defaultYear);
-          return date;
-        }
-        
-        // Custom parsing for formats like "2-Jan" or "Jan-2"
-        const parts = trimmed.split(/[-/,\s]+/);
-        if (parts.length >= 2) {
-          const part0Num = Number(parts[0]);
-          if (!isNaN(part0Num)) {
-            targetDay = part0Num;
-            targetMonth = getMonthIndex(parts[1]);
+        if (/^\d{4}-\d{1,2}-\d{1,2}$/.test(trimmed)) {
+          const [y, m, d] = trimmed.split('-').map(Number);
+          targetYear = y || defaultYear;
+          targetMonth = (m || 1) - 1;
+          targetDay = d || 1;
+        } else if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}$/.test(trimmed)) {
+          const parts = trimmed.split(/[/-]/).map(Number);
+          if (parts[2] > 31) {
+            targetYear = parts[2] < 100 ? 2000 + parts[2] : parts[2];
+            targetMonth = (parts[0] <= 12 && parts[1] > 12) ? parts[0] - 1 : (parts[1] <= 12 ? parts[1] - 1 : parts[0] - 1);
+            targetDay = (parts[0] <= 12 && parts[1] > 12) ? parts[1] : (parts[1] <= 12 ? parts[0] : parts[1]);
+          }
+        } else {
+          const monthMatchIdx = months.findIndex(m => trimmed.toLowerCase().includes(m));
+          if (monthMatchIdx !== -1) {
+            targetMonth = monthMatchIdx;
+            const dayMatch = trimmed.match(/\b([1-9]|[12]\d|3[01])\b/);
+            if (dayMatch) {
+              targetDay = parseInt(dayMatch[1], 10);
+            }
+            const yearMatch = trimmed.match(/\b(20\d\d)\b/);
+            if (yearMatch) {
+              targetYear = parseInt(yearMatch[1], 10);
+            }
           } else {
-            targetMonth = getMonthIndex(parts[0]);
-            const part1Num = Number(parts[1]);
-            if (!isNaN(part1Num)) {
-              targetDay = part1Num;
+            const parts = trimmed.split(/[-/,\s]+/);
+            if (parts.length >= 2) {
+              const p0 = Number(parts[0]);
+              const p1 = Number(parts[1]);
+              if (!isNaN(p0) && p0 >= 1 && p0 <= 31) {
+                targetDay = p0;
+                if (!isNaN(p1) && p1 >= 1 && p1 <= 12) targetMonth = p1 - 1;
+                else targetMonth = getMonthIndex(parts[1]);
+              } else if (!isNaN(p1) && p1 >= 1 && p1 <= 31) {
+                targetDay = p1;
+                targetMonth = getMonthIndex(parts[0]);
+              }
             }
           }
         }
       }
     }
 
-    const res = new Date(targetYear, targetMonth, targetDay, 12, 0, 0); // set to noon to avoid timezone shifts
-    return res;
+    return new Date(targetYear, targetMonth, targetDay, 12, 0, 0);
   };
 
   const mapSpreadsheetItemToProductForImport = (
@@ -4003,8 +4007,9 @@ export const SalesPage: React.FC = () => {
                       return `${year}-${month}-${day}`;
                     })()}
                     onChange={(e) => {
-                      const newDate = new Date(e.target.value);
-                      newDate.setHours(0, 0, 0, 0);
+                      if (!e.target.value) return;
+                      const [y, m, d] = e.target.value.split('-').map(Number);
+                      const newDate = new Date(y, m - 1, d, 0, 0, 0);
                       setSelectedDate(newDate);
                     }}
                     className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium"
@@ -5064,7 +5069,6 @@ export const SalesPage: React.FC = () => {
                                   <p className="text-xs text-slate-600 mb-1">Total Paid:</p>
                                   <p className="text-lg font-bold text-green-600 mb-1">
                                     ₱{downpaymentItems.reduce((sum: number, item: any) => {
-                                      const paidAmount = parseFloat(item.subtotal || 0);
                                       let fullPrice = item.fullPrice || item.full_price;
                                       
                                       if (!fullPrice) {
@@ -6682,10 +6686,39 @@ export const SalesPage: React.FC = () => {
                             logs.push('Fetching existing transactions for duplicate detection...');
                             setImportLogs([...logs]);
                             const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
-                            const existingReceiptNoSet = new Set(
-                              allOrders.map(o => String(o.receipt_no || o.receiptNo || '').toUpperCase().trim())
-                            );
+                            const existingReceiptNoSet = new Set<string>();
+                            allOrders.forEach((o: any) => {
+                              const r = String(o.receipt_no || o.receiptNo || '').toUpperCase().trim();
+                              if (r) {
+                                existingReceiptNoSet.add(r);
+                                const trMatch = r.match(/TR-?(\d+)/i);
+                                if (trMatch && trMatch[1]) {
+                                  existingReceiptNoSet.add(trMatch[1].toUpperCase());
+                                  existingReceiptNoSet.add(`TR-${trMatch[1]}`.toUpperCase());
+                                  existingReceiptNoSet.add(`TR-${trMatch[1]}-2026`.toUpperCase());
+                                }
+                              }
+                            });
                             
+                            const seenInBatch = new Set<string>();
+
+                            const normalizeStr = (text: any) => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+                            const isSummaryOrTotalRow = (rowCells: any[]) => {
+                              const totalKeywords = [
+                                'total', 'grand total', 'sub total', 'sub-total', 'subtotal',
+                                'daily total', 'monthly total', 'overall total', 'sum',
+                                'remittance', 'net amount', 'cash on hand', 'cash count',
+                                'breakdown', 'denominations', 'over / short', 'over/short',
+                                'prepared by', 'approved by', 'checked by', 'received by', 'audited by'
+                              ];
+                              return rowCells.some(cell => {
+                                const s = normalizeStr(cell);
+                                if (!s) return false;
+                                return totalKeywords.some(kw => s === kw || s.startsWith(kw + ' ') || s.endsWith(' ' + kw) || s.includes(kw));
+                              });
+                            };
+
                             sheetsToParse.forEach(sheetName => {
                               const sheet = importWorkbook.Sheets[sheetName];
                               if (!sheet) return;
@@ -6714,90 +6747,96 @@ export const SalesPage: React.FC = () => {
                               let colGCash = -1;
 
                               const isPaymentOrRefOrRemarks = (text: string) => {
+                                const t = normalizeStr(text);
                                 return (
-                                  text.includes('remark') ||
-                                  text.includes('note') ||
-                                  text.includes('comment') ||
-                                  text.includes('gcash') ||
-                                  text.includes('ref') ||
-                                  text.includes('reference') ||
-                                  text.includes('e-wallet') ||
-                                  text.includes('ewallet') ||
-                                  text.includes('payment') ||
-                                  text.includes('paid') ||
-                                  text.includes('balance') ||
-                                  text.includes('change')
+                                  t.includes('remark') ||
+                                  t.includes('note') ||
+                                  t.includes('comment') ||
+                                  t.includes('gcash') ||
+                                  t.includes('ref') ||
+                                  t.includes('reference') ||
+                                  t.includes('e-wallet') ||
+                                  t.includes('ewallet') ||
+                                  t.includes('payment') ||
+                                  t.includes('paid') ||
+                                  t.includes('balance') ||
+                                  t.includes('change')
                                 );
                               };
 
                               const isItemHeader = (text: string) => {
                                 if (isPaymentOrRefOrRemarks(text)) return false;
+                                const t = normalizeStr(text);
                                 return (
-                                  text.includes('item') ||
-                                  text.includes('product') ||
-                                  text.includes('particular') ||
-                                  text.includes('description') ||
-                                  text.includes('merchandise') ||
-                                  text.includes('article') ||
-                                  text === 'uniform' ||
-                                  text === 'uniform set' ||
-                                  text === 'orders' ||
-                                  text === 'order'
+                                  t.includes('item') ||
+                                  t.includes('product') ||
+                                  t.includes('particular') ||
+                                  t.includes('description') ||
+                                  t.includes('merchandise') ||
+                                  t.includes('article') ||
+                                  t === 'uniform' ||
+                                  t === 'uniform set' ||
+                                  t === 'orders' ||
+                                  t === 'order'
                                 );
                               };
 
                               const isIdHeader = (text: string) => {
+                                const t = normalizeStr(text);
                                 return (
-                                  text.includes('id no') ||
-                                  text.includes('id #') ||
-                                  text.includes('id num') ||
-                                  text.includes('student id') ||
-                                  text.includes('id_number') ||
-                                  text.includes('edp') ||
-                                  text.includes('school id') ||
-                                  text === 'id'
+                                  t.includes('id no') ||
+                                  t.includes('id #') ||
+                                  t.includes('id num') ||
+                                  t.includes('student id') ||
+                                  t.includes('id_number') ||
+                                  t.includes('edp') ||
+                                  t.includes('school id') ||
+                                  t === 'id'
                                 );
                               };
 
                               const isStaffOrOtherHeader = (text: string) => {
+                                const t = normalizeStr(text);
                                 return (
-                                  text.includes('instructor') ||
-                                  text.includes('teacher') ||
-                                  text.includes('prof') ||
-                                  text.includes('faculty') ||
-                                  text.includes('cashier') ||
-                                  text.includes('encoder') ||
-                                  text.includes('checker') ||
-                                  text.includes('prepared') ||
-                                  text.includes('signature')
+                                  t.includes('instructor') ||
+                                  t.includes('teacher') ||
+                                  t.includes('prof') ||
+                                  t.includes('faculty') ||
+                                  t.includes('cashier') ||
+                                  t.includes('encoder') ||
+                                  t.includes('checker') ||
+                                  t.includes('prepared') ||
+                                  t.includes('signature')
                                 );
                               };
 
                               const isCourseHeader = (text: string) => {
                                 if (isPaymentOrRefOrRemarks(text)) return false;
+                                const t = normalizeStr(text);
                                 return (
-                                  text.includes('course') ||
-                                  text.includes('program') ||
-                                  text.includes('dept') ||
-                                  text.includes('department') ||
-                                  text.includes('section') ||
-                                  text === 'yr' ||
-                                  text === 'year' ||
-                                  text === 'course/yr' ||
-                                  text === 'course/year' ||
-                                  text === 'course & year'
+                                  t.includes('course') ||
+                                  t.includes('program') ||
+                                  t.includes('dept') ||
+                                  t.includes('department') ||
+                                  t.includes('section') ||
+                                  t === 'yr' ||
+                                  t === 'year' ||
+                                  t === 'course/yr' ||
+                                  t === 'course/year' ||
+                                  t === 'course & year'
                                 );
                               };
 
                               const isAmountHeader = (text: string) => {
-                                if (text.includes('ref') || text.includes('gcash') || text.includes('number') || text.includes('no.')) return false;
+                                const t = normalizeStr(text);
+                                if (t.includes('ref') || t.includes('gcash') || t.includes('number') || t.includes('no.')) return false;
                                 return (
-                                  text.includes('amount') ||
-                                  text.includes('total') ||
-                                  text.includes('price') ||
-                                  text.includes('subtotal') ||
-                                  text.includes('cost') ||
-                                  text === 'amt'
+                                  t.includes('amount') ||
+                                  t.includes('total') ||
+                                  t.includes('price') ||
+                                  t.includes('subtotal') ||
+                                  t.includes('cost') ||
+                                  t === 'amt'
                                 );
                               };
 
@@ -6805,7 +6844,7 @@ export const SalesPage: React.FC = () => {
                               for (let i = 0; i < Math.min(15, rows.length); i++) {
                                 const r = rows[i];
                                 if (!r) continue;
-                                const cells = r.map(c => String(c || '').toLowerCase().trim());
+                                const cells = r.map(c => normalizeStr(c));
                                 const hasDate = cells.some(c => c.includes('date'));
                                 const hasTr = cells.some(c => c.includes('tr no') || c.includes('tr #') || c.includes('tr.') || c.includes('receipt') || c.includes('or no') || c.includes('or #') || c.includes('trans'));
                                 const hasClient = cells.some(c => 
@@ -6830,7 +6869,6 @@ export const SalesPage: React.FC = () => {
                                     } else if ((headerText.includes('last name') || headerText.includes('lastname') || headerText.includes('surname') || headerText.includes('family name')) && colLastName === -1) {
                                       colLastName = idx;
                                     } else if (isItemHeader(headerText) && colItem === -1) {
-                                      // First matching item column
                                       colItem = idx;
                                     } else if (isCourseHeader(headerText) && colCourse === -1) {
                                       colCourse = idx;
@@ -6881,8 +6919,13 @@ export const SalesPage: React.FC = () => {
                                 const row = rows[r];
                                 if (!row || row.length === 0) continue;
 
-                                const colA = colDate !== -1 ? String(row[colDate] || '').trim() : '';
-                                const colB = colTrNo !== -1 ? String(row[colTrNo] || '').trim() : '';
+                                // Filter out any summary/total rows (e.g. Grand Total, Daily Total, Balance, etc.)
+                                if (isSummaryOrTotalRow(row)) {
+                                  continue;
+                                }
+
+                                const colA = colDate !== -1 ? String(row[colDate] || '').replace(/\s+/g, ' ').trim() : '';
+                                const colB = colTrNo !== -1 ? String(row[colTrNo] || '').replace(/\s+/g, ' ').trim() : '';
                                 
                                 let rawClientName = '';
                                 if (colFirstName !== -1 && colLastName !== -1) {
@@ -6915,13 +6958,22 @@ export const SalesPage: React.FC = () => {
                                 const colGCashVal = colGCash !== -1 ? String(row[colGCash] || '').trim() : '';
                                 const colIdVal = colIdNo !== -1 ? String(row[colIdNo] || '').trim() : '';
 
-                                if (colA.toLowerCase() === 'date' || colB.toLowerCase() === 'tr no.' || colB.toLowerCase() === 'tr no' || rawClientName.toLowerCase() === 'client' || rawClientName.toLowerCase() === 'name') {
+                                const normColA = normalizeStr(colA);
+                                const normColB = normalizeStr(colB);
+                                const normClient = normalizeStr(rawClientName);
+                                const normItem = normalizeStr(colE);
+
+                                if (normColA === 'date' || normColB.includes('tr no') || normColB.includes('tr #') || normClient === 'client' || normClient === 'name' || normClient === 'student') {
+                                  continue;
+                                }
+
+                                if (normClient === 'total' || normItem === 'total' || normColA === 'total' || normColB === 'total') {
                                   continue;
                                 }
 
                                 if (rawClientName && !colE && !colH) {
                                   const hasMonthName = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']
-                                    .some(m => rawClientName.toLowerCase().includes(m));
+                                    .some(m => normClient.includes(m));
                                   if (hasMonthName) {
                                     currentHeaderDate = rawClientName;
                                     continue;
@@ -6936,7 +6988,7 @@ export const SalesPage: React.FC = () => {
                                 let effectiveClientName = rawClientName;
 
                                 // If Item column is blank but Client column actually holds a service/item (e.g. "Toga Rent", "Locker Rent")
-                                const clientLower = rawClientName.toLowerCase().trim();
+                                const clientLower = normClient;
                                 const isClientServiceOrItem = clientLower.includes('toga') ||
                                   clientLower.includes('locker') ||
                                   clientLower.includes('bonggo') ||
@@ -6962,7 +7014,7 @@ export const SalesPage: React.FC = () => {
                                 if (colA) {
                                   dateObj = parseDateForImport(colA, sheetName);
                                 } else if (currentHeaderDate) {
-                                  dateObj = new Date(currentHeaderDate);
+                                  dateObj = parseDateForImport(currentHeaderDate, sheetName);
                                 } else {
                                   dateObj = parseDateForImport('', sheetName);
                                 }
@@ -6975,6 +7027,8 @@ export const SalesPage: React.FC = () => {
                                 const qnty = parseInt(colF) || 1;
                                 const size = colG;
                                 const amountVal = parseFloat(colH.replace(/,/g, '')) || 0;
+
+                                if (amountVal <= 0) continue;
 
                                 // Payment Method & GCash Ref Detection
                                 let rowPaymentMethod = importSettings.defaultPaymentMethod || 'cash';
@@ -7008,8 +7062,31 @@ export const SalesPage: React.FC = () => {
                                   fullPrice: matched.fullPrice || undefined
                                 };
 
-                                const receiptIdStr = trNo ? `TR-${trNo}-${sheetName.toUpperCase()}-2026` : '';
-                                const isDuplicate = receiptIdStr ? existingReceiptNoSet.has(receiptIdStr.toUpperCase()) : false;
+                                const cleanTr = trNo ? String(trNo).trim().replace(/^TR\s*[-#.:]?\s*/i, '').replace(/[^a-zA-Z0-9-]/g, '') : '';
+                                let receiptIdStr = '';
+                                if (cleanTr) {
+                                  receiptIdStr = `TR-${cleanTr}-2026`;
+                                } else {
+                                  const dateKey = `${dateObj.getFullYear()}${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getDate()).padStart(2, '0')}`;
+                                  const cleanClientKey = (clientName || 'WALKIN').replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
+                                  receiptIdStr = `TR-WALKIN-${dateKey}-${cleanClientKey}-${Math.round(amountVal)}`;
+                                }
+
+                                const isDuplicate = Boolean(
+                                  existingReceiptNoSet.has(receiptIdStr.toUpperCase()) ||
+                                  (cleanTr && (existingReceiptNoSet.has(cleanTr.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-2026`.toUpperCase()) || existingReceiptNoSet.has(`TR-${cleanTr}-${sheetName.toUpperCase()}-2026`))) ||
+                                  seenInBatch.has(receiptIdStr.toUpperCase()) ||
+                                  (cleanTr && seenInBatch.has(cleanTr.toUpperCase()))
+                                );
+
+                                if (cleanTr) {
+                                  seenInBatch.add(cleanTr.toUpperCase());
+                                  seenInBatch.add(`TR-${cleanTr}`.toUpperCase());
+                                  seenInBatch.add(`TR-${cleanTr}-2026`.toUpperCase());
+                                }
+                                if (receiptIdStr) {
+                                  seenInBatch.add(receiptIdStr.toUpperCase());
+                                }
 
                                 if (trNo) {
                                   if (currentTransaction) {
@@ -7055,11 +7132,11 @@ export const SalesPage: React.FC = () => {
                                       totalAmount: amountVal,
                                       paymentMethod: rowPaymentMethod,
                                       referenceNumber: rowReferenceNumber,
-                                      receiptNo: `TR-TEMP-${Date.now()}-${sheetName.toUpperCase()}`,
+                                      receiptNo: receiptIdStr,
                                       status: 'completed',
                                       createdAt: dateObj.toISOString(),
                                       completedAt: dateObj.toISOString(),
-                                      isDuplicate: false,
+                                      isDuplicate,
                                       sheetName
                                     };
                                   }
