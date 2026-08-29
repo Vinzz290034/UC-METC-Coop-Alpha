@@ -239,7 +239,7 @@ export const ReportsPage: React.FC = () => {
     const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
     
     completedSales.forEach(sale => {
-      const raw = sale.created_at || sale.createdAt || sale.date;
+      const raw = sale.completed_at || sale.completedAt || sale.created_at || sale.createdAt || sale.date;
       if (!raw) return;
       const saleDate = new Date(raw);
       if (!isNaN(saleDate.getTime()) && saleDate.getFullYear() === currentYear) {
@@ -266,7 +266,7 @@ export const ReportsPage: React.FC = () => {
   } = useMemo(() => {
     const monthsMap: { [key: string]: string } = {};
     completedSales.forEach(s => {
-      const dateVal = s.created_at || s.createdAt || s.date;
+      const dateVal = s.completed_at || s.completedAt || s.created_at || s.createdAt || s.date;
       if (dateVal) {
         const d = new Date(dateVal);
         if (!isNaN(d.getTime())) {
@@ -280,7 +280,7 @@ export const ReportsPage: React.FC = () => {
 
     const selectedSales = completedSales.filter(s => {
       if (selectedSalesMonth === 'all') return true;
-      const dateVal = s.created_at || s.createdAt || s.date;
+      const dateVal = s.completed_at || s.completedAt || s.created_at || s.createdAt || s.date;
       if (!dateVal) return false;
       const d = new Date(dateVal);
       if (isNaN(d.getTime())) return false;

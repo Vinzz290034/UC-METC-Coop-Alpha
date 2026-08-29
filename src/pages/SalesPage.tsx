@@ -3527,191 +3527,215 @@ export const SalesPage: React.FC = () => {
 
           return (
             <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in"
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in overflow-y-auto"
               onClick={() => !isBulkDeleting && setShowBulkDeleteModal(false)}
             >
               <div
-                className="bg-white rounded-2xl shadow-2xl w-full max-w-lg animate-scale-in overflow-hidden border border-slate-100"
+                className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl animate-scale-in overflow-hidden border border-slate-100 my-auto"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Header */}
-                <div className="p-6 pb-3 flex flex-col items-center text-center">
-                  <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center text-red-600 mb-2 shadow-inner">
-                    <Trash2 size={28} />
+                {/* Landscape Header */}
+                <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center text-red-600 shadow-inner shrink-0">
+                      <Trash2 size={20} />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-slate-900 leading-tight">Clear Day's Records</h3>
+                      <p className="text-slate-500 text-xs mt-0.5">
+                        Target date: <span className="font-semibold text-purple-700">{dateLabel}</span>
+                      </p>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">Clear Day's Records</h3>
-                  <p className="text-slate-500 mt-0.5 text-xs">
-                    Target date: <span className="font-semibold text-purple-700">{dateLabel}</span>
-                  </p>
-                </div>
 
-                {/* Scope Selector Options */}
-                <div className="mx-6 mb-3 space-y-2">
-                  <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">Choose What to Delete:</span>
-
-                  {/* Option 1: Only Imported Excel Transactions */}
-                  {importedOrders.length > 0 && (
-                    <label
-                      onClick={() => setBulkDeleteScope('imported_only')}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                        bulkDeleteScope === 'imported_only'
-                          ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="deleteScope"
-                        checked={bulkDeleteScope === 'imported_only'}
-                        onChange={() => setBulkDeleteScope('imported_only')}
-                        className="mt-0.5 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900">Only Imported Transactions (TR-*)</span>
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
-                            {importedOrders.length} orders
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Safely deletes only records imported from Excel (TR-* receipts). Keeps real POS orders untouched.
-                        </p>
-                      </div>
-                    </label>
-                  )}
-
-                  {/* Option 2: Filtered Results (if search or filter active) */}
-                  {isFilterActive && (
-                    <label
-                      onClick={() => setBulkDeleteScope('filtered_only')}
-                      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                        bulkDeleteScope === 'filtered_only'
-                          ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
-                          : 'border-slate-200 bg-white hover:bg-slate-50'
-                      }`}
-                    >
-                      <input
-                        type="radio"
-                        name="deleteScope"
-                        checked={bulkDeleteScope === 'filtered_only'}
-                        onChange={() => setBulkDeleteScope('filtered_only')}
-                        className="mt-0.5 text-purple-600 focus:ring-purple-500"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs sm:text-sm font-bold text-slate-900">
-                            Currently Filtered Results {activeSearch ? `("${activeSearch}")` : ''}
-                          </span>
-                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
-                            {filteredOrders.length} orders
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Deletes only the {filteredOrders.length} orders currently matching your search and column filters.
-                        </p>
-                      </div>
-                    </label>
-                  )}
-
-                  {/* Option 3: All Records */}
-                  <label
-                    onClick={() => setBulkDeleteScope('all')}
-                    className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                      bulkDeleteScope === 'all'
-                        ? 'border-red-500 bg-red-50/70 ring-2 ring-red-500/20'
-                        : 'border-slate-200 bg-white hover:bg-slate-50'
-                    }`}
+                  <button
+                    disabled={isBulkDeleting}
+                    onClick={() => setShowBulkDeleteModal(false)}
+                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-slate-600 hover:bg-slate-200/60 transition-colors disabled:opacity-40"
                   >
-                    <input
-                      type="radio"
-                      name="deleteScope"
-                      checked={bulkDeleteScope === 'all'}
-                      onChange={() => setBulkDeleteScope('all')}
-                      className="mt-0.5 text-red-600 focus:ring-red-500"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs sm:text-sm font-bold text-slate-900">All Records for this Day</span>
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
-                          {targetOrders.length} orders
-                        </span>
+                    <X size={18} />
+                  </button>
+                </div>
+
+                {/* 2-Column Landscape Body */}
+                <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Left Column: Scope Selector */}
+                  <div className="space-y-2.5">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                      1. Choose What to Delete:
+                    </span>
+
+                    {/* Option 1: Only Imported Excel Transactions */}
+                    {importedOrders.length > 0 && (
+                      <label
+                        onClick={() => setBulkDeleteScope('imported_only')}
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                          bulkDeleteScope === 'imported_only'
+                            ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="deleteScope"
+                          checked={bulkDeleteScope === 'imported_only'}
+                          onChange={() => setBulkDeleteScope('imported_only')}
+                          className="mt-0.5 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm font-bold text-slate-900">Only Imported Transactions (TR-*)</span>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-purple-100 text-purple-800">
+                              {importedOrders.length} orders
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Safely removes only records imported from Excel (TR-* receipts). Keeps real POS orders untouched.
+                          </p>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Option 2: Filtered Results (if search or filter active) */}
+                    {isFilterActive && (
+                      <label
+                        onClick={() => setBulkDeleteScope('filtered_only')}
+                        className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                          bulkDeleteScope === 'filtered_only'
+                            ? 'border-purple-500 bg-purple-50/70 ring-2 ring-purple-500/20'
+                            : 'border-slate-200 bg-white hover:bg-slate-50'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="deleteScope"
+                          checked={bulkDeleteScope === 'filtered_only'}
+                          onChange={() => setBulkDeleteScope('filtered_only')}
+                          className="mt-0.5 text-purple-600 focus:ring-purple-500 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs sm:text-sm font-bold text-slate-900">
+                              Filtered Results {activeSearch ? `("${activeSearch}")` : ''}
+                            </span>
+                            <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                              {filteredOrders.length} orders
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-1">
+                            Deletes only the {filteredOrders.length} orders currently matching your search and column filters.
+                          </p>
+                        </div>
+                      </label>
+                    )}
+
+                    {/* Option 3: All Records */}
+                    <label
+                      onClick={() => setBulkDeleteScope('all')}
+                      className={`flex items-start gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${
+                        bulkDeleteScope === 'all'
+                          ? 'border-red-500 bg-red-50/70 ring-2 ring-red-500/20'
+                          : 'border-slate-200 bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="deleteScope"
+                        checked={bulkDeleteScope === 'all'}
+                        onChange={() => setBulkDeleteScope('all')}
+                        className="mt-0.5 text-red-600 focus:ring-red-500 cursor-pointer"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs sm:text-sm font-bold text-slate-900">All Records for this Day</span>
+                          <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">
+                            {targetOrders.length} orders
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">
+                          Permanently deletes all transactions recorded on this date.
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Permanently deletes all transactions recorded on this date.
-                      </p>
-                    </div>
-                  </label>
-                </div>
+                    </label>
+                  </div>
 
-                {/* Summary Info Cards */}
-                <div className="mx-6 mb-3 grid grid-cols-3 gap-2.5">
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Orders</span>
-                    <span className="text-base font-bold text-slate-800">{selectedOrders.length}</span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Line Items</span>
-                    <span className="text-base font-bold text-slate-800">{selectedRows.length}</span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
-                    <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Amount</span>
-                    <span className="text-base font-bold text-green-600">₱{totalRev.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
-                  </div>
-                </div>
+                  {/* Right Column: Impact Stats & Options */}
+                  <div className="space-y-3">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-wider block">
+                      2. Deletion Scope & Options:
+                    </span>
 
-                {/* Stock Restoration Option */}
-                <div className="mx-6 mb-3 p-3 bg-slate-50 border border-slate-200 rounded-xl transition-all">
-                  <label className="flex items-start gap-2.5 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={bulkRestoreInventoryStock}
-                      onChange={(e) => setBulkRestoreInventoryStock(e.target.checked)}
-                      className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-800 text-xs sm:text-sm">
-                          Restore inventory stock
-                        </span>
-                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          bulkRestoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
-                        }`}>
-                          {bulkRestoreInventoryStock ? 'Yes, restore' : 'Do not restore'}
-                        </span>
+                    {/* Summary Info Cards */}
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Orders</span>
+                        <span className="text-base font-bold text-slate-800">{selectedOrders.length}</span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        {bulkRestoreInventoryStock
-                          ? 'Item quantities will be added back into product inventory counts.'
-                          : 'Recommended for spreadsheet imports so physical store inventory is not artificially inflated.'}
-                      </p>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Line Items</span>
+                        <span className="text-base font-bold text-slate-800">{selectedRows.length}</span>
+                      </div>
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 text-center">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">Amount</span>
+                        <span className="text-base font-bold text-green-600">₱{totalRev.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}</span>
+                      </div>
                     </div>
-                  </label>
-                </div>
 
-                {/* Warning box */}
-                <div className="mx-6 p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-start gap-2">
-                  <span className="text-sm mt-0.5">⚠️</span>
-                  <div>
-                    <p className="font-bold">Permanent Deletion:</p>
-                    <p className="mt-0.5 leading-relaxed text-red-700 text-[11px]">
-                      This will permanently remove <strong>{selectedOrders.length}</strong> orders ({selectedRows.length} item records). You can cleanly re-import afterwards.
-                    </p>
+                    {/* Stock Restoration Option */}
+                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl transition-all">
+                      <label className="flex items-start gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={bulkRestoreInventoryStock}
+                          onChange={(e) => setBulkRestoreInventoryStock(e.target.checked)}
+                          className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-semibold text-slate-800 text-xs sm:text-sm">
+                              Restore inventory stock
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                              bulkRestoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
+                            }`}>
+                              {bulkRestoreInventoryStock ? 'Yes, restore' : 'Do not restore'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {bulkRestoreInventoryStock
+                              ? 'Item quantities will be added back into product inventory counts.'
+                              : 'Recommended for spreadsheet imports so physical store inventory is not artificially inflated.'}
+                          </p>
+                        </div>
+                      </label>
+                    </div>
+
+                    {/* Warning box */}
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-red-800 text-xs flex items-start gap-2">
+                      <span className="text-sm mt-0.5 shrink-0">⚠️</span>
+                      <div>
+                        <p className="font-bold">Permanent Deletion:</p>
+                        <p className="mt-0.5 leading-relaxed text-red-700 text-[11px]">
+                          This will permanently remove <strong>{selectedOrders.length}</strong> orders ({selectedRows.length} item records). You can cleanly re-import afterwards.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Actions Footer */}
-                <div className="p-6 pt-4 flex gap-3">
+                {/* Landscape Actions Footer */}
+                <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end gap-3">
                   <button
                     onClick={() => setShowBulkDeleteModal(false)}
                     disabled={isBulkDeleting}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50"
+                    className="py-2.5 px-5 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-semibold text-sm transition-all duration-200 active:scale-95 disabled:opacity-50 shadow-2xs"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleBulkDeleteDay}
                     disabled={isBulkDeleting || selectedOrders.length === 0}
-                    className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-semibold text-sm transition-all duration-200 active:scale-95 shadow-md shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="py-2.5 px-6 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm transition-all duration-200 active:scale-95 shadow-md shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isBulkDeleting ? (
                       <>
@@ -3720,7 +3744,7 @@ export const SalesPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Trash2 size={15} />
+                        <Trash2 size={16} />
                         Delete {selectedOrders.length} {bulkDeleteScope === 'imported_only' ? 'Imported' : bulkDeleteScope === 'filtered_only' ? 'Filtered' : 'Day'} Records
                       </>
                     )}
@@ -7528,7 +7552,7 @@ export const SalesPage: React.FC = () => {
                                 } else {
                                   const dateKey = `${dateObj.getFullYear()}${String(dateObj.getMonth() + 1).padStart(2, '0')}${String(dateObj.getDate()).padStart(2, '0')}`;
                                   const cleanClientKey = (clientName || 'WALKIN').replace(/[^a-zA-Z0-9]/g, '').substring(0, 10).toUpperCase();
-                                  receiptIdStr = `TR-WALKIN-${dateKey}-${cleanClientKey}-${Math.round(amountVal)}`;
+                                  receiptIdStr = `TR-WALKIN-${dateKey}-${cleanClientKey}-${Math.round(amountVal)}-R${r + 1}`;
                                 }
 
                                 const isDuplicate = Boolean(
