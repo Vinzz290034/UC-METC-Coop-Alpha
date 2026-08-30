@@ -1252,9 +1252,18 @@ export const ReportsPage: React.FC = () => {
                         const tooltipW = 160;
                         const tooltipH = 52;
                         const arrowH = 6;
+                        const dotGap = 8; // space between dot edge and tooltip
+
+                        // Flip below the dot if there isn't enough room above
+                        const spaceAbove = point.y - padding.top;
+                        const showBelow = spaceAbove < tooltipH + arrowH + dotGap;
+
                         const rawTx = point.x - tooltipW / 2;
                         const tx = Math.max(padding.left, Math.min(rawTx, chartWidth - padding.right - tooltipW));
-                        const ty = point.y - tooltipH - arrowH - 8;
+                        const ty = showBelow
+                          ? point.y + arrowH + dotGap          // tooltip below dot
+                          : point.y - tooltipH - arrowH - dotGap; // tooltip above dot
+
                         // Arrow tip always points at the dot's x center
                         const arrowTipX = Math.min(
                           Math.max(point.x - tx, 12),
@@ -1302,12 +1311,22 @@ export const ReportsPage: React.FC = () => {
                                   fill="#1e1b4b"
                                   opacity="0.93"
                                 />
-                                {/* Arrow */}
-                                <polygon
-                                  points={`${tx + arrowTipX - 7},${ty + tooltipH} ${tx + arrowTipX + 7},${ty + tooltipH} ${tx + arrowTipX},${ty + tooltipH + arrowH}`}
-                                  fill="#1e1b4b"
-                                  opacity="0.93"
-                                />
+                                {/* Arrow — points DOWN when above dot, UP when below dot */}
+                                {showBelow ? (
+                                  // Arrow pointing UP (tooltip is below the dot)
+                                  <polygon
+                                    points={`${tx + arrowTipX - 7},${ty} ${tx + arrowTipX + 7},${ty} ${tx + arrowTipX},${ty - arrowH}`}
+                                    fill="#1e1b4b"
+                                    opacity="0.93"
+                                  />
+                                ) : (
+                                  // Arrow pointing DOWN (tooltip is above the dot)
+                                  <polygon
+                                    points={`${tx + arrowTipX - 7},${ty + tooltipH} ${tx + arrowTipX + 7},${ty + tooltipH} ${tx + arrowTipX},${ty + tooltipH + arrowH}`}
+                                    fill="#1e1b4b"
+                                    opacity="0.93"
+                                  />
+                                )}
                                 {/* Month name */}
                                 <text
                                   x={tx + tooltipW / 2} y={ty + 18}
@@ -1335,6 +1354,7 @@ export const ReportsPage: React.FC = () => {
                           </g>
                         );
                       })}
+
 
 
                       <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
