@@ -221,9 +221,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const IDLE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-    const TAB_TIMEOUT = 5 * 60 * 1000;  // 5 minutes
-    
+    /** Read the user's current session-timeout preference from localStorage.
+     *  Mirrors the same keys used by useSessionTimeout.ts and SettingsPage.tsx. */
+    const isSessionTimeoutEnabled = (): boolean => {
+      const userKey = `silms_session_timeout_enabled_${user.id}`;
+      const perUser = localStorage.getItem(userKey);
+      const enabledStr = perUser !== null ? perUser : localStorage.getItem('silms_session_timeout_enabled');
+      // Default to true only when no preference has ever been saved
+      return enabledStr === null ? true : enabledStr === 'true';
+    };
+
+    const getTimeoutMs = (): number => {
+      const durationUserKey = `silms_session_timeout_duration_${user.id}`;
+      const durationMins = parseInt(
+        localStorage.getItem(durationUserKey) ||
+        localStorage.getItem('silms_session_timeout_duration') ||
+        '30',
+        10
+      );
+      return durationMins * 60 * 1000;
+    };
+
     let lastActivity = Date.now();
     let hiddenTimestamp: number | null = null;
 
@@ -239,7 +257,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check idle state every 10 seconds
     const idleCheckInterval = setInterval(() => {
-      if (Date.now() - lastActivity > IDLE_TIMEOUT) {
+      if (!isSessionTimeoutEnabled()) return; // respect user preference
+      if (Date.now() - lastActivity > getTimeoutMs()) {
         console.warn('[AUTH CONTEXT] User is idle. Triggering auto-logout...');
         logout();
         setShowForbiddenModal(true);
@@ -252,11 +271,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         hiddenTimestamp = Date.now();
       } else if (document.visibilityState === 'visible') {
         if (hiddenTimestamp) {
-          const durationAway = Date.now() - hiddenTimestamp;
-          if (durationAway > TAB_TIMEOUT) {
-            console.warn('[AUTH CONTEXT] Tab was hidden too long. Triggering auto-logout...');
-            logout();
-            setShowForbiddenModal(true);
+          if (isSessionTimeoutEnabled()) { // respect user preference
+            const durationAway = Date.now() - hiddenTimestamp;
+            if (durationAway > getTimeoutMs()) {
+              console.warn('[AUTH CONTEXT] Tab was hidden too long. Triggering auto-logout...');
+              logout();
+              setShowForbiddenModal(true);
+            }
           }
           hiddenTimestamp = null;
         }
