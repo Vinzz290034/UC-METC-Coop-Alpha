@@ -172,6 +172,7 @@ export const ReportsPage: React.FC = () => {
   const [salesPaymentTypeFilter, setSalesPaymentTypeFilter] = useState<'all' | 'full' | 'downpayment' | 'balance'>('all');
   const [monthlyLedgerPage, setMonthlyLedgerPage] = useState<number>(1);
   const [monthlyLedgerRowsPerPage, setMonthlyLedgerRowsPerPage] = useState<number>(10);
+  const [hoveredPoint, setHoveredPoint] = useState<number | null>(null);
 
   useEffect(() => {
     setMonthlyLedgerPage(1);
@@ -1245,15 +1246,96 @@ export const ReportsPage: React.FC = () => {
                       <path d={areaPath} fill="url(#areaGradient)" className="animate-fade-in" />
                       <path d={smoothPath} fill="none" stroke="url(#lineGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
 
-                      {points.map((point, index) => (
-                        <g key={`point-${index}`} className="cursor-pointer group">
-                          <circle cx={point.x} cy={point.y} r="12" fill="#8b5cf6" opacity="0" className="group-hover:opacity-20 transition-all duration-300" />
-                          <circle cx={point.x} cy={point.y} r="6" fill="white" stroke="#8b5cf6" strokeWidth="3" className="group-hover:r-8 transition-all duration-300" />
-                          <text x={point.x} y={chartHeight - padding.bottom + 25} textAnchor="middle" className="text-sm fill-slate-700 font-bold">
-                            {point.month}
-                          </text>
-                        </g>
-                      ))}
+                      {points.map((point, index) => {
+                        const isHovered = hoveredPoint === index;
+                        // Clamp tooltip so it never overflows left/right chart edges
+                        const tooltipW = 160;
+                        const tooltipH = 52;
+                        const arrowH = 6;
+                        const rawTx = point.x - tooltipW / 2;
+                        const tx = Math.max(padding.left, Math.min(rawTx, chartWidth - padding.right - tooltipW));
+                        const ty = point.y - tooltipH - arrowH - 8;
+                        // Arrow tip always points at the dot's x center
+                        const arrowTipX = Math.min(
+                          Math.max(point.x - tx, 12),
+                          tooltipW - 12
+                        );
+                        return (
+                          <g
+                            key={`point-${index}`}
+                            className="cursor-pointer group"
+                            onMouseEnter={() => setHoveredPoint(index)}
+                            onMouseLeave={() => setHoveredPoint(null)}
+                          >
+                            {/* Hover hit area */}
+                            <circle cx={point.x} cy={point.y} r="14" fill="transparent" />
+                            {/* Outer glow ring */}
+                            <circle
+                              cx={point.x} cy={point.y}
+                              r={isHovered ? 14 : 12}
+                              fill="#8b5cf6"
+                              opacity={isHovered ? 0.25 : 0}
+                              style={{ transition: 'all 0.2s' }}
+                            />
+                            {/* Main dot */}
+                            <circle
+                              cx={point.x} cy={point.y}
+                              r={isHovered ? 8 : 6}
+                              fill="white"
+                              stroke="#8b5cf6"
+                              strokeWidth="3"
+                              style={{ transition: 'all 0.2s' }}
+                            />
+                            {/* Month label */}
+                            <text x={point.x} y={chartHeight - padding.bottom + 25} textAnchor="middle" className="text-sm fill-slate-700 font-bold">
+                              {point.month}
+                            </text>
+
+                            {/* Tooltip */}
+                            {isHovered && (
+                              <g style={{ pointerEvents: 'none' }}>
+                                {/* Background rect */}
+                                <rect
+                                  x={tx} y={ty}
+                                  width={tooltipW} height={tooltipH}
+                                  rx="8" ry="8"
+                                  fill="#1e1b4b"
+                                  opacity="0.93"
+                                />
+                                {/* Arrow */}
+                                <polygon
+                                  points={`${tx + arrowTipX - 7},${ty + tooltipH} ${tx + arrowTipX + 7},${ty + tooltipH} ${tx + arrowTipX},${ty + tooltipH + arrowH}`}
+                                  fill="#1e1b4b"
+                                  opacity="0.93"
+                                />
+                                {/* Month name */}
+                                <text
+                                  x={tx + tooltipW / 2} y={ty + 18}
+                                  textAnchor="middle"
+                                  fill="#c4b5fd"
+                                  fontSize="11"
+                                  fontWeight="600"
+                                  style={{ fontFamily: 'inherit' }}
+                                >
+                                  {point.month} Revenue
+                                </text>
+                                {/* Revenue amount */}
+                                <text
+                                  x={tx + tooltipW / 2} y={ty + 38}
+                                  textAnchor="middle"
+                                  fill="#ffffff"
+                                  fontSize="14"
+                                  fontWeight="800"
+                                  style={{ fontFamily: 'inherit' }}
+                                >
+                                  ₱{point.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </text>
+                              </g>
+                            )}
+                          </g>
+                        );
+                      })}
+
 
                       <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
                       <line x1={padding.left} y1={chartHeight - padding.bottom} x2={chartWidth - padding.right} y2={chartHeight - padding.bottom} stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
