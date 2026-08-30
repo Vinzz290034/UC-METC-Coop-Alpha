@@ -722,7 +722,7 @@ export const SalesPage: React.FC = () => {
     }
   });
   const [selectedPendingOrder, setSelectedPendingOrder] = useState<any | null>(null);
-  const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string } | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<{ id: string; receiptNo: string; isInsurance?: boolean } | null>(null);
   const [restoreInventoryStock, setRestoreInventoryStock] = useState<boolean>(true);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState<boolean>(false);
@@ -1662,6 +1662,7 @@ export const SalesPage: React.FC = () => {
       // Reload summaries to update the tables and stats immediately
       loadDailySummary();
       loadHistorySummary();
+      loadInsuranceOrders();
     } catch (error: any) {
       console.error('Failed to delete order:', error);
       showNotification(error?.message || 'Failed to delete order', 'error');
@@ -1669,6 +1670,7 @@ export const SalesPage: React.FC = () => {
       setIsDeleting(false);
     }
   };
+
 
   const isImportedReceipt = (r: string) => {
     const norm = String(r || '').toUpperCase().trim();
@@ -3420,34 +3422,36 @@ export const SalesPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Stock Restoration Option */}
-              <div className="mx-6 mb-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl transition-all">
-                <label className="flex items-start gap-3 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={restoreInventoryStock}
-                    onChange={(e) => setRestoreInventoryStock(e.target.checked)}
-                    className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold text-slate-800 text-sm">
-                        Restore inventory stock
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        restoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
-                      }`}>
-                        {restoreInventoryStock ? 'Yes, restore' : 'Do not restore'}
-                      </span>
+              {/* Stock Restoration Option — hidden for insurance orders (no inventory involved) */}
+              {!orderToDelete?.isInsurance && (
+                <div className="mx-6 mb-3 p-3.5 bg-slate-50 border border-slate-200 rounded-xl transition-all">
+                  <label className="flex items-start gap-3 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={restoreInventoryStock}
+                      onChange={(e) => setRestoreInventoryStock(e.target.checked)}
+                      className="mt-0.5 w-4 h-4 rounded text-purple-600 focus:ring-purple-500 border-slate-300 cursor-pointer"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-slate-800 text-sm">
+                          Restore inventory stock
+                        </span>
+                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                          restoreInventoryStock ? 'bg-green-100 text-green-700' : 'bg-slate-200 text-slate-600'
+                        }`}>
+                          {restoreInventoryStock ? 'Yes, restore' : 'Do not restore'}
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 mt-1">
+                        {restoreInventoryStock
+                          ? 'Quantities from this order will be added back to product inventory stocks.'
+                          : 'Inventory counts will remain unchanged after deleting this order.'}
+                      </p>
                     </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      {restoreInventoryStock
-                        ? 'Quantities from this order will be added back to product inventory stocks.'
-                        : 'Inventory counts will remain unchanged after deleting this order.'}
-                    </p>
-                  </div>
-                </label>
-              </div>
+                  </label>
+                </div>
+              )}
 
               {/* Warning box */}
               <div className="mx-6 p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-xs flex items-start gap-2.5">
@@ -5634,20 +5638,30 @@ export const SalesPage: React.FC = () => {
                               ID: {order.id_number}
                             </p>
                           </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-bold text-purple-600">
-                              ₱{parseFloat(order.total_amount).toLocaleString()}
-                            </p>
-                            <p className="text-xs text-slate-500 mt-1">
-                              {formatPaymentMethod(order.payment_method)}
-                              {order.payment_method?.toLowerCase() === 'ewallet' && order.reference_number && (
-                                <span className="block text-xs text-slate-400 font-mono mt-0.5">
-                                  Ref: {order.reference_number}
-                                </span>
-                              )}
-                            </p>
+                          <div className="flex items-start gap-3">
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-purple-600">
+                                ₱{parseFloat(order.total_amount).toLocaleString()}
+                              </p>
+                              <p className="text-xs text-slate-500 mt-1">
+                                {formatPaymentMethod(order.payment_method)}
+                                {order.payment_method?.toLowerCase() === 'ewallet' && order.reference_number && (
+                                  <span className="block text-xs text-slate-400 font-mono mt-0.5">
+                                    Ref: {order.reference_number}
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <button
+                              onClick={() => setOrderToDelete({ id: order.id, receiptNo: order.receipt_no, isInsurance: true })}
+                              className="p-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-500 hover:text-red-700 border border-red-100 hover:border-red-300 transition-all duration-200 active:scale-95 cursor-pointer flex-shrink-0"
+                              title="Delete this insurance transaction"
+                            >
+                              <Trash2 size={16} />
+                            </button>
                           </div>
                         </div>
+
 
                         <div className="border-t border-slate-200 pt-4">
                           <div className="grid grid-cols-2 gap-4 text-sm">
