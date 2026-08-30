@@ -1246,37 +1246,17 @@ export const ReportsPage: React.FC = () => {
                       <path d={areaPath} fill="url(#areaGradient)" className="animate-fade-in" />
                       <path d={smoothPath} fill="none" stroke="url(#lineGradient)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
 
+                      {/* Pass 1 — all interactive dot groups (no tooltip inside) */}
                       {points.map((point, index) => {
                         const isHovered = hoveredPoint === index;
-                        // Clamp tooltip so it never overflows left/right chart edges
-                        const tooltipW = 160;
-                        const tooltipH = 52;
-                        const arrowH = 6;
-                        const dotGap = 8; // space between dot edge and tooltip
-
-                        // Flip below the dot if there isn't enough room above
-                        const spaceAbove = point.y - padding.top;
-                        const showBelow = spaceAbove < tooltipH + arrowH + dotGap;
-
-                        const rawTx = point.x - tooltipW / 2;
-                        const tx = Math.max(padding.left, Math.min(rawTx, chartWidth - padding.right - tooltipW));
-                        const ty = showBelow
-                          ? point.y + arrowH + dotGap          // tooltip below dot
-                          : point.y - tooltipH - arrowH - dotGap; // tooltip above dot
-
-                        // Arrow tip always points at the dot's x center
-                        const arrowTipX = Math.min(
-                          Math.max(point.x - tx, 12),
-                          tooltipW - 12
-                        );
                         return (
                           <g
                             key={`point-${index}`}
-                            className="cursor-pointer group"
+                            className="cursor-pointer"
                             onMouseEnter={() => setHoveredPoint(index)}
                             onMouseLeave={() => setHoveredPoint(null)}
                           >
-                            {/* Hover hit area */}
+                            {/* Large transparent hit area for easy hovering */}
                             <circle cx={point.x} cy={point.y} r="14" fill="transparent" />
                             {/* Outer glow ring */}
                             <circle
@@ -1299,63 +1279,72 @@ export const ReportsPage: React.FC = () => {
                             <text x={point.x} y={chartHeight - padding.bottom + 25} textAnchor="middle" className="text-sm fill-slate-700 font-bold">
                               {point.month}
                             </text>
-
-                            {/* Tooltip */}
-                            {isHovered && (
-                              <g style={{ pointerEvents: 'none' }}>
-                                {/* Background rect */}
-                                <rect
-                                  x={tx} y={ty}
-                                  width={tooltipW} height={tooltipH}
-                                  rx="8" ry="8"
-                                  fill="#1e1b4b"
-                                  opacity="0.93"
-                                />
-                                {/* Arrow — points DOWN when above dot, UP when below dot */}
-                                {showBelow ? (
-                                  // Arrow pointing UP (tooltip is below the dot)
-                                  <polygon
-                                    points={`${tx + arrowTipX - 7},${ty} ${tx + arrowTipX + 7},${ty} ${tx + arrowTipX},${ty - arrowH}`}
-                                    fill="#1e1b4b"
-                                    opacity="0.93"
-                                  />
-                                ) : (
-                                  // Arrow pointing DOWN (tooltip is above the dot)
-                                  <polygon
-                                    points={`${tx + arrowTipX - 7},${ty + tooltipH} ${tx + arrowTipX + 7},${ty + tooltipH} ${tx + arrowTipX},${ty + tooltipH + arrowH}`}
-                                    fill="#1e1b4b"
-                                    opacity="0.93"
-                                  />
-                                )}
-                                {/* Month name */}
-                                <text
-                                  x={tx + tooltipW / 2} y={ty + 18}
-                                  textAnchor="middle"
-                                  fill="#c4b5fd"
-                                  fontSize="11"
-                                  fontWeight="600"
-                                  style={{ fontFamily: 'inherit' }}
-                                >
-                                  {point.month} Revenue
-                                </text>
-                                {/* Revenue amount */}
-                                <text
-                                  x={tx + tooltipW / 2} y={ty + 38}
-                                  textAnchor="middle"
-                                  fill="#ffffff"
-                                  fontSize="14"
-                                  fontWeight="800"
-                                  style={{ fontFamily: 'inherit' }}
-                                >
-                                  ₱{point.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </text>
-                              </g>
-                            )}
                           </g>
                         );
                       })}
 
+                      {/* Pass 2 — active tooltip rendered AFTER all dots so it's always on top */}
+                      {hoveredPoint !== null && (() => {
+                        const point = points[hoveredPoint];
+                        const tooltipW = 160;
+                        const tooltipH = 52;
+                        const arrowH = 6;
+                        const dotGap = 8;
 
+                        const spaceAbove = point.y - padding.top;
+                        const showBelow = spaceAbove < tooltipH + arrowH + dotGap;
+
+                        const rawTx = point.x - tooltipW / 2;
+                        const tx = Math.max(padding.left, Math.min(rawTx, chartWidth - padding.right - tooltipW));
+                        const ty = showBelow
+                          ? point.y + arrowH + dotGap
+                          : point.y - tooltipH - arrowH - dotGap;
+
+                        const arrowTipX = Math.min(Math.max(point.x - tx, 12), tooltipW - 12);
+
+                        return (
+                          <g style={{ pointerEvents: 'none' }}>
+                            <rect
+                              x={tx} y={ty}
+                              width={tooltipW} height={tooltipH}
+                              rx="8" ry="8"
+                              fill="#1e1b4b"
+                              opacity="0.95"
+                            />
+                            {showBelow ? (
+                              <polygon
+                                points={`${tx + arrowTipX - 7},${ty} ${tx + arrowTipX + 7},${ty} ${tx + arrowTipX},${ty - arrowH}`}
+                                fill="#1e1b4b" opacity="0.95"
+                              />
+                            ) : (
+                              <polygon
+                                points={`${tx + arrowTipX - 7},${ty + tooltipH} ${tx + arrowTipX + 7},${ty + tooltipH} ${tx + arrowTipX},${ty + tooltipH + arrowH}`}
+                                fill="#1e1b4b" opacity="0.95"
+                              />
+                            )}
+                            <text
+                              x={tx + tooltipW / 2} y={ty + 18}
+                              textAnchor="middle"
+                              fill="#c4b5fd"
+                              fontSize="11"
+                              fontWeight="600"
+                              style={{ fontFamily: 'inherit' }}
+                            >
+                              {point.month} Revenue
+                            </text>
+                            <text
+                              x={tx + tooltipW / 2} y={ty + 38}
+                              textAnchor="middle"
+                              fill="#ffffff"
+                              fontSize="14"
+                              fontWeight="800"
+                              style={{ fontFamily: 'inherit' }}
+                            >
+                              ₱{point.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </text>
+                          </g>
+                        );
+                      })()}
 
                       <line x1={padding.left} y1={padding.top} x2={padding.left} y2={chartHeight - padding.bottom} stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
                       <line x1={padding.left} y1={chartHeight - padding.bottom} x2={chartWidth - padding.right} y2={chartHeight - padding.bottom} stroke="#94a3b8" strokeWidth="3" strokeLinecap="round" />
