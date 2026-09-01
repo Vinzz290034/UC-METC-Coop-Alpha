@@ -857,7 +857,7 @@ router.post('/admin/bulk/delete', authMiddleware, async (req: Request, res: Resp
   }
 });
 
-// Admin: Correct Swimming Set transactions from ₱270 to ₱320
+// Admin: Correct Swimming Set transactions to PE Pants 2XL
 router.post('/admin/correct-swimming-price', authMiddleware, async (req: Request, res: Response) => {
   try {
     const requestingUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [req.user!.id]);
@@ -867,29 +867,20 @@ router.post('/admin/correct-swimming-price', authMiddleware, async (req: Request
     }
 
     const itemUpdateResult = await pool.query(`
-      UPDATE order_items
-      SET unit_price = 320.00,
-          subtotal = 320.00 * quantity
-      WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
-        AND (unit_price = 270.00 OR subtotal = 270.00)
-      RETURNING id, order_id, product_name, unit_price, subtotal
-    `);
-
-    await pool.query(`
-      UPDATE orders o
-      SET total_amount = (
-        SELECT COALESCE(SUM(subtotal), 0)
-        FROM order_items oi
-        WHERE oi.order_id = o.id
-      )
-      WHERE o.id IN (
-        SELECT DISTINCT order_id FROM order_items
-        WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
-      )
+      UPDATE order_items oi
+      SET product_name = 'PE Pants',
+          selected_options = '{"size": "2XL"}'::jsonb,
+          unit_price = 290.00,
+          subtotal = 580.00
+      FROM orders o
+      WHERE oi.order_id = o.id
+        AND (o.receipt_no ILIKE '%1786064578456%' OR o.walk_in_name ILIKE '%JOHN KLENT ORNOPIA%')
+        AND oi.product_name ILIKE '%swimming%'
+      RETURNING oi.id, oi.order_id, oi.product_name, oi.unit_price, oi.subtotal
     `);
 
     res.json({
-      message: 'Successfully updated Swimming Set prices to ₱320.00',
+      message: 'Successfully updated transaction to PE Pants 2XL',
       updatedItemsCount: itemUpdateResult.rowCount,
       updatedItems: itemUpdateResult.rows
     });

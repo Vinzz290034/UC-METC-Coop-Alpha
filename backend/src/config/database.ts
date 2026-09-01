@@ -163,31 +163,22 @@ export async function testConnection() {
       )
     `);
 
-    // ── Auto-migrate: update any Swimming Set order items erroneously recorded at ₱270 to official ₱320 ──
+    // ── Auto-migrate: update transaction RCP-1786064578456 from Swimming Set to PE Pants 2XL (keeping ₱580.00 total) ──
     try {
       await pool.query(`
-        UPDATE order_items
-        SET unit_price = 320.00,
-            subtotal = 320.00 * quantity
-        WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
-          AND (unit_price = 270.00 OR subtotal = 270.00)
+        UPDATE order_items oi
+        SET product_name = 'PE Pants',
+            selected_options = '{"size": "2XL"}'::jsonb,
+            unit_price = 290.00,
+            subtotal = 580.00
+        FROM orders o
+        WHERE oi.order_id = o.id
+          AND (o.receipt_no ILIKE '%1786064578456%' OR o.walk_in_name ILIKE '%JOHN KLENT ORNOPIA%')
+          AND oi.product_name ILIKE '%swimming%'
       `);
-
-      await pool.query(`
-        UPDATE orders o
-        SET total_amount = (
-          SELECT COALESCE(SUM(subtotal), 0)
-          FROM order_items oi
-          WHERE oi.order_id = o.id
-        )
-        WHERE o.id IN (
-          SELECT DISTINCT order_id FROM order_items
-          WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
-        )
-      `);
-      console.log('✓ Verified and updated Swimming Set transactions to official ₱320.00');
-    } catch (swimErr) {
-      console.warn('⚠️ Could not update Swimming Set pricing in database:', swimErr);
+      console.log('✓ Successfully updated transaction RCP-1786064578456 to PE Pants 2XL');
+    } catch (peErr) {
+      console.warn('⚠️ Could not update RCP-1786064578456 to PE Pants:', peErr);
     }
 
     console.log('✓ Database self-healing migrations checked and applied successfully');

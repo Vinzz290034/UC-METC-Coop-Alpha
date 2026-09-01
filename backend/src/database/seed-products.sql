@@ -33,7 +33,7 @@ INSERT INTO products (id, name, category, price, stock, sku, note, options, vari
 ('plotting-sheet', 'Plotting Sheet', 'equipment', 150, 120, 'PLOTTING-SHEET', 'Navigation plotting sheet', NULL, NULL, NOW(), NOW()),
 ('belt', 'Belt', 'equipment', 250, 80, 'BELT', 'Uniform belt', '[{"id":"color","label":"Color","choices":["Black (₱250)","White (₱250)"]}]', NULL, NOW(), NOW()),
 ('shoulder-board', 'Shoulder Board', 'equipment', 300, 70, 'SHOULDER-BOARD', 'Uniform shoulder boards', '[{"id":"course","label":"Course","choices":["BSMT (₱300)","BSMARE (₱300)"]}]', NULL, NOW(), NOW()),
-('swimming-set', 'Swimming Set', 'equipment', 500, 40, 'SWIMMING-SET', 'Swimming trunks', NULL, NULL, NOW(), NOW()),
+('swimming-set', 'Swimming Set', 'equipment', 320, 40, 'SWIMMING-SET', 'Swimming trunks', NULL, NULL, NOW(), NOW()),
 ('swimming-cap', 'Swimming Cap', 'equipment', 150, 100, 'SWIMMING-CAP', 'Swimming cap', NULL, NULL, NOW(), NOW()),
 ('cwts-shirt', 'CWTS Shirt', 'equipment', 300, 80, 'CWTS-SHIRT', 'CWTS uniform shirt', NULL, NULL, NOW(), NOW()),
 ('rotc-manual', 'ROTC Manual', 'equipment', 200, 60, 'ROTC-MANUAL', 'ROTC training manual', '[{"id":"part","label":"Part","choices":["Part 1 (₱200)","Part 2 (₱200)"]}]', NULL, NOW(), NOW()),
