@@ -981,6 +981,7 @@ export const ReportsPage: React.FC = () => {
                 const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
                 return sum + (isNaN(amount) ? 0 : amount);
               }, 0);
+              const totalProfit = totalRevenue;
               const avgTransaction = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
               const cashOrders = periodSalesList.filter(s => (s?.payment_method || s?.paymentMethod) === 'cash');
@@ -988,9 +989,6 @@ export const ReportsPage: React.FC = () => {
 
               const gcashOrders = periodSalesList.filter(s => (s?.payment_method || s?.paymentMethod) === 'ewallet' || (s?.payment_method || s?.paymentMethod) === 'gcash');
               const gcashRevenue = gcashOrders.reduce((sum, s) => sum + (parseFloat(String(s?.total_amount || s?.totalAmount || 0)) || 0), 0);
-
-              const preorderOrders = periodSalesList.filter(s => s?.order_type === 'preorder' || s?.orderType === 'preorder');
-              const preorderRevenue = preorderOrders.reduce((sum, s) => sum + (parseFloat(String(s?.total_amount || s?.totalAmount || 0)) || 0), 0);
 
               const rawCashPct = totalRevenue > 0 ? (cashRevenue / totalRevenue) * 100 : 0;
               const rawGcashPct = totalRevenue > 0 ? (gcashRevenue / totalRevenue) * 100 : 0;
@@ -1058,7 +1056,34 @@ export const ReportsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Card 2: Total Transactions */}
+                    {/* Card 2: Total Profit (Placed right beside Total Revenue) */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          {selectedSalesMonth === 'all' ? 'Total Profit (YTD)' : `${availableMonthsMap[selectedSalesMonth]} Profit`}
+                        </span>
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                          <TrendingUp size={20} />
+                        </div>
+                      </div>
+                      <div className="mt-4 min-w-0">
+                        <h3 
+                          className={`font-black text-slate-900 tracking-tight truncate max-w-full ${
+                            (`₱${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
+                              ? 'text-base sm:text-lg lg:text-xl'
+                              : (`₱${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
+                              ? 'text-lg sm:text-xl lg:text-2xl'
+                              : 'text-2xl sm:text-3xl'
+                          }`}
+                          title={`₱${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                        >
+                          ₱{totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </h3>
+                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">Net realized earnings</p>
+                      </div>
+                    </div>
+
+                    {/* Card 3: Total Transactions */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer hover:border-purple-300" onClick={() => setSalesPaymentFilter('all')}>
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Transactions</span>
@@ -1074,7 +1099,7 @@ export const ReportsPage: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Card 3: Average Order Value */}
+                    {/* Card 4: Average Order Value */}
                     <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all">
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Average Order</span>
@@ -1096,33 +1121,6 @@ export const ReportsPage: React.FC = () => {
                           ₱{avgTransaction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h3>
                         <p className="text-xs text-slate-500 mt-1 font-medium truncate">Average sales amount per receipt</p>
-                      </div>
-                    </div>
-
-                    {/* Card 4: Pre-Orders & Custom Orders */}
-                    <div className={`bg-white border-2 rounded-2xl p-6 shadow-sm flex flex-col justify-between hover:shadow-md transition-all cursor-pointer ${
-                      salesOrderTypeFilter === 'preorder' ? 'border-amber-500 ring-2 ring-amber-400/20' : 'border-slate-200 hover:border-amber-300'
-                    }`} onClick={() => setSalesOrderTypeFilter(prev => prev === 'preorder' ? 'all' : 'preorder')}>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Pre-Order Sales</span>
-                        <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
-                          <Tag size={20} />
-                        </div>
-                      </div>
-                      <div className="mt-4 min-w-0">
-                        <h3 
-                          className={`font-black text-slate-900 tracking-tight truncate max-w-full ${
-                            (`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
-                              ? 'text-base sm:text-lg lg:text-xl'
-                              : (`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
-                              ? 'text-lg sm:text-xl lg:text-2xl'
-                              : 'text-2xl sm:text-3xl'
-                          }`}
-                          title={`₱${preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                        >
-                          ₱{preorderRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </h3>
-                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">{preorderOrders.length} pre-ordered items fulfilled</p>
                       </div>
                     </div>
                   </div>
