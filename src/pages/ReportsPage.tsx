@@ -338,13 +338,13 @@ export const ReportsPage: React.FC = () => {
     const getItemVariantName = (item: any, matchedProduct: any): string => {
       const rawName = item.productName || item.product_name || item.name || matchedProduct?.name || 'General Merchandise';
       const options = item.selectedOptions || item.options || {};
-      const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
+      const unitPrice = parseFloat(String(item.price || item.unit_price || item.unitPrice || item.cost || (item.subtotal && item.quantity ? (parseFloat(item.subtotal) / parseFloat(item.quantity)) : 0) || matchedProduct?.price || 0)) || (matchedProduct?.price || 0);
 
       if (rawName.includes('(') && rawName.includes(':')) {
-        return parseAndFormatLegacyProductName(rawName, unitPrice);
+        return cleanRepeatedSegments(parseAndFormatLegacyProductName(rawName, unitPrice));
       }
 
-      return formatProductName(rawName, options, unitPrice);
+      return cleanRepeatedSegments(formatProductName(rawName, options, unitPrice));
     };
 
     const resolveVariantFullPrice = (item: any, matchedProduct: any, variantName: string, unitPrice: number): number => {

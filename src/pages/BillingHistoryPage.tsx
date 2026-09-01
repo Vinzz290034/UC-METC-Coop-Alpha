@@ -199,34 +199,35 @@ export const BillingHistoryPage: React.FC = () => {
       return fullName;
     }
     
-    // Get unit price to determine if member discount was applied
-    const unitPrice = item?.unitPrice || item?.unit_price;
+    // Get unit price to determine if member discount was applied or variant price tier
+    const unitPrice = parseFloat(String(item?.unitPrice || item?.unit_price || item?.price || (item?.subtotal && item?.quantity ? (parseFloat(item.subtotal) / parseFloat(item.quantity)) : 0))) || undefined;
     
     // Parse selected options - handle both string and object formats
     let options: Record<string, string> = {};
-    if (item?.selectedOptions) {
+    if (item?.selectedOptions || item?.selected_options) {
+      const selectedOpts = item?.selectedOptions || item?.selected_options;
       try {
-        if (typeof item.selectedOptions === 'string') {
-          options = JSON.parse(item.selectedOptions);
-        } else if (typeof item.selectedOptions === 'object' && item.selectedOptions !== null) {
-          options = item.selectedOptions;
+        if (typeof selectedOpts === 'string') {
+          options = JSON.parse(selectedOpts);
+        } else if (typeof selectedOpts === 'object' && selectedOpts !== null) {
+          options = selectedOpts;
         }
       } catch (e) {
-        console.warn('Failed to parse selectedOptions:', item.selectedOptions);
+        console.warn('Failed to parse selectedOptions:', selectedOpts);
       }
     }
     
+    // Extract base name from full name (remove everything after first parenthesis)
+    const baseNameMatch = fullName.match(/^([^(]+)/);
+    const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
+
     // If we have selectedOptions, use the standard formatter
     if (options && Object.keys(options).length > 0) {
-      // Extract base name from full name (remove everything after first parenthesis)
-      const baseNameMatch = fullName.match(/^([^(]+)/);
-      const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
-      return formatProductName(baseName, options, unitPrice);
+      return cleanRepeatedSegments(formatProductName(baseName, options, unitPrice));
     }
     
-    // Fallback: Parse the legacy format from the product name itself
-    // This handles old orders where the full format was stored in product_name
-    return parseAndFormatLegacyProductName(fullName, unitPrice);
+    // Fallback: Parse the legacy format from the product name itself or reconcile from unitPrice
+    return cleanRepeatedSegments(parseAndFormatLegacyProductName(fullName, unitPrice));
   };
 
   // Transform sales to transaction format

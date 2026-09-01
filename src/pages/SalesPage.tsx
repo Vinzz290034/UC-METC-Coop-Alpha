@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, X, RotateCcw, Smartphone, CreditCard } from 'lucide-react';
+import { CheckCircle, Clock, TrendingUp, Package, DollarSign, Calendar, Download, ChevronLeft, ChevronRight, Search, Trash2, BookOpen, User, Upload, FileSpreadsheet, ChevronDown, Award, Waves, Send, Filter, ArrowUp, ArrowDown, X, RotateCcw, Smartphone, CreditCard, Printer, Copy, FileText } from 'lucide-react';
 import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
@@ -361,8 +361,8 @@ export const SalesPage: React.FC = () => {
       return fullName;
     }
     
-    // Get unit price to determine if member discount was applied
-    const unitPrice = item?.unitPrice || item?.unit_price;
+    // Get unit price to determine if member discount was applied or variant price tier
+    const unitPrice = parseFloat(String(item?.unitPrice || item?.unit_price || item?.price || (item?.subtotal && item?.quantity ? (parseFloat(item.subtotal) / parseFloat(item.quantity)) : 0))) || undefined;
     
     // Parse selected options - handle both string and object formats
     let options: Record<string, string> = {};
@@ -379,23 +379,23 @@ export const SalesPage: React.FC = () => {
       }
     }
     
+    // Extract base name from full name (remove everything after first parenthesis)
+    const baseNameMatch = fullName.match(/^([^(]+)/);
+    const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
+
     // If we have selectedOptions, use the standard formatter
     if (options && Object.keys(options).length > 0) {
-      // Extract base name from full name (remove everything after first parenthesis)
-      const baseNameMatch = fullName.match(/^([^(]+)/);
-      const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
-      return formatProductName(baseName, options, unitPrice);
+      return cleanRepeatedSegments(formatProductName(baseName, options, unitPrice));
     }
     
-    // Fallback: Parse the legacy format from the product name itself
-    // This handles old orders where the full format was stored in product_name
-    return parseAndFormatLegacyProductName(fullName, unitPrice);
+    // Fallback: Parse the legacy format from the product name itself or reconcile from unitPrice
+    return cleanRepeatedSegments(parseAndFormatLegacyProductName(fullName, unitPrice));
   };
 
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring' | 'gcash'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring' | 'gcash' | 'printing'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -405,6 +405,19 @@ export const SalesPage: React.FC = () => {
   const [gcashStatusFilter, setGcashStatusFilter] = useState<string>('all');
   const [gcashCurrentPage, setGcashCurrentPage] = useState<number>(1);
   const [gcashRowsPerPage, setGcashRowsPerPage] = useState<number>(10);
+
+  // Printing & Photocopy States
+  const [printingOrders, setPrintingOrders] = useState<any[]>([]);
+  const [printingSearchQuery, setPrintingSearchQuery] = useState<string>('');
+  const [printingFilterDate, setPrintingFilterDate] = useState<string>('');
+  const [printingStatusFilter, setPrintingStatusFilter] = useState<string>('all');
+  const [printingServiceFilter, setPrintingServiceFilter] = useState<'all' | 'printing' | 'photocopy'>('all');
+  const [printingCurrentPage, setPrintingCurrentPage] = useState<number>(1);
+  const [printingRowsPerPage, setPrintingRowsPerPage] = useState<number>(15);
+
+  useEffect(() => {
+    setPrintingCurrentPage(1);
+  }, [printingSearchQuery, printingFilterDate, printingStatusFilter, printingServiceFilter]);
 
   useEffect(() => {
     setGcashCurrentPage(1);
@@ -897,6 +910,19 @@ export const SalesPage: React.FC = () => {
     }
   }, [user?.id, activeTab]);
 
+  // Load orders for Printing and Photocopy tab
+  useEffect(() => {
+    if (user?.id && activeTab === 'printing') {
+      loadPrintingOrders();
+      
+      const interval = setInterval(() => {
+        loadPrintingOrders();
+      }, 10000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [user?.id, activeTab]);
+
   const [allUsers, setAllUsers] = useState<any[]>([]);
   // Excel / CSV Importer States
   const [showImportExcelModal, setShowImportExcelModal] = useState<boolean>(false);
@@ -1039,6 +1065,7 @@ export const SalesPage: React.FC = () => {
     else if (activeTab === 'swimming') await loadSwimmingOrders();
     else if (activeTab === 'classring') await loadClassRingOrders();
     else if (activeTab === 'gcash') await loadGcashOrders();
+    else if (activeTab === 'printing') await loadPrintingOrders();
   };
 
   // Excel / CSV Importer Helper Functions
@@ -1304,26 +1331,65 @@ export const SalesPage: React.FC = () => {
 
     // Resolve Options
     const selectedOptions: Record<string, string> = {};
+    const rowUnitPrice = Math.round(amountVal / (qnty || 1));
     
     if (matchedProduct.options) {
       const courseOption = matchedProduct.options.find((o: any) => o.id === 'course');
       if (courseOption) {
         const val = course.toUpperCase().trim();
-        const matchedChoice = courseOption.choices.find((c: any) => {
-          const cleanChoice = c.split(' ')[0].toUpperCase();
-          return val.includes(cleanChoice) || cleanChoice.includes(val);
-        }) || courseOption.choices[0];
+        let matchedChoice = courseOption.choices.find((c: any) => {
+          const matchPrice = c.match(/₱([\d,]+)/);
+          return matchPrice && parseInt(matchPrice[1].replace(/,/g, '')) === rowUnitPrice;
+        });
+
+        if (!matchedChoice) {
+          matchedChoice = courseOption.choices.find((c: any) => {
+            const cleanChoice = c.split(' ')[0].toUpperCase();
+            return val === cleanChoice || val.startsWith(cleanChoice) || cleanChoice.startsWith(val);
+          }) || courseOption.choices[0];
+        }
         
         selectedOptions['course'] = matchedChoice;
       }
       
       const sizeOption = matchedProduct.options.find((o: any) => o.id === 'size');
       if (sizeOption) {
-        const val = size.toUpperCase().trim();
-        const matchedChoice = sizeOption.choices.find((c: any) => {
-          const cleanChoice = c.split(' ')[0].toUpperCase();
-          return val === cleanChoice || cleanChoice.includes(val) || val.includes(cleanChoice);
-        }) || sizeOption.choices[0];
+        let val = size.toUpperCase().trim();
+        // Normalize size aliases
+        if (val === 'XXL') val = '2XL';
+        else if (val === 'XXXL') val = '3XL';
+        else if (val === 'XXXXL') val = '4XL';
+        else if (val === 'XXXXXL') val = '5XL';
+        else if (val === 'S') val = 'SMALL';
+        else if (val === 'M') val = 'MEDIUM';
+        else if (val === 'L') val = 'LARGE';
+
+        // 1. Try to match by unit price if choice has price tag e.g. "2XL (₱210)"
+        let matchedChoice = sizeOption.choices.find((c: any) => {
+          const matchPrice = c.match(/₱([\d,]+)/);
+          return matchPrice && parseInt(matchPrice[1].replace(/,/g, '')) === rowUnitPrice;
+        });
+
+        // 2. Try exact clean size match
+        if (!matchedChoice && val) {
+          matchedChoice = sizeOption.choices.find((c: any) => {
+            const cleanChoice = c.split(' ')[0].toUpperCase();
+            return val === cleanChoice;
+          });
+        }
+
+        // 3. Try prefix match
+        if (!matchedChoice && val) {
+          matchedChoice = sizeOption.choices.find((c: any) => {
+            const cleanChoice = c.split(' ')[0].toUpperCase();
+            return cleanChoice.startsWith(val) || val.startsWith(cleanChoice);
+          });
+        }
+
+        // 4. Fallback to first choice
+        if (!matchedChoice) {
+          matchedChoice = sizeOption.choices[0];
+        }
         
         selectedOptions['size'] = matchedChoice;
       }
@@ -2035,6 +2101,34 @@ export const SalesPage: React.FC = () => {
       setSwimmingOrders(swimmingOrdersFiltered);
     } catch (err) {
       console.error('Failed to load swimming orders:', err);
+    }
+  };
+
+  const isPrintingOrPhotocopyItem = (item: any): boolean => {
+    if (!item) return false;
+    const name = (item.product_name || item.productName || item.name || '').toLowerCase();
+    const cat = (item.category || '').toLowerCase();
+    return name.includes('print') || name.includes('photocopy') || name.includes('photo copy') || name.includes('xerox') || name.includes('copying') || cat === 'printing' || cat === 'photocopy';
+  };
+
+  const isPrintingOrPhotocopyOrder = (order: any): boolean => {
+    if (!order) return false;
+    const orderType = (order.order_type || order.orderType || '').toLowerCase();
+    if (orderType === 'printing' || orderType === 'photocopy' || orderType === 'xerox') return true;
+    if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+      return order.items.some(isPrintingOrPhotocopyItem);
+    }
+    const mainName = (order.product_name || order.productName || order.name || '').toLowerCase();
+    return mainName.includes('print') || mainName.includes('photocopy') || mainName.includes('photo copy') || mainName.includes('xerox') || mainName.includes('copying');
+  };
+
+  const loadPrintingOrders = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      const printingFiltered = (allOrders || []).filter((order: any) => isPrintingOrPhotocopyOrder(order));
+      setPrintingOrders(printingFiltered);
+    } catch (err) {
+      console.error('Failed to load printing and photocopy orders:', err);
     }
   };
 
@@ -3005,6 +3099,123 @@ export const SalesPage: React.FC = () => {
       showNotification('GCash service charges report exported successfully!', 'success');
       return;
     }
+
+    if (activeTab === 'printing') {
+      const rows: any[] = [];
+      printingOrders.forEach(order => {
+        const orderDateObj = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
+        const orderDateString = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, '0')}-${String(orderDateObj.getDate()).padStart(2, '0')}`;
+        if (printingFilterDate && orderDateString !== printingFilterDate) return;
+
+        const customerName = formatFullName(order.first_name, order.last_name) || order.walk_in_name || 'Walk-in Customer';
+        const studentId = order.id_number || order.walk_in_id_number || 'N/A';
+        const courseYear = order.course && order.year ? `${order.course} - ${order.year}` : order.course || order.year || 'N/A';
+        const status = order.status === 'completed' ? 'COMPLETED' : order.status === 'released' ? 'RELEASED' : order.status === 'pending' ? 'PENDING' : 'CANCELLED';
+        const paymentMethod = formatPaymentMethod(order.payment_method);
+        const dateFormatted = orderDateObj.toLocaleDateString();
+
+        if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+          order.items.forEach((item: any) => {
+            if (!isPrintingOrPhotocopyItem(item)) return;
+            const prodName = formatProductNameWithVariants(item);
+            const isCopy = prodName.toLowerCase().includes('photocopy') || prodName.toLowerCase().includes('xerox') || prodName.toLowerCase().includes('photo copy');
+            const serviceType = isCopy ? 'Photocopy' : 'Printing';
+            const qty = item.quantity || 1;
+            const amount = parseFloat(item.subtotal || item.price || 0);
+
+            rows.push({
+              receiptNo: order.receipt_no || order.receiptNo || 'N/A',
+              customerName,
+              studentId,
+              courseYear,
+              serviceType,
+              serviceItem: prodName,
+              quantity: qty,
+              amount,
+              paymentMethod,
+              status,
+              date: dateFormatted
+            });
+          });
+        } else {
+          const prodName = order.product_name || order.productName || 'Printing Service';
+          const isCopy = prodName.toLowerCase().includes('photocopy') || prodName.toLowerCase().includes('xerox') || prodName.toLowerCase().includes('photo copy');
+          rows.push({
+            receiptNo: order.receipt_no || order.receiptNo || 'N/A',
+            customerName,
+            studentId,
+            courseYear,
+            serviceType: isCopy ? 'Photocopy' : 'Printing',
+            serviceItem: prodName,
+            quantity: 1,
+            amount: parseFloat(order.total_amount || 0),
+            paymentMethod,
+            status,
+            date: dateFormatted
+          });
+        }
+      });
+
+      const totalRevenueVal = rows.reduce((sum, r) => sum + (r.status === 'COMPLETED' || r.status === 'RELEASED' ? r.amount : 0), 0);
+      const totalPrintingSalesVal = rows.filter(r => r.serviceType === 'Printing' && (r.status === 'COMPLETED' || r.status === 'RELEASED')).reduce((sum, r) => sum + r.amount, 0);
+      const totalPhotocopySalesVal = rows.filter(r => r.serviceType === 'Photocopy' && (r.status === 'COMPLETED' || r.status === 'RELEASED')).reduce((sum, r) => sum + r.amount, 0);
+      const totalCopiesVal = rows.reduce((sum, r) => sum + r.quantity, 0);
+
+      const tableHeader = `
+        <tr style="background-color: #0891b2; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', sans-serif; font-size: 13px; height: 35px;">
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 45px;">No.</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 120px;">Receipt No</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 180px;">Customer Name</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">ID Number</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Course / Year</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 110px;">Service Type</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 220px;">Document / Job Description</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 70px;">Copies</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Amount</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 90px;">Payment</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 90px;">Status</th>
+          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 100px;">Date</th>
+        </tr>
+      `;
+
+      const tableRows = rows.map((row, index) => {
+        const bg = index % 2 === 0 ? '#ffffff' : '#f0fdfa';
+        return `
+          <tr style="background-color: ${bg}; font-family: 'Segoe UI', sans-serif; font-size: 12px; color: #334155; height: 30px;">
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${index + 1}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; font-family: Consolas, monospace;">${row.receiptNo}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold;">${row.customerName}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.studentId}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.courseYear}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${row.serviceType === 'Printing' ? '#0891b2' : '#7c3aed'};">${row.serviceType}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0;">${row.serviceItem}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.quantity}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.paymentMethod}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold;">${row.status}</td>
+            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center;">${row.date}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = getExcelHtmlWrapper(
+        'Printing & Photocopy Sales Report',
+        'Official Printing & Photocopy Services Sales Ledger',
+        [
+          { label: 'Total Jobs / Items', value: rows.length.toString(), bg: '#f0fdfa', border: '#99f6e4', color: '#0f766e' },
+          { label: 'Total Copies / Pages', value: totalCopiesVal.toLocaleString(), bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' },
+          { label: 'Printing Sales', value: `₱${totalPrintingSalesVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#ecfeff', border: '#a5f3fc', color: '#0891b2' },
+          { label: 'Photocopy Sales', value: `₱${totalPhotocopySalesVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#f5f3ff', border: '#ddd6fe', color: '#6d28d9' },
+          { label: 'Total Revenue', value: `₱${totalRevenueVal.toLocaleString('en-US', { minimumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' }
+        ],
+        tableHeader,
+        tableRows
+      );
+
+      triggerExcelDownload(htmlContent, `printing_photocopy_sales_${formatLocalDate(new Date())}`);
+      showNotification('Printing & Photocopy sales report exported successfully!', 'success');
+      return;
+    }
   };
 
   return (
@@ -3029,8 +3240,8 @@ export const SalesPage: React.FC = () => {
               <span>Import Excel/CSV</span>
             </button>
 
-            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, Class Ring, and GCash tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring' || activeTab === 'gcash') && (
+            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, Class Ring, GCash, and Printing tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring' || activeTab === 'gcash' || activeTab === 'printing') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
@@ -3164,6 +3375,16 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               GCash Service Charge
+            </button>
+            <button
+              onClick={() => setActiveTab('printing')}
+              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
+                activeTab === 'printing'
+                  ? 'text-cyan-600 border-b-2 border-cyan-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Printing & Photocopy
             </button>
           </div>
         </div>
@@ -6947,6 +7168,480 @@ export const SalesPage: React.FC = () => {
                           </button>
                           <button
                             onClick={() => setGcashCurrentPage(totalPages)}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="Last Page"
+                          >
+                            Last »
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+          </div>
+        )}
+
+        {/* Printing & Photocopy Tab */}
+        {activeTab === 'printing' && (
+          <div className="space-y-6 animate-fade-in">
+            {/* Header Banner */}
+            <div className="bg-gradient-to-r from-cyan-600 via-teal-600 to-sky-700 rounded-2xl p-6 sm:p-8 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 bottom-0 opacity-10 flex items-center pr-8 pointer-events-none">
+                <Printer size={160} />
+              </div>
+              <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-2">
+                  <div className="inline-flex items-center space-x-1.5 px-3 py-1 bg-white/15 backdrop-blur-md rounded-full text-xs font-bold tracking-wide uppercase">
+                    <Copy size={13} />
+                    <span>Document & Reprographics Services</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">Printing & Photocopy Sales</h2>
+                  <p className="text-cyan-100 text-xs sm:text-sm max-w-2xl font-medium leading-relaxed">
+                    Track, audit, and reconcile document printing, thesis reports, handouts, and photocopying jobs across the cooperative.
+                  </p>
+                </div>
+                <div className="flex items-center gap-3 self-start sm:self-center">
+                  <div className="bg-white/10 backdrop-blur-md px-4 py-3 rounded-xl border border-white/20 text-center">
+                    <p className="text-[11px] text-cyan-200 uppercase font-semibold">Total Orders</p>
+                    <p className="text-2xl font-black text-white">{printingOrders.length}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Summary Metrics Cards */}
+            {(() => {
+              const completedPrinting = printingOrders.filter(o => o.status === 'completed' || o.status === 'released');
+              const totalRevenue = completedPrinting.reduce((sum, o) => {
+                if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+                  const printItemsSum = o.items
+                    .filter((it: any) => isPrintingOrPhotocopyItem(it))
+                    .reduce((itSum: number, it: any) => itSum + parseFloat(it.subtotal || it.price || 0), 0);
+                  return sum + (printItemsSum > 0 ? printItemsSum : parseFloat(o.total_amount || 0));
+                }
+                return sum + parseFloat(o.total_amount || 0);
+              }, 0);
+
+              let printingSales = 0;
+              let photocopySales = 0;
+              let totalCopiesCount = 0;
+
+              completedPrinting.forEach(o => {
+                if (o.items && Array.isArray(o.items) && o.items.length > 0) {
+                  o.items.forEach((it: any) => {
+                    if (!isPrintingOrPhotocopyItem(it)) return;
+                    const name = (it.productName || it.product_name || it.name || '').toLowerCase();
+                    const isCopy = name.includes('photocopy') || name.includes('xerox') || name.includes('photo copy');
+                    const amt = parseFloat(it.subtotal || it.price || 0);
+                    const qty = Number(it.quantity || 1);
+                    totalCopiesCount += qty;
+                    if (isCopy) {
+                      photocopySales += amt;
+                    } else {
+                      printingSales += amt;
+                    }
+                  });
+                } else {
+                  const name = (o.product_name || o.productName || '').toLowerCase();
+                  const isCopy = name.includes('photocopy') || name.includes('xerox') || name.includes('photo copy');
+                  const amt = parseFloat(o.total_amount || 0);
+                  totalCopiesCount += 1;
+                  if (isCopy) {
+                    photocopySales += amt;
+                  } else {
+                    printingSales += amt;
+                  }
+                }
+              });
+
+              return (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {/* Card 1: Total Revenue */}
+                  <div className="bg-gradient-to-br from-cyan-600 to-teal-700 text-white rounded-xl p-5 shadow-md flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-cyan-100 tracking-wider">Total Sales Revenue</p>
+                      <p className="text-2xl sm:text-3xl font-black text-white mt-1">
+                        ₱{totalRevenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-cyan-100/90 mt-0.5 font-medium">All completed print & copy sales</p>
+                    </div>
+                    <div className="p-3 bg-white/20 rounded-xl">
+                      <TrendingUp size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 2: Completed Orders */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Completed Orders</p>
+                      <p className="text-2xl sm:text-3xl font-black text-slate-900 mt-1">{completedPrinting.length}</p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">{totalCopiesCount.toLocaleString()} total copies/pages</p>
+                    </div>
+                    <div className="p-3 bg-cyan-50 text-cyan-600 rounded-xl border border-cyan-100">
+                      <CheckCircle size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 3: Printing Sales */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Printing Revenue</p>
+                      <p className="text-2xl sm:text-3xl font-black text-cyan-600 mt-1">
+                        ₱{printingSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">Document & thesis prints</p>
+                    </div>
+                    <div className="p-3 bg-sky-50 text-sky-600 rounded-xl border border-sky-100">
+                      <Printer size={26} />
+                    </div>
+                  </div>
+
+                  {/* Card 4: Photocopy Sales */}
+                  <div className="bg-white rounded-xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-slate-500 tracking-wider">Photocopy / Xerox</p>
+                      <p className="text-2xl sm:text-3xl font-black text-purple-600 mt-1">
+                        ₱{photocopySales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-0.5 font-medium">Photocopying services</p>
+                    </div>
+                    <div className="p-3 bg-purple-50 text-purple-600 rounded-xl border border-purple-100">
+                      <Copy size={26} />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* Records Card */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Controls Bar */}
+              <div className="p-6 border-b border-slate-200 space-y-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900">Printing & Photocopy Transaction Log</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">Comprehensive list of all document printing and photocopying orders</p>
+                  </div>
+                  
+                  {/* Date Filter */}
+                  <div className="flex items-center gap-2">
+                    <label htmlFor="printing-date-filter" className="text-xs font-bold text-slate-600 whitespace-nowrap">Filter Date:</label>
+                    <input
+                      id="printing-date-filter"
+                      type="date"
+                      value={printingFilterDate}
+                      onChange={(e) => setPrintingFilterDate(e.target.value)}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                    />
+                    {printingFilterDate && (
+                      <button
+                        onClick={() => setPrintingFilterDate('')}
+                        className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg text-xs font-bold transition-colors"
+                        title="Clear date filter"
+                      >
+                        All Dates
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Filter and Search Controls */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pt-2">
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Service Type Pills */}
+                    <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
+                      <span className="text-xs text-slate-500 font-semibold px-2">Service:</span>
+                      {(['all', 'printing', 'photocopy'] as const).map((srv) => (
+                        <button
+                          key={srv}
+                          onClick={() => setPrintingServiceFilter(srv)}
+                          className={`px-3 py-1 rounded-md text-xs font-bold capitalize transition-all ${
+                            printingServiceFilter === srv
+                              ? 'bg-cyan-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {srv === 'all' ? 'All Services' : srv === 'printing' ? 'Printing' : 'Photocopy'}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Status Pills */}
+                    <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-lg">
+                      <span className="text-xs text-slate-500 font-semibold px-2">Status:</span>
+                      {(['all', 'completed', 'released', 'pending', 'cancelled'] as const).map((st) => (
+                        <button
+                          key={st}
+                          onClick={() => setPrintingStatusFilter(st)}
+                          className={`px-3 py-1 rounded-md text-xs font-bold capitalize transition-all ${
+                            printingStatusFilter === st
+                              ? 'bg-cyan-600 text-white shadow-sm'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          {st}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Search Bar */}
+                  <div className="relative w-full lg:w-72">
+                    <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Search customer, student ID, receipt..."
+                      value={printingSearchQuery}
+                      onChange={(e) => setPrintingSearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-3 py-1.5 border border-slate-300 rounded-lg text-xs focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500"
+                    />
+                    {printingSearchQuery && (
+                      <button
+                        onClick={() => setPrintingSearchQuery('')}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Table Body */}
+              {(() => {
+                const filtered = printingOrders.filter(order => {
+                  const matchesStatus = printingStatusFilter === 'all' || order.status === printingStatusFilter;
+                  const matchesDate = !printingFilterDate || (() => {
+                    const d = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
+                    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+                    return dateStr === printingFilterDate;
+                  })();
+
+                  const matchesService = printingServiceFilter === 'all' || (() => {
+                    if (order.items && Array.isArray(order.items) && order.items.length > 0) {
+                      return order.items.some((it: any) => {
+                        const name = (it.productName || it.product_name || it.name || '').toLowerCase();
+                        const isCopy = name.includes('photocopy') || name.includes('xerox') || name.includes('photo copy');
+                        return printingServiceFilter === 'photocopy' ? isCopy : !isCopy;
+                      });
+                    }
+                    const name = (order.product_name || order.productName || '').toLowerCase();
+                    const isCopy = name.includes('photocopy') || name.includes('xerox') || name.includes('photo copy');
+                    return printingServiceFilter === 'photocopy' ? isCopy : !isCopy;
+                  })();
+
+                  const customerName = (order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || '').toLowerCase();
+                  const receiptNo = (order.receipt_no || order.receiptNo || '').toLowerCase();
+                  const studentId = (order.id_number || order.walk_in_id_number || '').toLowerCase();
+                  const course = (order.course || order.walk_in_course || '').toLowerCase();
+                  const itemNames = (order.items || []).map((it: any) => (it.productName || it.product_name || '').toLowerCase()).join(' ');
+
+                  const q = printingSearchQuery.toLowerCase().trim();
+                  const matchesSearch = !q || customerName.includes(q) || receiptNo.includes(q) || studentId.includes(q) || course.includes(q) || itemNames.includes(q);
+
+                  return matchesStatus && matchesDate && matchesService && matchesSearch;
+                });
+
+                if (filtered.length === 0) {
+                  return (
+                    <div className="p-12 text-center">
+                      <div className="w-16 h-16 bg-cyan-50 rounded-full flex items-center justify-center mx-auto mb-4 text-cyan-600">
+                        <Printer size={32} />
+                      </div>
+                      <h4 className="text-base font-bold text-slate-800">No Printing or Photocopy Orders Found</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        No orders match the selected filters. Change the date filter or clear search terms above.
+                      </p>
+                    </div>
+                  );
+                }
+
+                const totalItems = filtered.length;
+                const totalPages = Math.max(1, Math.ceil(totalItems / printingRowsPerPage));
+                const currentPageClamped = Math.min(printingCurrentPage, totalPages);
+                const startIndex = (currentPageClamped - 1) * printingRowsPerPage;
+                const endIndex = Math.min(startIndex + printingRowsPerPage, totalItems);
+                const paginatedOrders = filtered.slice(startIndex, endIndex);
+
+                return (
+                  <div>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-[11px] font-bold uppercase tracking-wider text-slate-500 border-b border-slate-200">
+                            <th className="py-3 px-4">Receipt No</th>
+                            <th className="py-3 px-4">Customer</th>
+                            <th className="py-3 px-4">ID & Course</th>
+                            <th className="py-3 px-4">Service Details</th>
+                            <th className="py-3 px-4 text-center">Copies / Qty</th>
+                            <th className="py-3 px-4 text-right">Amount</th>
+                            <th className="py-3 px-4 text-center">Payment</th>
+                            <th className="py-3 px-4 text-center">Status</th>
+                            <th className="py-3 px-4 text-center">Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-xs">
+                          {paginatedOrders.map((order: any) => {
+                            const printItems = (order.items && Array.isArray(order.items) && order.items.length > 0)
+                              ? order.items.filter((it: any) => isPrintingOrPhotocopyItem(it))
+                              : [];
+                            const customerName = order.first_name ? formatFullName(order.first_name, order.last_name) : order.walk_in_name || 'Walk-in Student';
+                            const studentId = order.id_number || order.walk_in_id_number || 'N/A';
+                            const courseYear = order.course && order.year ? `${order.course} - ${order.year}` : order.course || order.year || 'N/A';
+                            const receiptNo = order.receipt_no || order.receiptNo || 'N/A';
+                            const paymentMethod = formatPaymentMethod(order.payment_method);
+                            const displayDate = (order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at;
+                            const dateFormatted = displayDate ? new Date(displayDate).toLocaleDateString() : 'N/A';
+
+                            const totalOrderAmount = parseFloat(order.total_amount || 0);
+
+                            return (
+                              <tr key={order.id} className="hover:bg-cyan-50/30 transition-colors">
+                                <td className="py-3.5 px-4 font-mono font-bold text-cyan-800 whitespace-nowrap">
+                                  {receiptNo}
+                                </td>
+                                <td className="py-3.5 px-4 font-semibold text-slate-800">
+                                  {customerName}
+                                </td>
+                                <td className="py-3.5 px-4 text-slate-600">
+                                  <div className="font-mono text-[11px] font-semibold text-slate-700">{studentId}</div>
+                                  <div className="text-[10px] text-slate-500">{courseYear}</div>
+                                </td>
+                                <td className="py-3.5 px-4">
+                                  {printItems.length > 0 ? (
+                                    <div className="space-y-1">
+                                      {printItems.map((item: any, idx: number) => {
+                                        const prodName = formatProductNameWithVariants(item);
+                                        const isCopy = prodName.toLowerCase().includes('photocopy') || prodName.toLowerCase().includes('xerox') || prodName.toLowerCase().includes('photo copy');
+                                        return (
+                                          <div key={idx} className="flex items-center space-x-2">
+                                            <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                              isCopy ? 'bg-purple-100 text-purple-700 border border-purple-200' : 'bg-cyan-100 text-cyan-700 border border-cyan-200'
+                                            }`}>
+                                              {isCopy ? 'Photocopy' : 'Printing'}
+                                            </span>
+                                            <span className="font-semibold text-slate-800">{prodName}</span>
+                                            {item.selectedOptions?.color && (
+                                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-medium">
+                                                {item.selectedOptions.color}
+                                              </span>
+                                            )}
+                                            {item.selectedOptions?.paperSize && (
+                                              <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.2 rounded font-medium">
+                                                {item.selectedOptions.paperSize}
+                                              </span>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <div className="flex items-center space-x-2">
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-cyan-100 text-cyan-700 border border-cyan-200">
+                                        Printing
+                                      </span>
+                                      <span className="font-semibold text-slate-800">{order.product_name || order.productName || 'Printing Service'}</span>
+                                    </div>
+                                  )}
+                                </td>
+                                <td className="py-3.5 px-4 text-center font-bold text-slate-700">
+                                  {printItems.length > 0 
+                                    ? printItems.reduce((s: number, it: any) => s + Number(it.quantity || 1), 0)
+                                    : 1}
+                                </td>
+                                <td className="py-3.5 px-4 text-right font-black text-slate-900 whitespace-nowrap">
+                                  ₱{totalOrderAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                </td>
+                                <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                    paymentMethod === 'GCASH'
+                                      ? 'bg-blue-100 text-blue-700'
+                                      : 'bg-emerald-100 text-emerald-700'
+                                  }`}>
+                                    {paymentMethod}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-center whitespace-nowrap">
+                                  <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                    order.status === 'completed'
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : order.status === 'released'
+                                      ? 'bg-purple-100 text-purple-800'
+                                      : order.status === 'pending'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-red-100 text-red-800'
+                                  }`}>
+                                    {order.status}
+                                  </span>
+                                </td>
+                                <td className="py-3.5 px-4 text-center font-medium text-slate-500 whitespace-nowrap">
+                                  {dateFormatted}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination Controls */}
+                    {totalItems > 0 && (
+                      <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold text-slate-600">
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span>Rows per page:</span>
+                            <select
+                              value={printingRowsPerPage}
+                              onChange={(e) => {
+                                setPrintingRowsPerPage(Number(e.target.value));
+                                setPrintingCurrentPage(1);
+                              }}
+                              className="px-2.5 py-1.5 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 bg-white text-slate-800 font-bold"
+                            >
+                              <option value={10}>10</option>
+                              <option value={15}>15</option>
+                              <option value={25}>25</option>
+                              <option value={50}>50</option>
+                            </select>
+                          </div>
+                          <span>
+                            Showing {startIndex + 1}–{endIndex} of {totalItems} orders
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPrintingCurrentPage(1)}
+                            disabled={currentPageClamped === 1}
+                            className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                            title="First Page"
+                          >
+                            « First
+                          </button>
+                          <button
+                            onClick={() => setPrintingCurrentPage(prev => Math.max(1, prev - 1))}
+                            disabled={currentPageClamped === 1}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <ChevronLeft size={14} />
+                            <span>Prev</span>
+                          </button>
+                          <span className="px-2 text-xs font-bold text-slate-800">
+                            Page {currentPageClamped} of {totalPages}
+                          </span>
+                          <button
+                            onClick={() => setPrintingCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                            disabled={currentPageClamped === totalPages}
+                            className="px-3 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center gap-1"
+                          >
+                            <span>Next</span>
+                            <ChevronRight size={14} />
+                          </button>
+                          <button
+                            onClick={() => setPrintingCurrentPage(totalPages)}
                             disabled={currentPageClamped === totalPages}
                             className="px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bold text-slate-700 bg-white hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
                             title="Last Page"
