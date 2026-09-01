@@ -38,6 +38,18 @@ const defaultPhysicalLockers = [
   { id: 'l-8', locker_number: 'AVR-302', location: 'AVR Building', floor: 'Ground Floor', size: 'Medium', status: 'available' },
 ];
 
+const SAMPLE_PURCHASE_INVOICES = [
+  { id: 'samp-1', date_received: '2026-07-21', total_cost: 33000.00 },
+  { id: 'samp-2', date_received: '2026-07-15', total_cost: 66200.00 },
+  { id: 'samp-3', date_received: '2026-07-01', total_cost: 94910.00 },
+  { id: 'samp-4', date_received: '2026-06-04', total_cost: 51900.00 },
+  { id: 'samp-5', date_received: '2026-06-01', total_cost: 51900.00 },
+  { id: 'samp-6', date_received: '2026-05-26', total_cost: 94910.00 },
+  { id: 'samp-7', date_received: '2026-05-19', total_cost: 22680.00 },
+  { id: 'samp-8', date_received: '2026-05-15', total_cost: 30000.00 },
+  { id: 'samp-9', date_received: '2026-05-15', total_cost: 30000.00 },
+];
+
 export const ReportsPage: React.FC = () => {
   const { user } = useAuth();
   const {
@@ -51,6 +63,16 @@ export const ReportsPage: React.FC = () => {
   // Fetch data directly from database
   const [sales, setSales] = useState<any[]>([]);
   const [lockersList, setLockersList] = useState<any[]>(defaultPhysicalLockers);
+  const [stockIntakeRecords, setStockIntakeRecords] = useState<any[]>(() => {
+    try {
+      const saved = localStorage.getItem('silms_purchase_invoices');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {}
+    return SAMPLE_PURCHASE_INVOICES;
+  });
 
   // States for Sales report tab filters
   const [salesPaymentFilter, setSalesPaymentFilter] = useState<'all' | 'cash' | 'ewallet'>('all');
@@ -77,16 +99,17 @@ export const ReportsPage: React.FC = () => {
     return map;
   }, [products]);
 
-  // Fetch orders, locker rentals, lockers, and products from API on mount with polling
+  // Fetch orders, locker rentals, lockers, products, and stock intake from API on mount with polling
   useEffect(() => {
     let isSubscribed = true;
     const fetchAllData = async () => {
       try {
-        const [orders, rentalsRes, catalog, lockersRes] = await Promise.all([
+        const [orders, rentalsRes, catalog, lockersRes, stockIntakeRes] = await Promise.all([
           apiClient.getAllTransactions(user?.id || '').catch(() => []),
           apiClient.getLockerRentals().catch(() => []),
           apiClient.getProducts().catch(() => []),
           apiClient.getLockers().catch(() => ({ lockers: [] })),
+          apiClient.getStockIntakeRecords(user?.id || '').catch(() => []),
         ]);
 
         // Merge API rentals with localStorage pending rentals
@@ -142,6 +165,12 @@ export const ReportsPage: React.FC = () => {
           setLockersList(fetchedLockers);
           if (Array.isArray(catalog) && catalog.length > 0) {
             setProducts(catalog);
+          }
+          if (Array.isArray(stockIntakeRes) && stockIntakeRes.length > 0) {
+            setStockIntakeRecords(stockIntakeRes);
+            try {
+              localStorage.setItem('silms_purchase_invoices', JSON.stringify(stockIntakeRes));
+            } catch (e) {}
           }
         }
       } catch (error) {
@@ -207,6 +236,11 @@ export const ReportsPage: React.FC = () => {
         const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
         return sum + (isNaN(amount) ? 0 : amount);
       }, 0) : 0;
+      const allMerchandiseCost = stockIntakeRecords.reduce((sum, r) => {
+        const c = parseFloat(String(r.total_cost ?? r.totalCost ?? (Number(r.quantity || 0) * Number(r.cost_per_unit || r.costPerUnit || 0))));
+        return sum + (isNaN(c) ? 0 : c);
+      }, 0);
+      const totalNetProfit = Math.max(0, totalRevenue - allMerchandiseCost);
       const avgTransaction = totalSales > 0 ? totalRevenue / totalSales : 0;
 
       return {
@@ -214,6 +248,8 @@ export const ReportsPage: React.FC = () => {
         data: [
           { label: 'Total Transactions', value: String(totalSales) },
           { label: 'Total Revenue', value: `₱${Number(totalRevenue || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+          { label: 'Total Merchandise Cost', value: `₱${Number(allMerchandiseCost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+          { label: 'Total Profit', value: `₱${Number(totalNetProfit || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
           {
             label: 'Average Transaction',
             value: `₱${Number(avgTransaction || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
@@ -981,7 +1017,25 @@ export const ReportsPage: React.FC = () => {
                 const amount = parseFloat(String(s?.total_amount || s?.totalAmount || 0));
                 return sum + (isNaN(amount) ? 0 : amount);
               }, 0);
-              const totalProfit = totalRevenue;
+
+              // Filter merchandise cost / stock intake for the period
+              const periodCostList = stockIntakeRecords.filter(r => {
+                if (selectedSalesMonth === 'all') return true;
+                const dateVal = r.date_received || r.dateReceived || r.created_at || r.createdAt;
+                if (!dateVal) return false;
+                const d = new Date(dateVal);
+                if (isNaN(d.getTime())) return false;
+                const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                return ym === selectedSalesMonth;
+              });
+
+              const totalMerchandiseCost = periodCostList.reduce((sum, r) => {
+                const c = parseFloat(String(r.total_cost ?? r.totalCost ?? (Number(r.quantity || 0) * Number(r.cost_per_unit || r.costPerUnit || 0))));
+                return sum + (isNaN(c) ? 0 : c);
+              }, 0);
+
+              const totalProfit = Math.max(0, totalRevenue - totalMerchandiseCost);
+              const profitMargin = totalRevenue > 0 ? ((totalProfit / totalRevenue) * 100).toFixed(1) : '0';
               const avgTransaction = totalSalesCount > 0 ? totalRevenue / totalSalesCount : 0;
 
               const cashOrders = periodSalesList.filter(s => (s?.payment_method || s?.paymentMethod) === 'cash');
@@ -1068,7 +1122,7 @@ export const ReportsPage: React.FC = () => {
                       </div>
                       <div className="mt-4 min-w-0">
                         <h3 
-                          className={`font-black text-slate-900 tracking-tight truncate max-w-full ${
+                          className={`font-black text-emerald-600 tracking-tight truncate max-w-full ${
                             (`₱${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 13
                               ? 'text-base sm:text-lg lg:text-xl'
                               : (`₱${totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`).length > 10
@@ -1079,7 +1133,11 @@ export const ReportsPage: React.FC = () => {
                         >
                           ₱{totalProfit.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </h3>
-                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">Net realized earnings</p>
+                        <p className="text-xs text-slate-500 mt-1 font-medium truncate">
+                          {totalMerchandiseCost > 0 
+                            ? `Net profit (${profitMargin}% margin · COGS: ₱${totalMerchandiseCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                            : 'Net realized earnings'}
+                        </p>
                       </div>
                     </div>
 
