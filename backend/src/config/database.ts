@@ -163,6 +163,33 @@ export async function testConnection() {
       )
     `);
 
+    // ── Auto-migrate: update any Swimming Set order items erroneously recorded at ₱270 to official ₱320 ──
+    try {
+      await pool.query(`
+        UPDATE order_items
+        SET unit_price = 320.00,
+            subtotal = 320.00 * quantity
+        WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
+          AND (unit_price = 270.00 OR subtotal = 270.00)
+      `);
+
+      await pool.query(`
+        UPDATE orders o
+        SET total_amount = (
+          SELECT COALESCE(SUM(subtotal), 0)
+          FROM order_items oi
+          WHERE oi.order_id = o.id
+        )
+        WHERE o.id IN (
+          SELECT DISTINCT order_id FROM order_items
+          WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
+        )
+      `);
+      console.log('✓ Verified and updated Swimming Set transactions to official ₱320.00');
+    } catch (swimErr) {
+      console.warn('⚠️ Could not update Swimming Set pricing in database:', swimErr);
+    }
+
     console.log('✓ Database self-healing migrations checked and applied successfully');
     
     return true;

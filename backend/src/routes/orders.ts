@@ -857,6 +857,48 @@ router.post('/admin/bulk/delete', authMiddleware, async (req: Request, res: Resp
   }
 });
 
+// Admin: Correct Swimming Set transactions from ₱270 to ₱320
+router.post('/admin/correct-swimming-price', authMiddleware, async (req: Request, res: Response) => {
+  try {
+    const requestingUserResult = await pool.query('SELECT role FROM users WHERE id = $1', [req.user!.id]);
+    const isStaffOrAdmin = requestingUserResult.rows[0] && ['admin', 'staff', 'manager'].includes(requestingUserResult.rows[0].role);
+    if (!isStaffOrAdmin) {
+      return res.status(403).json({ error: 'Unauthorized. Admin/Staff only.' });
+    }
+
+    const itemUpdateResult = await pool.query(`
+      UPDATE order_items
+      SET unit_price = 320.00,
+          subtotal = 320.00 * quantity
+      WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
+        AND (unit_price = 270.00 OR subtotal = 270.00)
+      RETURNING id, order_id, product_name, unit_price, subtotal
+    `);
+
+    await pool.query(`
+      UPDATE orders o
+      SET total_amount = (
+        SELECT COALESCE(SUM(subtotal), 0)
+        FROM order_items oi
+        WHERE oi.order_id = o.id
+      )
+      WHERE o.id IN (
+        SELECT DISTINCT order_id FROM order_items
+        WHERE (product_name ILIKE '%swimming set%' OR product_name ILIKE '%swimset%')
+      )
+    `);
+
+    res.json({
+      message: 'Successfully updated Swimming Set prices to ₱320.00',
+      updatedItemsCount: itemUpdateResult.rowCount,
+      updatedItems: itemUpdateResult.rows
+    });
+  } catch (error) {
+    console.error('Error correcting swimming price:', error);
+    res.status(500).json({ error: 'Failed to correct swimming price' });
+  }
+});
+
 // Get all orders (for staff/admin) or user-specific orders
 // This endpoint checks user role and returns appropriate data
 router.get('/all/transactions', authMiddleware, async (req: Request, res: Response) => {
