@@ -4,7 +4,7 @@ import { useAuth } from '../store/authContext';
 import { apiClient } from '../services/api';
 import { AppDataSync } from '../store/appDataSync';
 import { useUIStore } from '../store/uiStore';
-import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+import { formatProductName, parseAndFormatLegacyProductName, cleanRepeatedSegments } from '../utils/productNameFormatter';
 import { useAppStore } from '../store/appStore';
 import { formatFullName } from '../utils/nameFormatter';
 import * as XLSX from 'xlsx';

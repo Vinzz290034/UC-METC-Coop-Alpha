@@ -24,7 +24,7 @@ import {
 import { useAppStore } from '../store/appStore';
 import { apiClient } from '../services/api';
 import { useAuth } from '../store/authContext';
-import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+import { formatProductName, parseAndFormatLegacyProductName, cleanRepeatedSegments } from '../utils/productNameFormatter';
 
 // Default physical lockers fallback
 const defaultPhysicalLockers = [

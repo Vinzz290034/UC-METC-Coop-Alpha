@@ -9,7 +9,7 @@ import { AppDataSync } from '../store/appDataSync';
 import domtoimage from 'dom-to-image';
 import { Z_INDEX } from '../constants/zIndex';
 import { useUIStore } from '../store/uiStore';
-import { formatProductName, parseAndFormatLegacyProductName } from '../utils/productNameFormatter';
+import { formatProductName, parseAndFormatLegacyProductName, cleanRepeatedSegments } from '../utils/productNameFormatter';
 import { COOP_LOGO_URL, GCASH_URL } from '../constants/cloudinaryAssets';
 
 export const BillingHistoryPage: React.FC = () => {
