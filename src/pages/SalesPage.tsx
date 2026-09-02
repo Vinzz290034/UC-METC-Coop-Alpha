@@ -407,7 +407,7 @@ export const SalesPage: React.FC = () => {
   const { user } = useAuth();
   const { showNotification } = useUIStore();
   const { products } = useAppStore();
-  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'remittance' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring' | 'gcash' | 'printing'>('pending');
+  const [activeTab, setActiveTab] = useState<'pending' | 'daily' | 'history' | 'monthly' | 'tailored' | 'fulfillment' | 'downpayment' | 'insurance' | 'hardbound' | 'swimming' | 'classring' | 'gcash' | 'printing'>('pending');
   const [pendingOrders, setPendingOrders] = useState<any[]>([]);
   const [dailyOrders, setDailyOrders] = useState<any[]>([]);
   const [historyOrders, setHistoryOrders] = useState<any[]>([]);
@@ -756,12 +756,6 @@ export const SalesPage: React.FC = () => {
   const [bulkRestoreInventoryStock, setBulkRestoreInventoryStock] = useState<boolean>(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState<boolean>(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<boolean>(false);
-  const [remittanceOrders, setRemittanceOrders] = useState<any[]>([]);
-  const [remittanceDate, setRemittanceDate] = useState<Date>(() => {
-    const d = new Date();
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }); // Default to today local start of day
 
   // Load pending orders
   useEffect(() => {
@@ -790,21 +784,6 @@ export const SalesPage: React.FC = () => {
       return () => clearInterval(interval);
     }
   }, [user?.id, activeTab]);
-
-  // Load remittance summary
-  useEffect(() => {
-    if (user?.id && activeTab === 'remittance') {
-      loadRemittanceSummary();
-      
-      // Set up polling for real-time updates (every 10 seconds)
-      const interval = setInterval(() => {
-        loadPreOrderOrders(); // Keep tailored data updated too
-        loadRemittanceSummary();
-      }, 10000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [user?.id, activeTab, remittanceDate]);
 
 
   // Load history for selected date
@@ -1066,7 +1045,6 @@ export const SalesPage: React.FC = () => {
     if (activeTab === 'pending') await loadPendingOrders();
     else if (activeTab === 'daily') await loadDailySummary();
     else if (activeTab === 'history') await loadHistorySummary();
-    else if (activeTab === 'remittance') await loadRemittanceSummary();
     else if (activeTab === 'tailored') {
       await loadPreOrderOrders();
       await loadDownpaymentOrders();
@@ -1840,28 +1818,6 @@ export const SalesPage: React.FC = () => {
     return mainName.includes('locker');
   };
 
-  const loadRemittanceSummary = async () => {
-    try {
-      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
-      
-      const targetDate = new Date(remittanceDate);
-      targetDate.setHours(0, 0, 0, 0);
-      
-      const filtered = allOrders.filter((order: any) => {
-        const orderDate = new Date((order.status === 'completed' || order.status === 'released') && order.completed_at ? order.completed_at : order.created_at);
-        orderDate.setHours(0, 0, 0, 0);
-        return orderDate.getTime() === targetDate.getTime() && 
-               (order.status === 'completed' || order.status === 'released' || order.status === 'cancelled') &&
-               order.order_type !== 'insurance' &&
-               !isClassRingOrder(order) &&
-               !isLockerRentalOrder(order);
-      });
-      
-      setRemittanceOrders(filtered);
-    } catch (err) {
-      console.error('Failed to load remittance summary:', err);
-    }
-  };
 
   const loadClassRingOrders = async () => {
     try {
@@ -2156,19 +2112,6 @@ export const SalesPage: React.FC = () => {
     }
   };
 
-  const changeRemittanceDate = (days: number) => {
-    const newDate = new Date(remittanceDate);
-    newDate.setHours(0, 0, 0, 0);
-    newDate.setDate(newDate.getDate() + days);
-    
-    // Don't allow future dates
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (newDate.getTime() <= today.getTime()) {
-      setRemittanceDate(newDate);
-    }
-  };
-
   const exportToExcel = () => {
     // Local date formatter to prevent UTC day shifting
     const formatLocalDate = (date: Date): string => {
@@ -2257,89 +2200,6 @@ export const SalesPage: React.FC = () => {
       const sku = matchedProduct?.sku || 'N/A';
       return { category, sku };
     };
-
-    if (activeTab === 'remittance') {
-      const dailyProductsSold: Record<string, { quantity: number; revenue: number; category: string; sku: string; price: number }> = {};
-      
-      remittanceOrders
-        .filter((order: any) => (order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance')
-        .forEach((order: any) => {
-          const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
-                                   (order.receiptNo && order.receiptNo.startsWith('BAL-'));
-          if (order.items && Array.isArray(order.items)) {
-            order.items.forEach((item: any) => {
-              const productName = formatProductNameWithVariants(item);
-              const { category, sku } = resolveProductInfo(item.productName || item.product_name || '');
-              const unitPrice = parseFloat(item.unitPrice || item.unit_price || 0);
-
-              if (!dailyProductsSold[productName]) {
-                dailyProductsSold[productName] = { quantity: 0, revenue: 0, category, sku, price: unitPrice };
-              }
-              if (!isBalancePayment) {
-                dailyProductsSold[productName].quantity += item.quantity;
-              }
-              dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
-            });
-          }
-        });
-
-      const rows = Object.entries(dailyProductsSold)
-        .sort((a, b) => b[1].quantity - a[1].quantity)
-        .map(([productName, data]) => ({
-          name: productName,
-          category: data.category,
-          sku: data.sku,
-          price: data.price,
-          quantity: data.quantity,
-          revenue: data.revenue
-        }));
-
-      const totalSales = rows.reduce((sum, r) => sum + r.revenue, 0);
-      const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
-
-      const tableHeader = `
-        <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Unit Price</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
-          <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
-        </tr>
-      `;
-
-      const tableRows = rows.map((row, index) => {
-        const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
-        return `
-          <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
-            <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const dateTitle = remittanceDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
-      const htmlContent = getExcelHtmlWrapper(
-        'Daily Remittance Report',
-        `Remittance Date: ${dateTitle}`,
-        [
-          { label: 'Total Sales', value: `₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, bg: '#ecfdf5', border: '#a7f3d0', color: '#047857' },
-          { label: 'Completed Orders', value: remittanceOrders.filter((o: any) => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance').length.toString(), bg: '#f3e8ff', border: '#d8b4fe', color: '#6d28d9' },
-          { label: 'Products Sold', value: `${totalUnits} units`, bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8' }
-        ],
-        tableHeader,
-        tableRows
-      );
-
-      triggerExcelDownload(htmlContent, `daily_remittance_${formatLocalDate(remittanceDate)}`);
-      showNotification('Daily remittance report exported successfully!', 'success');
-      return;
-    }
-
 
     if (activeTab === 'daily' || activeTab === 'history') {
       const isHistory = activeTab === 'history';
@@ -3252,8 +3112,8 @@ export const SalesPage: React.FC = () => {
               <span>Import Excel/CSV</span>
             </button>
 
-            {/* Export Button - Show on Daily, History, Remittance, Monthly, Tailored, Insurance, Hardbound, Class Ring, GCash, and Printing tabs */}
-            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'remittance' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring' || activeTab === 'gcash' || activeTab === 'printing') && (
+            {/* Export Button - Show on Daily, History, Monthly, Tailored, Insurance, Hardbound, Class Ring, GCash, and Printing tabs */}
+            {(activeTab === 'daily' || activeTab === 'history' || activeTab === 'tailored' || activeTab === 'insurance' || activeTab === 'hardbound' || activeTab === 'classring' || activeTab === 'gcash' || activeTab === 'printing') && (
               <button
                 onClick={exportToExcel}
                 className="flex items-center justify-center sm:justify-start space-x-2 px-4 sm:px-6 py-2 sm:py-3 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all shadow-md hover:shadow-lg hover:scale-105 text-xs sm:text-base w-full sm:w-auto hover:shadow-purple-500/20"
@@ -3297,16 +3157,6 @@ export const SalesPage: React.FC = () => {
               }`}
             >
               History
-            </button>
-            <button
-              onClick={() => setActiveTab('remittance')}
-              className={`px-3 sm:px-6 py-2 sm:py-3 text-xs sm:text-base font-semibold transition-colors whitespace-nowrap ${
-                activeTab === 'remittance'
-                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              Remittance
             </button>
             <button
               onClick={() => setActiveTab('tailored')}
@@ -4431,238 +4281,6 @@ export const SalesPage: React.FC = () => {
                 </div>
               </div>
             )}
-
-        {/* Remittance Tab */}
-        {activeTab === 'remittance' && (
-          <div className="space-y-6 animate-fade-in">
-            {/* Date Navigation */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-                <button
-                  onClick={() => changeRemittanceDate(-1)}
-                  className="flex items-center justify-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors w-full sm:w-auto"
-                >
-                  <ChevronLeft size={20} />
-                  <span className="font-semibold">Previous Day</span>
-                </button>
-                
-                <div className="text-center">
-                  <p className="text-sm text-slate-600 mb-1">Viewing sales for:</p>
-                  <p className="text-2xl font-bold text-purple-600">
-                    {remittanceDate.toLocaleDateString('en-US', { 
-                      weekday: 'long', 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    })}
-                  </p>
-                </div>
-                
-                <button
-                  onClick={() => changeRemittanceDate(1)}
-                  disabled={(() => {
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const comp = new Date(remittanceDate);
-                    comp.setHours(0, 0, 0, 0);
-                    return comp.getTime() >= today.getTime();
-                  })()}
-                  className={`flex items-center justify-center space-x-2 px-4 py-2 rounded-lg transition-colors w-full sm:w-auto ${
-                    (() => {
-                      const today = new Date();
-                      today.setHours(0, 0, 0, 0);
-                      const comp = new Date(remittanceDate);
-                      comp.setHours(0, 0, 0, 0);
-                      return comp.getTime() >= today.getTime();
-                    })()
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      : 'bg-slate-100 hover:bg-slate-200'
-                  }`}
-                >
-                  <span className="font-semibold">Next Day</span>
-                  <ChevronRight size={20} />
-                </button>
-              </div>
-              
-              {/* Date Picker */}
-              <div className="flex items-center justify-center">
-                <div className="flex items-center space-x-3">
-                  <label htmlFor="remittance-date-picker" className="text-sm font-semibold text-slate-700">
-                    Jump to date:
-                  </label>
-                  <input
-                    id="remittance-date-picker"
-                    type="date"
-                    value={(() => {
-                      const year = remittanceDate.getFullYear();
-                      const month = String(remittanceDate.getMonth() + 1).padStart(2, '0');
-                      const day = String(remittanceDate.getDate()).padStart(2, '0');
-                      return `${year}-${month}-${day}`;
-                    })()}
-                    max={(() => {
-                      const today = new Date();
-                      const year = today.getFullYear();
-                      const month = String(today.getMonth() + 1).padStart(2, '0');
-                      const day = String(today.getDate()).padStart(2, '0');
-                      return `${year}-${month}-${day}`;
-                    })()}
-                    onChange={(e) => {
-                      if (!e.target.value) return;
-                      const [y, m, d] = e.target.value.split('-').map(Number);
-                      const newDate = new Date(y, m - 1, d);
-                      newDate.setHours(0, 0, 0, 0);
-                      setRemittanceDate(newDate);
-                    }}
-                    className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Total Sales</h3>
-                  <TrendingUp size={24} />
-                </div>
-                <p className="text-3xl font-bold">
-                  ₱{remittanceOrders
-                    .filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
-                    .reduce((sum, o) => {
-                      if (o.items && Array.isArray(o.items) && o.items.length > 0) {
-                        return sum + o.items.reduce((iSum: number, item: any) => iSum + (parseFloat(item.subtotal || item.total || (item.price * item.quantity)) || 0), 0);
-                      }
-                      return sum + (parseFloat(o.total_amount) || 0);
-                    }, 0)
-                    .toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </p>
-                <p className="text-sm opacity-75 mt-1">on this day</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Orders Completed</h3>
-                  <CheckCircle size={24} />
-                </div>
-                <p className="text-3xl font-bold">
-                  {remittanceOrders.filter(o => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance').length}
-                </p>
-                <p className="text-sm opacity-75 mt-1">orders</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm font-semibold opacity-90">Products Sold</h3>
-                  <Package size={24} />
-                </div>
-                <p className="text-3xl font-bold">
-                  {(() => {
-                    const dailyProductsSold: Record<string, number> = {};
-                    remittanceOrders
-                      .filter((o: any) => (o.status === 'completed' || o.status === 'released') && o.order_type !== 'insurance')
-                      .forEach((o: any) => {
-                        const isBalancePayment = (o.receipt_no && o.receipt_no.startsWith('BAL-')) ||
-                                                 (o.receiptNo && o.receiptNo.startsWith('BAL-'));
-                        if (o.items && Array.isArray(o.items)) {
-                          o.items.forEach((item: any) => {
-                            const productName = formatProductNameWithVariants(item);
-                            if (!isBalancePayment) {
-                              dailyProductsSold[productName] = (dailyProductsSold[productName] || 0) + item.quantity;
-                            }
-                          });
-                        }
-                      });
-                    return Object.values(dailyProductsSold).reduce((sum, q) => sum + q, 0);
-                  })()}
-                </p>
-                <p className="text-sm opacity-75 mt-1">units</p>
-              </div>
-            </div>
-
-            {/* Products Sold Today Table */}
-            {(() => {
-              // Calculate daily product remittance from completed orders
-              const dailyProductsSold: Record<string, { quantity: number; revenue: number }> = {};
-              
-              remittanceOrders
-                .filter((order: any) => (order.status === 'completed' || order.status === 'released') && order.order_type !== 'insurance')
-                .forEach((order: any) => {
-                  const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
-                                           (order.receiptNo && order.receiptNo.startsWith('BAL-'));
-                  if (order.items && Array.isArray(order.items)) {
-                    order.items.forEach((item: any) => {
-                      const productName = formatProductNameWithVariants(item);
-                      if (!dailyProductsSold[productName]) {
-                        dailyProductsSold[productName] = { quantity: 0, revenue: 0 };
-                      }
-                      if (!isBalancePayment) {
-                        dailyProductsSold[productName].quantity += item.quantity;
-                      }
-                      dailyProductsSold[productName].revenue += parseFloat(item.subtotal || 0);
-                    });
-                  }
-                });
-
-              const dailyProductsSoldEntries = Object.entries(dailyProductsSold).sort((a: any, b: any) => b[1].quantity - a[1].quantity);
-
-              return (
-                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-                  <div className="p-6 border-b border-slate-200 bg-slate-50/50">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Products Sold on {remittanceDate.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-                    </h3>
-                  </div>
-                  {dailyProductsSoldEntries.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Package size={48} className="mx-auto text-slate-300 mb-4" />
-                      <p className="text-slate-600 text-lg">No products sold on this date</p>
-                    </div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                          <tr>
-                            <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
-                            <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Units Sold</th>
-                            <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {dailyProductsSoldEntries.map(([productName, data]: [string, any]) => (
-                            <tr key={productName} className="border-b border-slate-200 hover:bg-slate-50">
-                              <td className="px-6 py-4 text-sm font-medium text-slate-900">{productName}</td>
-                              <td className="px-6 py-4 text-sm text-center text-slate-600 font-semibold">{data.quantity} units</td>
-                              <td className="px-6 py-4 text-sm text-right font-semibold text-green-700">
-                                ₱{data.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                        <tfoot className="bg-slate-100/95 border-t-2 border-slate-300 font-bold text-slate-900">
-                          <tr>
-                            <td colSpan={4} className="py-3.5 px-6 text-right text-xs uppercase tracking-wider text-slate-600 font-bold">
-                              Filtered Totals ({filteredHistoryRows.length} {filteredHistoryRows.length === 1 ? 'record' : 'records'}):
-                            </td>
-                            <td className="py-3.5 px-6 text-center font-bold text-purple-700 text-sm">
-                              <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-md border border-purple-200">
-                                {filteredHistoryRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0).toLocaleString()}
-                              </span>
-                            </td>
-                            <td className="py-3.5 px-6 font-bold text-emerald-700 text-sm whitespace-nowrap">
-                              ₱{filteredHistoryRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                            </td>
-                            <td colSpan={4} className="py-3.5 px-6"></td>
-                          </tr>
-                        </tfoot>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        )}
 
         {/* History Tab */}
         {activeTab === 'history' && (
