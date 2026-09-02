@@ -4089,8 +4089,20 @@ export const SalesPage: React.FC = () => {
                       </>
                     )}
                     {dailyRows.length > 0 && (
-                      <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                        Showing <span className="font-bold text-purple-600">{filteredDailyRows.length}</span> of <span className="font-bold text-slate-700">{dailyRows.length}</span> records
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-xs bg-purple-50 text-purple-900 border border-purple-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs">
+                          <span className="text-purple-600 font-semibold">Total Qty:</span>
+                          <span className="font-bold">{filteredDailyRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0).toLocaleString()}</span>
+                        </div>
+                        <div className="text-xs bg-emerald-50 text-emerald-900 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs">
+                          <span className="text-emerald-600 font-semibold">Total Amount:</span>
+                          <span className="font-bold text-emerald-700">
+                            ₱{filteredDailyRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                          Showing <span className="font-bold text-purple-600">{filteredDailyRows.length}</span> of <span className="font-bold text-slate-700">{dailyRows.length}</span> records
+                        </div>
                       </div>
                     )}
                   </div>
@@ -4397,6 +4409,22 @@ export const SalesPage: React.FC = () => {
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot className="bg-slate-100/95 border-t-2 border-slate-300 font-bold text-slate-900">
+                          <tr>
+                            <td colSpan={4} className="py-3.5 px-6 text-right text-xs uppercase tracking-wider text-slate-600 font-bold">
+                              Filtered Totals ({filteredDailyRows.length} {filteredDailyRows.length === 1 ? 'record' : 'records'}):
+                            </td>
+                            <td className="py-3.5 px-6 text-center font-bold text-purple-700 text-sm">
+                              <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-md border border-purple-200">
+                                {filteredDailyRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0).toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-6 font-bold text-emerald-700 text-sm whitespace-nowrap">
+                              ₱{filteredDailyRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td colSpan={4} className="py-3.5 px-6"></td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   )}
@@ -4611,6 +4639,22 @@ export const SalesPage: React.FC = () => {
                             </tr>
                           ))}
                         </tbody>
+                        <tfoot className="bg-slate-100/95 border-t-2 border-slate-300 font-bold text-slate-900">
+                          <tr>
+                            <td colSpan={4} className="py-3.5 px-6 text-right text-xs uppercase tracking-wider text-slate-600 font-bold">
+                              Filtered Totals ({filteredHistoryRows.length} {filteredHistoryRows.length === 1 ? 'record' : 'records'}):
+                            </td>
+                            <td className="py-3.5 px-6 text-center font-bold text-purple-700 text-sm">
+                              <span className="px-2.5 py-1 bg-purple-100 text-purple-900 rounded-md border border-purple-200">
+                                {filteredHistoryRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0).toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="py-3.5 px-6 font-bold text-emerald-700 text-sm whitespace-nowrap">
+                              ₱{filteredHistoryRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </td>
+                            <td colSpan={4} className="py-3.5 px-6"></td>
+                          </tr>
+                        </tfoot>
                       </table>
                     </div>
                   )}
@@ -4779,8 +4823,20 @@ export const SalesPage: React.FC = () => {
                       </>
                     )}
                     {historyRows.length > 0 && (
-                      <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
-                        Showing <span className="font-bold text-purple-600">{filteredHistoryRows.length}</span> of <span className="font-bold text-slate-700">{historyRows.length}</span> records
+                      <div className="flex flex-wrap items-center gap-2">
+                        <div className="text-xs bg-purple-50 text-purple-900 border border-purple-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs">
+                          <span className="text-purple-600 font-semibold">Total Qty:</span>
+                          <span className="font-bold">{filteredHistoryRows.reduce((sum, r) => sum + (Number(r.quantity) || 0), 0).toLocaleString()}</span>
+                        </div>
+                        <div className="text-xs bg-emerald-50 text-emerald-900 border border-emerald-200 px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-2xs">
+                          <span className="text-emerald-600 font-semibold">Total Amount:</span>
+                          <span className="font-bold text-emerald-700">
+                            ₱{filteredHistoryRows.reduce((sum, r) => sum + (Number(r.amount) || 0), 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-500 font-medium bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200">
+                          Showing <span className="font-bold text-purple-600">{filteredHistoryRows.length}</span> of <span className="font-bold text-slate-700">{historyRows.length}</span> records
+                        </div>
                       </div>
                     )}
                   </div>
