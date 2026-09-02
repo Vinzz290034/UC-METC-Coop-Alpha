@@ -379,7 +379,7 @@ export const InventoryPage: React.FC = () => {
     useAppStore();
   const { showNotification, setSidebarOpen } = useUIStore();
 
-  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake' | 'stock-receiving' | 'monthly' | 'summary'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'stock-intake' | 'stock-receiving' | 'daily' | 'monthly' | 'summary'>('inventory');
 
   // Stock Receiving (Incoming Stock Arrival with Auto Inventory Update) states
   interface StockReceivingRecord {
@@ -458,6 +458,15 @@ export const InventoryPage: React.FC = () => {
     receivedBy: 'Office Staff',
     notes: '',
   });
+
+  // Daily Summary Tab states
+  const [selectedDailyDate, setSelectedDailyDate] = useState<Date>(new Date());
+  const [dailyData, setDailyData] = useState<any>(null);
+  const [dailySearchQuery, setDailySearchQuery] = useState<string>('');
+  const [dailyPaymentTypeFilter, setDailyPaymentTypeFilter] = useState<'all' | 'full' | 'downpayment' | 'balance'>('all');
+  const [selectedDailyExportProducts, setSelectedDailyExportProducts] = useState<string[]>([]);
+  const [showDailyExportModal, setShowDailyExportModal] = useState<boolean>(false);
+
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [monthlyData, setMonthlyData] = useState<any>(null);
   const [monthlySearchQuery, setMonthlySearchQuery] = useState<string>('');
@@ -1840,6 +1849,86 @@ interface StockIntakeItem {
     }
   };
 
+  // Load daily report data when daily tab is active or selectedDailyDate changes
+  useEffect(() => {
+    if (activeTab === 'daily') {
+      loadDailyReport();
+    }
+  }, [activeTab, selectedDailyDate]);
+
+  const loadDailyReport = async () => {
+    try {
+      const allOrders = await apiClient.getAllTransactions(user?.id || '') as any[];
+      
+      const selYear = selectedDailyDate.getFullYear();
+      const selMonth = selectedDailyDate.getMonth();
+      const selDay = selectedDailyDate.getDate();
+      
+      const dailyOrders = allOrders.filter((order: any) => {
+        // Use completed_at for completed orders (payment date)
+        const orderDate = new Date(order.completed_at || order.created_at);
+        return orderDate.getDate() === selDay &&
+               orderDate.getMonth() === selMonth && 
+               orderDate.getFullYear() === selYear &&
+               (order.status === 'completed' || order.status === 'released') &&
+               order.order_type !== 'insurance'; // Exclude insurance orders
+      });
+      
+      // Calculate total sales
+      const totalSales = dailyOrders.reduce((sum: number, order: any) => 
+        sum + parseFloat(order.total_amount), 0
+      );
+      
+      // Calculate product units sold with payment stage distinction
+      const productsSold: Record<string, { productName: string; paymentType: 'full' | 'downpayment' | 'balance'; quantity: number; revenue: number }> = {};
+      
+      dailyOrders.forEach((order: any) => {
+        const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
+                                 (order.receiptNo && order.receiptNo.startsWith('BAL-')) ||
+                                 (order.order_type === 'balance_payment') ||
+                                 (order.orderType === 'balance_payment');
+        if (order.items && Array.isArray(order.items)) {
+          order.items.forEach((item: any) => {
+            const rawProductName = formatProductNameWithVariants(item);
+            const cleanName = cleanRepeatedSegments(rawProductName);
+            
+            const rawPaymentType = item.paymentType || item.payment_type || order.paymentType || order.payment_type;
+            const price = parseFloat(item.price || item.unit_price || item.unitPrice || 0);
+            const isTailored = cleanName.toLowerCase().includes('uniform') || cleanName.toLowerCase().includes('gala');
+            
+            let pType: 'full' | 'downpayment' | 'balance' = 'full';
+            if (isBalancePayment) {
+              pType = 'balance';
+            } else if (rawPaymentType === 'downpayment' || (isTailored && (price === 1500 || price === 500))) {
+              pType = 'downpayment';
+            }
+
+            const itemKey = `${cleanName}::${pType}`;
+            if (!productsSold[itemKey]) {
+              productsSold[itemKey] = { 
+                productName: cleanName,
+                paymentType: pType,
+                quantity: 0, 
+                revenue: 0 
+              };
+            }
+            productsSold[itemKey].quantity += (parseInt(String(item.quantity || 1), 10) || 1);
+            productsSold[itemKey].revenue += parseFloat(String(item.subtotal || (item.quantity * (price || 0)) || 0)) || 0;
+          });
+        }
+      });
+      
+      setDailyData({
+        totalSales,
+        orderCount: dailyOrders.length,
+        productsSold,
+        orders: dailyOrders
+      });
+    } catch (err) {
+      console.error('Failed to load daily report:', err);
+    }
+  };
+
   // Load monthly report data when monthly tab is active or selectedMonth changes
   useEffect(() => {
     if (activeTab === 'monthly') {
@@ -1920,11 +2009,12 @@ interface StockIntakeItem {
   };
 
   const getProductSoldOrders = (productName: string, paymentType?: 'full' | 'downpayment' | 'balance') => {
-    if (!monthlyData || !monthlyData.orders) return [];
+    const currentData = activeTab === 'daily' ? dailyData : monthlyData;
+    if (!currentData || !currentData.orders) return [];
     
     const matchingPurchases: any[] = [];
     
-    monthlyData.orders.forEach((order: any) => {
+    currentData.orders.forEach((order: any) => {
       const isBalancePayment = (order.receipt_no && order.receipt_no.startsWith('BAL-')) ||
                                (order.receiptNo && order.receiptNo.startsWith('BAL-')) ||
                                (order.order_type === 'balance_payment') ||
@@ -1963,6 +2053,157 @@ interface StockIntakeItem {
     
     // Sort by date (most recent first)
     return matchingPurchases.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  };
+
+  const handleExportDailyReport = (selectedProductKeys?: string[]) => {
+    if (!dailyData) return;
+    
+    // Helper to resolve category and SKU from master products
+    const resolveProductInfo = (itemName: string) => {
+      const baseName = itemName.split(' - ')[0].split('(')[0].trim();
+      const matchedProduct = products.find(p => p.name.toLowerCase().trim() === baseName.toLowerCase().trim() || p.name.toLowerCase().trim() === itemName.toLowerCase().trim());
+      const rawCat = matchedProduct?.category || '';
+      const category = (rawCat === 'equipment' || rawCat === 'ppe') ? 'PPE' : (rawCat ? rawCat.charAt(0).toUpperCase() + rawCat.slice(1) : 'Merchandise');
+      const sku = matchedProduct?.sku || 'N/A';
+      return { category, sku };
+    };
+
+    let entries = Object.entries(dailyData.productsSold);
+    
+    // Filter if specific products were specified
+    if (selectedProductKeys && selectedProductKeys.length > 0) {
+      entries = entries.filter(([pKey]) => selectedProductKeys.includes(pKey));
+    }
+
+    if (entries.length === 0) {
+      showNotification('No products selected to export', 'error');
+      return;
+    }
+
+    const rows = entries
+      .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+      .map(([key, data]: [string, any]) => {
+        const pName = data.productName || key;
+        const pType = data.paymentType || 'full';
+        const pTypeLabel = pType === 'downpayment' ? 'Downpayment' : pType === 'balance' ? 'Balance Settlement' : 'Full Payment';
+        const { category, sku } = resolveProductInfo(pName);
+        const price = data.quantity > 0 ? (data.revenue / data.quantity) : data.revenue;
+        return {
+          name: pName,
+          paymentType: pTypeLabel,
+          category,
+          sku,
+          price,
+          quantity: data.quantity,
+          revenue: data.revenue
+        };
+      });
+
+    const totalSales = rows.reduce((sum, r) => sum + r.revenue, 0);
+    const totalUnits = rows.reduce((sum, r) => sum + r.quantity, 0);
+
+    const tableHeader = `
+      <tr style="background-color: #6d28d9; color: #ffffff; font-weight: bold; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 13px; height: 35px;">
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 250px;">Product Name</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 140px;">Payment Stage</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: center; width: 120px;">Category</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: left; width: 150px;">SKU</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 110px;">Avg Unit Price</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Units Sold</th>
+        <th style="padding: 10px; border: 1px solid #cbd5e1; text-align: right; width: 130px;">Total Revenue</th>
+      </tr>
+    `;
+
+    const tableRows = rows.map((row, index) => {
+      const bg = index % 2 === 0 ? '#ffffff' : '#f8fafc';
+      const pColor = row.paymentType === 'Downpayment' ? '#b45309' : row.paymentType === 'Balance Settlement' ? '#047857' : '#6d28d9';
+      return `
+        <tr style="background-color: ${bg}; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 12px; color: #334155; height: 30px;">
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-weight: bold; color: #1e293b;">${row.name}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-weight: bold; color: ${pColor};">${row.paymentType}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: center; font-size: 11px; font-weight: bold; color: #64748b;">${row.category}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; font-family: Consolas, monospace; color: #0f172a;">${row.sku}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #6d28d9;">₱${row.price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: 600;">${row.quantity}</td>
+          <td style="padding: 8px 10px; border: 1px solid #e2e8f0; text-align: right; font-weight: bold; color: #047857;">₱${row.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+        </tr>
+      `;
+    }).join('');
+
+    const dateStr = selectedDailyDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const dateFileStr = `${selectedDailyDate.getFullYear()}-${String(selectedDailyDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDailyDate.getDate()).padStart(2, '0')}`;
+    
+    const htmlContent = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head>
+        <!--[if gte mso 9]>
+        <xml>
+          <x:ExcelWorkbook>
+            <x:ExcelWorksheets>
+              <x:ExcelWorksheet>
+                <x:Name>Daily Sales Report</x:Name>
+                <x:WorksheetOptions>
+                  <x:DisplayGridlines/>
+                </x:WorksheetOptions>
+              </x:ExcelWorksheet>
+            </x:ExcelWorksheets>
+          </x:ExcelWorkbook>
+        </xml>
+        <![endif]-->
+        <meta http-equiv="content-type" content="text/plain; charset=UTF-8"/>
+      </head>
+      <body>
+        <table style="margin-bottom: 20px; border: none; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+          <tr>
+            <td colspan="4" style="font-size: 20px; font-weight: bold; color: #1e1b4b; padding-bottom: 5px;">
+              Daily Sales Report
+            </td>
+          </tr>
+          <tr>
+            <td colspan="4" style="font-size: 12px; color: #64748b; padding-bottom: 20px;">
+              Date: ${dateStr}
+            </td>
+          </tr>
+          <tr style="height: 40px;">
+            <td style="background-color: #ecfdf5; border: 1px solid #a7f3d0; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #047857; font-weight: bold; text-transform: uppercase;">Total Sales</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">₱${totalSales.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            </td>
+            <td style="background-color: #f3e8ff; border: 1px solid #d8b4fe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #6d28d9; font-weight: bold; text-transform: uppercase;">Completed Orders</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${dailyData.orderCount}</span>
+            </td>
+            <td style="background-color: #eff6ff; border: 1px solid #bfdbfe; padding: 10px; text-align: center; border-radius: 8px;">
+              <span style="font-size: 10px; color: #1d4ed8; font-weight: bold; text-transform: uppercase;">Products Sold</span><br/>
+              <span style="font-size: 16px; font-weight: bold; color: #1e1b4b;">${totalUnits} units</span>
+            </td>
+          </tr>
+        </table>
+        <table style="border-collapse: collapse; border: 1px solid #cbd5e1;">
+          <thead>
+            ${tableHeader}
+          </thead>
+          <tbody>
+            ${tableRows}
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([htmlContent], { type: 'application/vnd.ms-excel;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    
+    link.download = `daily_sales_${dateFileStr}.xls`;
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    showNotification('Daily report exported successfully!', 'success');
   };
 
   const handleExportMonthlyReport = (selectedProductKeys?: string[]) => {
@@ -2904,6 +3145,19 @@ interface StockIntakeItem {
                 <span>Receive Incoming Stock</span>
               </button>
             )}
+            {activeTab === 'daily' && (
+              <button
+                onClick={() => handleExportDailyReport(selectedDailyExportProducts.length > 0 ? selectedDailyExportProducts : undefined)}
+                className="flex items-center space-x-2 bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 hover:shadow-lg transition-all font-semibold"
+              >
+                <Download size={20} />
+                <span>
+                  {selectedDailyExportProducts.length > 0 
+                    ? `Export Selected (${selectedDailyExportProducts.length})` 
+                    : 'Export Report'}
+                </span>
+              </button>
+            )}
             {activeTab === 'monthly' && (
               <button
                 onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined)}
@@ -3028,6 +3282,15 @@ interface StockIntakeItem {
                   <span>Record</span>
                 </button>
               )}
+              {activeTab === 'daily' && (
+                <button
+                  onClick={() => handleExportDailyReport(selectedDailyExportProducts.length > 0 ? selectedDailyExportProducts : undefined)}
+                  className="flex items-center space-x-1 sm:space-x-2 bg-purple-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-purple-700 transition-all text-xs sm:text-sm font-semibold shadow-sm hover:shadow"
+                >
+                  <Download size={16} className="sm:w-5 sm:h-5" />
+                  <span>{selectedDailyExportProducts.length > 0 ? `Export (${selectedDailyExportProducts.length})` : 'Export'}</span>
+                </button>
+              )}
               {activeTab === 'monthly' && (
                 <button
                   onClick={() => handleExportMonthlyReport(selectedMonthlyExportProducts.length > 0 ? selectedMonthlyExportProducts : undefined)}
@@ -3073,6 +3336,16 @@ interface StockIntakeItem {
               }`}
             >
               Stock Receiving
+            </button>
+            <button
+              onClick={() => setActiveTab('daily')}
+              className={`px-6 py-3 font-semibold transition-colors ${
+                activeTab === 'daily'
+                  ? 'text-purple-600 border-b-2 border-purple-600 font-bold'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              Daily Summary
             </button>
             <button
               onClick={() => setActiveTab('monthly')}
@@ -5417,6 +5690,337 @@ interface StockIntakeItem {
         </div>
       )}
 
+      {/* Daily Summary Tab */}
+      {activeTab === 'daily' && dailyData && (
+        <div className="space-y-6 animate-fade-in">
+          {/* Day Navigation */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-4">
+              <button
+                onClick={() => {
+                  const newDate = new Date(selectedDailyDate);
+                  newDate.setDate(newDate.getDate() - 1);
+                  setSelectedDailyDate(newDate);
+                }}
+                className="flex items-center space-x-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors cursor-pointer"
+              >
+                <ChevronLeft size={20} />
+                <span className="font-semibold">Previous Day</span>
+              </button>
+              
+              <div className="text-center">
+                <p className="text-sm text-slate-600 mb-1">Viewing sales for:</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {selectedDailyDate.toLocaleDateString('en-US', { 
+                    weekday: 'long',
+                    year: 'numeric', 
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+              
+              <button
+                onClick={() => {
+                  const newDate = new Date(selectedDailyDate);
+                  newDate.setDate(newDate.getDate() + 1);
+                  const now = new Date();
+                  const isTodayOrPast = new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate()).getTime() <= new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+                  if (isTodayOrPast) {
+                    setSelectedDailyDate(newDate);
+                  }
+                }}
+                disabled={
+                  selectedDailyDate.getFullYear() === new Date().getFullYear() &&
+                  selectedDailyDate.getMonth() === new Date().getMonth() &&
+                  selectedDailyDate.getDate() === new Date().getDate()
+                }
+                className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-colors ${
+                  selectedDailyDate.getFullYear() === new Date().getFullYear() &&
+                  selectedDailyDate.getMonth() === new Date().getMonth() &&
+                  selectedDailyDate.getDate() === new Date().getDate()
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-slate-100 hover:bg-slate-200 cursor-pointer'
+                }`}
+              >
+                <span className="font-semibold">Next Day</span>
+                <ChevronRight size={20} />
+              </button>
+            </div>
+            
+            {/* Date Picker */}
+            <div className="flex items-center justify-center">
+              <div className="flex items-center space-x-3">
+                <label htmlFor="daily-date-picker" className="text-sm font-semibold text-slate-700">
+                  Jump to date:
+                </label>
+                <input
+                  id="daily-date-picker"
+                  type="date"
+                  value={`${selectedDailyDate.getFullYear()}-${String(selectedDailyDate.getMonth() + 1).padStart(2, '0')}-${String(selectedDailyDate.getDate()).padStart(2, '0')}`}
+                  max={`${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    const [year, month, day] = e.target.value.split('-').map(Number);
+                    const newDate = new Date(year, month - 1, day);
+                    setSelectedDailyDate(newDate);
+                  }}
+                  className="px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-slate-900 font-medium cursor-pointer"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Total Sales</h3>
+                <TrendingUp size={24} />
+              </div>
+              <p className="text-3xl font-bold">
+                ₱{dailyData.totalSales.toLocaleString()}
+              </p>
+              <p className="text-sm opacity-75 mt-1">
+                {selectedDailyDate.getFullYear() === new Date().getFullYear() &&
+                selectedDailyDate.getMonth() === new Date().getMonth() &&
+                selectedDailyDate.getDate() === new Date().getDate()
+                  ? 'today' 
+                  : 'on this day'}
+              </p>
+            </div>
+
+            <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Orders Completed</h3>
+                <CheckCircle size={24} />
+              </div>
+              <p className="text-3xl font-bold">{dailyData.orderCount}</p>
+              <p className="text-sm opacity-75 mt-1">orders</p>
+            </div>
+
+            <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl p-6 text-white shadow-lg">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold opacity-90">Products Sold</h3>
+                <Package size={24} />
+              </div>
+              <p className="text-3xl font-bold">
+                {Object.values(dailyData.productsSold).reduce((sum: number, p: any) => sum + p.quantity, 0)}
+              </p>
+              <p className="text-sm opacity-75 mt-1">units</p>
+            </div>
+          </div>
+
+          {/* Products Sold Table */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="p-6 border-b border-slate-200 flex flex-col gap-4">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-3">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      {selectedDailyDate.getFullYear() === new Date().getFullYear() &&
+                      selectedDailyDate.getMonth() === new Date().getMonth() &&
+                      selectedDailyDate.getDate() === new Date().getDate()
+                        ? 'Products Sold Today'
+                        : `Products Sold on ${selectedDailyDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`}
+                    </h3>
+                    {selectedDailyExportProducts.length > 0 && (
+                      <span className="px-2.5 py-0.5 bg-purple-100 text-purple-700 text-xs font-bold rounded-full border border-purple-200">
+                        {selectedDailyExportProducts.length} selected for export
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Breakdown of product items sold, downpayment deposits, and balance settlements.</p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <div className="relative flex-1 sm:w-64">
+                    <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                      <Search size={16} />
+                    </span>
+                    <input
+                      type="text"
+                      placeholder="Search product name..."
+                      value={dailySearchQuery}
+                      onChange={(e) => setDailySearchQuery(e.target.value)}
+                      className="w-full pl-9 pr-8 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm placeholder-slate-400"
+                    />
+                    {dailySearchQuery && (
+                      <button
+                        onClick={() => setDailySearchQuery('')}
+                        className="absolute inset-y-0 right-0 flex items-center pr-2.5 text-slate-400 hover:text-slate-600"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setShowDailyExportModal(true)}
+                    className="flex items-center space-x-1.5 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all border border-slate-200 cursor-pointer"
+                    title="Open Product Picker Modal"
+                  >
+                    <Filter size={15} />
+                    <span>Select Products</span>
+                  </button>
+
+                  {selectedDailyExportProducts.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => handleExportDailyReport(selectedDailyExportProducts)}
+                      className="flex items-center space-x-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm hover:shadow active:scale-95 animate-fade-in cursor-pointer"
+                    >
+                      <Download size={15} />
+                      <span>Export Selected ({selectedDailyExportProducts.length})</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Payment Stage Filter Pills */}
+              <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-100">
+                <span className="text-xs font-bold text-slate-500 mr-1 flex items-center gap-1">
+                  <Filter size={14} /> Payment Stage:
+                </span>
+                <button
+                  onClick={() => setDailyPaymentTypeFilter('all')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    dailyPaymentTypeFilter === 'all'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  All Transactions
+                </button>
+                <button
+                  onClick={() => setDailyPaymentTypeFilter('full')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    dailyPaymentTypeFilter === 'full'
+                      ? 'bg-purple-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                  }`}
+                >
+                  Full Payments
+                </button>
+                <button
+                  onClick={() => setDailyPaymentTypeFilter('downpayment')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    dailyPaymentTypeFilter === 'downpayment'
+                      ? 'bg-amber-500 text-white shadow-xs'
+                      : 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                  }`}
+                >
+                  Downpayments
+                </button>
+                <button
+                  onClick={() => setDailyPaymentTypeFilter('balance')}
+                  className={`px-3 py-1 rounded-lg text-xs font-extrabold transition-all cursor-pointer ${
+                    dailyPaymentTypeFilter === 'balance'
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                  }`}
+                >
+                  Balance Settlements
+                </button>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-slate-50 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-sm font-semibold text-slate-900">Product Name</th>
+                    <th className="px-6 py-3 text-center text-sm font-semibold text-slate-900">Payment Stage</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Units Sold</th>
+                    <th className="px-6 py-3 text-right text-sm font-semibold text-slate-900">Revenue</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(() => {
+                    const filtered = Object.entries(dailyData.productsSold)
+                      .filter(([_, data]: [string, any]) => {
+                        const nameMatches = (data.productName || '').toLowerCase().includes(dailySearchQuery.toLowerCase());
+                        const typeMatches = dailyPaymentTypeFilter === 'all' || data.paymentType === dailyPaymentTypeFilter;
+                        return nameMatches && typeMatches;
+                      })
+                      .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue);
+
+                    if (filtered.length === 0) {
+                      return (
+                        <tr>
+                          <td colSpan={4} className="px-6 py-10 text-center text-sm text-slate-500 font-medium">
+                            No products found matching the current filter
+                          </td>
+                        </tr>
+                      );
+                    }
+
+                    return filtered.map(([key, data]: [string, any]) => {
+                      return (
+                        <tr 
+                          key={key} 
+                          className="border-b border-slate-200 hover:bg-slate-50 transition-colors"
+                        >
+                          <td className="px-6 py-4 text-sm font-medium text-slate-900">
+                            <div>{data.productName}</div>
+                            {data.paymentType === 'downpayment' && (
+                              <span className="text-[11px] text-amber-700 font-bold">
+                                Partial Downpayment Deposit
+                              </span>
+                            )}
+                            {data.paymentType === 'balance' && (
+                              <span className="text-[11px] text-emerald-700 font-bold">
+                                Remaining Balance Settlement
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-center whitespace-nowrap">
+                            {data.paymentType === 'downpayment' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-900 border border-amber-300 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                                DOWNPAYMENT
+                              </span>
+                            ) : data.paymentType === 'balance' ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-black bg-emerald-100 text-emerald-900 border border-emerald-300 shadow-2xs">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                BALANCE SETTLEMENT
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">
+                                <span className="w-1.5 h-1.5 rounded-full bg-purple-500"></span>
+                                Full Payment
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right">
+                            <button
+                              onClick={() => setSelectedProductSoldDetails({ productName: data.productName, paymentType: data.paymentType, quantity: data.quantity })}
+                              className={`px-3 py-1.5 rounded-lg font-bold text-xs transition-all hover:scale-105 active:scale-95 shadow-2xs cursor-pointer ${
+                                data.paymentType === 'downpayment'
+                                  ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
+                                  : data.paymentType === 'balance'
+                                  ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
+                                  : 'bg-purple-50 hover:bg-purple-100 text-purple-700 hover:text-purple-900 border border-purple-200/50'
+                              }`}
+                            >
+                              {data.quantity} {data.paymentType === 'balance' ? 'settlements' : 'units'}
+                            </button>
+                          </td>
+                          <td className="px-6 py-4 text-sm text-right font-black text-slate-900">
+                            ₱{data.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+                      );
+                    });
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Monthly Sales Tab */}
       {activeTab === 'monthly' && monthlyData && (
         <div className="space-y-6 animate-fade-in">
@@ -6404,6 +7008,152 @@ interface StockIntakeItem {
         document.body
       )}
 
+      {/* Selective Product Export Modal for Daily Summary */}
+      {showDailyExportModal && dailyData && createPortal(
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in" onClick={() => setShowDailyExportModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-in" onClick={e => e.stopPropagation()}>
+            <div className="px-6 py-5 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">Select Products to Export</h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Choose specific items for your daily sales Excel report
+                </p>
+              </div>
+              <button 
+                onClick={() => setShowDailyExportModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-200 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="p-6 flex-1 overflow-y-auto space-y-4">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                <div className="relative flex-1">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-slate-400">
+                    <Search size={16} />
+                  </span>
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={dailySearchQuery}
+                    onChange={(e) => setDailySearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-4 py-2 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allNames = Object.keys(dailyData.productsSold);
+                      setSelectedDailyExportProducts(allNames);
+                    }}
+                    className="px-3 py-1.5 bg-purple-50 text-purple-700 hover:bg-purple-100 rounded-lg text-xs font-bold transition-colors border border-purple-200 cursor-pointer"
+                  >
+                    Select All ({Object.keys(dailyData.productsSold).length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedDailyExportProducts([])}
+                    className="px-3 py-1.5 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-lg text-xs font-bold transition-colors border border-slate-200 cursor-pointer"
+                  >
+                    Deselect All
+                  </button>
+                </div>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[42vh] overflow-y-auto">
+                {Object.entries(dailyData.productsSold)
+                  .filter(([_, data]: [string, any]) => (data.productName || '').toLowerCase().includes(dailySearchQuery.toLowerCase()))
+                  .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue)
+                  .map(([itemKey, data]: [string, any]) => {
+                    const isChecked = selectedDailyExportProducts.includes(itemKey);
+                    return (
+                      <label 
+                        key={itemKey}
+                        className={`flex items-center justify-between px-4 py-3 cursor-pointer transition-colors ${isChecked ? 'bg-purple-50/60' : 'hover:bg-slate-50'}`}
+                      >
+                        <div className="flex items-center gap-3 min-w-0 pr-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedDailyExportProducts(prev => [...prev, itemKey]);
+                              } else {
+                                setSelectedDailyExportProducts(prev => prev.filter(name => name !== itemKey));
+                              }
+                            }}
+                            className="w-4 h-4 text-purple-600 rounded border-slate-300 focus:ring-purple-500 cursor-pointer"
+                          />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-slate-800 truncate">{data.productName}</span>
+                              {data.paymentType === 'downpayment' && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-amber-100 text-amber-900 border border-amber-300">
+                                  DOWNPAYMENT
+                                </span>
+                              )}
+                              {data.paymentType === 'balance' && (
+                                <span className="px-1.5 py-0.5 rounded text-[10px] font-black bg-emerald-100 text-emerald-900 border border-emerald-300">
+                                  BALANCE
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 text-xs font-semibold text-slate-600 flex-shrink-0">
+                          <span className="px-2 py-0.5 bg-slate-100 rounded text-slate-700">
+                            {data.paymentType === 'balance' ? 'Settlement' : `${data.quantity} units`}
+                          </span>
+                          <span className="text-purple-700 font-bold">₱{data.revenue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+              <span className="text-xs font-semibold text-slate-600">
+                {selectedDailyExportProducts.length > 0
+                  ? `${selectedDailyExportProducts.length} of ${Object.keys(dailyData.productsSold).length} products selected`
+                  : 'No specific products selected (will export all)'}
+              </span>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowDailyExportModal(false)}
+                  className="flex-1 sm:flex-initial px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleExportDailyReport(selectedDailyExportProducts.length > 0 ? selectedDailyExportProducts : undefined);
+                    setShowDailyExportModal(false);
+                  }}
+                  className="flex-1 sm:flex-initial flex items-center justify-center gap-1.5 px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  <Download size={15} />
+                  <span>
+                    {selectedDailyExportProducts.length > 0 
+                      ? `Export Selected (${selectedDailyExportProducts.length})` 
+                      : 'Export All Products'}
+                  </span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Delete Stock Intake Confirmation Modal */}
       {deleteIntakeConfirm.show && deleteIntakeConfirm.record && createPortal(
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -7345,7 +8095,9 @@ interface StockIntakeItem {
                   )}
                 </div>
                 <p className="text-sm text-slate-500 mt-1">
-                  Transactions in {selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })} • Total: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.paymentType === 'balance' ? 'Balance Settlement Transactions' : `${selectedProductSoldDetails.quantity} units`}</span>
+                  Transactions {activeTab === 'daily' 
+                    ? `on ${selectedDailyDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}` 
+                    : `in ${selectedMonth.toLocaleDateString('en-US', { year: 'numeric', month: 'long' })}`} • Total: <span className="font-semibold text-purple-600">{selectedProductSoldDetails.paymentType === 'balance' ? 'Balance Settlement Transactions' : `${selectedProductSoldDetails.quantity} units`}</span>
                 </p>
               </div>
               <button
