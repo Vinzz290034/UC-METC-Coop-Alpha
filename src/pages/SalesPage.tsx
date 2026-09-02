@@ -42,7 +42,7 @@ const SpreadsheetColumnHeader: React.FC<SpreadsheetColumnHeaderProps> = ({
 }) => {
   const isOpen = activeDropdown === columnKey;
   const isSorted = sortColumn === columnKey;
-  const isFiltered = Array.isArray(activeFilters[columnKey]) && activeFilters[columnKey].length > 0;
+  const isFiltered = Array.isArray(activeFilters[columnKey]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Extract distinct values & counts from all rows
@@ -74,7 +74,7 @@ const SpreadsheetColumnHeader: React.FC<SpreadsheetColumnHeaderProps> = ({
   const currentlySelected = activeFilters[columnKey]; // undefined if all selected
 
   const isValueSelected = (val: string) => {
-    if (!currentlySelected) return true; // all selected by default
+    if (currentlySelected === undefined || currentlySelected === null) return true; // all selected by default
     return currentlySelected.includes(val);
   };
 
@@ -82,7 +82,7 @@ const SpreadsheetColumnHeader: React.FC<SpreadsheetColumnHeaderProps> = ({
     const allVals = valueCounts.map(([v]) => v);
     let nextSelected: string[];
 
-    if (!currentlySelected) {
+    if (currentlySelected === undefined || currentlySelected === null) {
       // currently all are selected, so unchecking this one leaves all others
       nextSelected = allVals.filter((v) => v !== val);
     } else {
@@ -94,7 +94,7 @@ const SpreadsheetColumnHeader: React.FC<SpreadsheetColumnHeaderProps> = ({
     }
 
     if (nextSelected.length === allVals.length) {
-      onFilterChange(columnKey, null); // reset to null (no filter)
+      onFilterChange(columnKey, null); // reset to null (all selected / no filter)
     } else {
       onFilterChange(columnKey, nextSelected);
     }
@@ -636,7 +636,7 @@ export const SalesPage: React.FC = () => {
       }
       // Column filters
       for (const [key, allowedVals] of Object.entries(columnFilters)) {
-        if (!allowedVals) continue;
+        if (!allowedVals || allowedVals.length === 0) continue;
         let rowVal = row[key];
         if (rowVal === undefined || rowVal === null || rowVal === '') {
           rowVal = '(Blanks)';
