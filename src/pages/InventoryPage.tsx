@@ -2081,7 +2081,12 @@ interface StockIntakeItem {
     }
 
     const rows = entries
-      .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+      .sort((a: any, b: any) => {
+        const nameA = (a[1].productName || a[0] || '').toLowerCase();
+        const nameB = (b[1].productName || b[0] || '').toLowerCase();
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+      })
       .map(([key, data]: [string, any]) => {
         const pName = data.productName || key;
         const pType = data.paymentType || 'full';
@@ -2232,7 +2237,12 @@ interface StockIntakeItem {
     }
 
     const rows = entries
-      .sort((a: any, b: any) => b[1].quantity - a[1].quantity)
+      .sort((a: any, b: any) => {
+        const nameA = (a[1].productName || a[0] || '').toLowerCase();
+        const nameB = (b[1].productName || b[0] || '').toLowerCase();
+        if (nameA !== nameB) return nameA.localeCompare(nameB);
+        return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+      })
       .map(([key, data]: [string, any]) => {
         const pName = data.productName || key;
         const pType = data.paymentType || 'full';
@@ -5944,7 +5954,12 @@ interface StockIntakeItem {
                         const typeMatches = dailyPaymentTypeFilter === 'all' || data.paymentType === dailyPaymentTypeFilter;
                         return nameMatches && typeMatches;
                       })
-                      .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue);
+                      .sort((a: any, b: any) => {
+                        const nameA = (a[1].productName || a[0] || '').toLowerCase();
+                        const nameB = (b[1].productName || b[0] || '').toLowerCase();
+                        if (nameA !== nameB) return nameA.localeCompare(nameB);
+                        return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+                      });
 
                     if (filtered.length === 0) {
                       return (
@@ -6257,7 +6272,12 @@ interface StockIntakeItem {
                         const typeMatches = monthlyPaymentTypeFilter === 'all' || data.paymentType === monthlyPaymentTypeFilter;
                         return nameMatches && typeMatches;
                       })
-                      .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue);
+                      .sort((a: any, b: any) => {
+                        const nameA = (a[1].productName || a[0] || '').toLowerCase();
+                        const nameB = (b[1].productName || b[0] || '').toLowerCase();
+                        if (nameA !== nameB) return nameA.localeCompare(nameB);
+                        return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+                      });
 
                     if (filtered.length === 0) {
                       return (
@@ -6920,7 +6940,12 @@ interface StockIntakeItem {
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[42vh] overflow-y-auto">
                 {Object.entries(monthlyData.productsSold)
                   .filter(([_, data]: [string, any]) => (data.productName || '').toLowerCase().includes(monthlySearchQuery.toLowerCase()))
-                  .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue)
+                  .sort((a: any, b: any) => {
+                    const nameA = (a[1].productName || a[0] || '').toLowerCase();
+                    const nameB = (b[1].productName || b[0] || '').toLowerCase();
+                    if (nameA !== nameB) return nameA.localeCompare(nameB);
+                    return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+                  })
                   .map(([itemKey, data]: [string, any]) => {
                     const isChecked = selectedMonthlyExportProducts.includes(itemKey);
                     return (
@@ -7066,7 +7091,12 @@ interface StockIntakeItem {
               <div className="border border-slate-200 rounded-xl overflow-hidden divide-y divide-slate-100 max-h-[42vh] overflow-y-auto">
                 {Object.entries(dailyData.productsSold)
                   .filter(([_, data]: [string, any]) => (data.productName || '').toLowerCase().includes(dailySearchQuery.toLowerCase()))
-                  .sort((a: any, b: any) => b[1].quantity !== a[1].quantity ? b[1].quantity - a[1].quantity : b[1].revenue - a[1].revenue)
+                  .sort((a: any, b: any) => {
+                    const nameA = (a[1].productName || a[0] || '').toLowerCase();
+                    const nameB = (b[1].productName || b[0] || '').toLowerCase();
+                    if (nameA !== nameB) return nameA.localeCompare(nameB);
+                    return (a[1].paymentType || '').localeCompare(b[1].paymentType || '');
+                  })
                   .map(([itemKey, data]: [string, any]) => {
                     const isChecked = selectedDailyExportProducts.includes(itemKey);
                     return (
