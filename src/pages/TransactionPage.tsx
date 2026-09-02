@@ -121,11 +121,23 @@ export const TransactionPage: React.FC = () => {
     }
     
     // Extract base name from full name (remove everything after first parenthesis)
+    let baseName = fullName;
     const baseNameMatch = fullName.match(/^([^(]+)/);
-    const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName;
+    if (baseNameMatch) {
+      baseName = baseNameMatch[1].trim();
+    }
 
-    // If we have selectedOptions, use the standard formatter
-    if (options && Object.keys(options).length > 0) {
+    // Extract size from dash if present in product name e.g. "PE Pants - XL"
+    const dashSizeMatch = baseName.match(/^(.*?)\s*-\s*(Small|Medium|Large|XL|2XL|3XL|4XL|5XL|XXL|XXXL|4X|5X)\b/i);
+    if (dashSizeMatch) {
+      baseName = dashSizeMatch[1].trim();
+      if (!options['size']) {
+        options['size'] = dashSizeMatch[2].trim();
+      }
+    }
+
+    // If we have selectedOptions or unitPrice, use the standard formatter
+    if ((options && Object.keys(options).length > 0) || (unitPrice && unitPrice > 0)) {
       return cleanRepeatedSegments(formatProductName(baseName, options, unitPrice));
     }
     

@@ -48,7 +48,7 @@ export function reconcileProductVariantByPrice(
 
   // 1. PE Tshirt (Small/Medium/Large: 190, XL: 200, 2XL: 210, 3XL: 220, 4XL: 230, 5XL: 240)
   if (nameLower.includes('pe tshirt') || nameLower.includes('pe shirt') || nameLower.includes('p.e. shirt') || nameLower.includes('pe t-shirt')) {
-    if (roundPrice === 190) {
+    if (roundPrice === 190 || (roundPrice >= 180 && roundPrice <= 195)) {
       if (currentOptionValue) {
         const optLower = currentOptionValue.toLowerCase();
         if (optLower.includes('small') || optLower === 's') return 'Small';
@@ -57,16 +57,16 @@ export function reconcileProductVariantByPrice(
       }
       return 'Medium';
     }
-    if (roundPrice === 200) return 'XL';
-    if (roundPrice === 210) return '2XL';
-    if (roundPrice === 220) return '3XL';
-    if (roundPrice === 230) return '4XL';
-    if (roundPrice === 240) return '5XL';
+    if (roundPrice === 200 || (roundPrice > 195 && roundPrice <= 205)) return 'XL';
+    if (roundPrice === 210 || (roundPrice > 205 && roundPrice <= 215)) return '2XL';
+    if (roundPrice === 220 || (roundPrice > 215 && roundPrice <= 225)) return '3XL';
+    if (roundPrice === 230 || (roundPrice > 225 && roundPrice <= 235)) return '4XL';
+    if (roundPrice >= 236 && roundPrice <= 260) return '5XL';
   }
 
-  // 2. PE Pants (Small/Medium/Large: 260, XL/2XL: 280, 3XL: 320)
-  if (nameLower.includes('pe pants') || nameLower.includes('p.e. pants')) {
-    if (roundPrice === 260) {
+  // 2. PE Pants (Small/Medium/Large: 260-270, XL/2XL: 280-290, 3XL: 320-330, 4XL: 340-350, 5XL: 360-370)
+  if (nameLower.includes('pe pants') || nameLower.includes('p.e. pants') || nameLower.includes('pe pant')) {
+    if (roundPrice === 260 || roundPrice === 270 || (roundPrice >= 250 && roundPrice <= 275)) {
       if (currentOptionValue) {
         const optLower = currentOptionValue.toLowerCase();
         if (optLower.includes('small') || optLower === 's') return 'Small';
@@ -75,22 +75,40 @@ export function reconcileProductVariantByPrice(
       }
       return 'Medium';
     }
-    if (roundPrice === 280) {
+    if (roundPrice === 280 || roundPrice === 290 || (roundPrice >= 276 && roundPrice <= 305)) {
       if (currentOptionValue && (currentOptionValue.toLowerCase().includes('2xl') || currentOptionValue.toLowerCase().includes('xxl'))) {
         return '2XL';
       }
       return 'XL';
     }
-    if (roundPrice === 320) return '3XL';
+    if (roundPrice === 320 || roundPrice === 330 || (roundPrice >= 315 && roundPrice <= 335)) return '3XL';
+    if (roundPrice === 340 || roundPrice === 350 || (roundPrice >= 336 && roundPrice <= 355)) return '4XL';
+    if (roundPrice >= 356 && roundPrice <= 380) return '5XL';
   }
 
-  // 3. Hard Hat (Yellow: 150, Blue: 300)
+  // 3. PE Shorts (Small/Medium/Large: 180-190, XL: 200-210, 2XL: 220-230, 3XL: 240-250)
+  if (nameLower.includes('pe short') || nameLower.includes('pe shorts') || nameLower.includes('p.e. shorts') || nameLower.includes('p.e. short')) {
+    if (roundPrice === 180 || roundPrice === 190 || (roundPrice >= 170 && roundPrice <= 195)) {
+      if (currentOptionValue) {
+        const optLower = currentOptionValue.toLowerCase();
+        if (optLower.includes('small') || optLower === 's') return 'Small';
+        if (optLower.includes('medium') || optLower === 'm') return 'Medium';
+        if (optLower.includes('large') || optLower === 'l') return 'Large';
+      }
+      return 'Medium';
+    }
+    if (roundPrice === 200 || roundPrice === 210 || (roundPrice > 195 && roundPrice <= 215)) return 'XL';
+    if (roundPrice === 220 || roundPrice === 230 || (roundPrice > 215 && roundPrice <= 235)) return '2XL';
+    if (roundPrice === 240 || roundPrice === 250 || (roundPrice > 235 && roundPrice <= 260)) return '3XL';
+  }
+
+  // 4. Hard Hat (Yellow: 150, Blue: 300)
   if (nameLower.includes('hard hat')) {
     if (roundPrice === 150) return 'Yellow';
     if (roundPrice === 300) return 'Blue';
   }
 
-  // 4. Type A & B Uniform (SHS: 2700, BSMT/BSMARE: 2950)
+  // 5. Type A & B Uniform (SHS: 2700, BSMT/BSMARE: 2950)
   if (nameLower.includes('type a') || nameLower.includes('type b')) {
     if (roundPrice === 2700) return 'SHS';
     if (roundPrice === 2950) {
@@ -139,7 +157,7 @@ export function formatProductName(
 
   const options = { ...(selectedOptions || {}) };
 
-  // Reconcile size / option if unitPrice indicates a specific variant (e.g. 2XL for 210, 4XL for 230 on PE Tshirt)
+  // Reconcile size / option if unitPrice indicates a specific variant (e.g. 2XL for 210, 4XL for 230 on PE Tshirt, 3XL for 330 on PE Pants)
   if (unitPrice && unitPrice > 0) {
     if (options['size']) {
       const reconciled = reconcileProductVariantByPrice(productName, options['size'], unitPrice);
@@ -162,11 +180,17 @@ export function formatProductName(
     }
   }
 
-  if (!options || Object.keys(options).length === 0) {
-    return cleanRepeatedSegments(productName);
+  let baseProduct = productName;
+  // If baseProduct has an attached size or variant suffix that is being replaced or reconciled, clean it
+  if (options['size']) {
+    baseProduct = baseProduct.replace(/\s*-\s*(Small|Medium|Large|XL|2XL|3XL|4XL|5XL|XXL|XXXL|4X|5X|S|M|L)\b/i, '').trim();
   }
 
-  const parts: string[] = [productName];
+  if (!options || Object.keys(options).length === 0) {
+    return cleanRepeatedSegments(baseProduct);
+  }
+
+  const parts: string[] = [baseProduct];
   let isMemberPrice = false;
 
   // Extract bundle name (without pricing) and check if member price was used
@@ -209,7 +233,7 @@ export function formatProductName(
   // Extract size (without pricing)
   if (options['size']) {
     const sizeName = options['size'].split('(')[0].trim();
-    if (!productName.toLowerCase().includes(sizeName.toLowerCase())) {
+    if (!baseProduct.toLowerCase().includes(sizeName.toLowerCase())) {
       parts.push(sizeName);
     }
   }
@@ -273,10 +297,20 @@ export function parseAndFormatLegacyProductName(fullProductName: string, unitPri
   }
 
   // Extract base product name
+  let baseName = fullProductName;
   const baseNameMatch = fullProductName.match(/^([^(]+)/);
-  const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullProductName;
+  if (baseNameMatch) {
+    baseName = baseNameMatch[1].trim();
+  }
   
   const options: Record<string, string> = {};
+
+  // Extract size from dash if present e.g. "PE Pants - XL"
+  const dashSizeMatch = baseName.match(/^(.*?)\s*-\s*(Small|Medium|Large|XL|2XL|3XL|4XL|5XL|XXL|XXXL|4X|5X)\b/i);
+  if (dashSizeMatch) {
+    baseName = dashSizeMatch[1].trim();
+    options['size'] = dashSizeMatch[2].trim();
+  }
 
   // Extract bundle
   const bundleMatch = fullProductName.match(/bundle:\s*([^,)]+)/i);
